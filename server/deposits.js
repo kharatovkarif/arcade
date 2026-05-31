@@ -60,7 +60,7 @@ async function processEvent(ev) {
       .gte('created_at', day + 'T00:00:00');
     const usedToday = (deps || []).reduce((s, d) => s + Number(d.amount), 0);
     if (usedToday + amountTon > MAX_DEPOSIT_DAY) {
-      await notifyAdmin(`⚠️ Депозит превысил дневной лимит\nОт: @${user.username || tgId} (${tgId})\nСумма: ${amountTon} TON\nУже за день: ${usedToday} TON`);
+      await notifyAdmin(`Депозит превысил лимит\nОт: @${user.username || tgId} (${tgId})\nСумма: ${amountTon} TON\nЗа день: ${usedToday} TON`);
       continue;
     }
 
@@ -68,11 +68,10 @@ async function processEvent(ev) {
     const newBal = await changeTon(tgId, amountTon, 'deposit', `deposit from ${senderAddr}`, txHash);
 
     await notifyAdmin(
-      `💰 *Новый депозит*\n\n` +
+      `Новый депозит\n\n` +
       `От: @${user.username || 'нет'} (ID ${tgId})\n` +
-      `Сумма: *${amountTon} TON*\n` +
-      `Кошелёк: \`${senderAddr}\`\n` +
-      `Время: ${new Date().toLocaleString('ru-RU')}\n` +
+      `Сумма: ${amountTon} TON\n` +
+      `Кошелёк: ${senderAddr}\n` +
       `Баланс юзера: ${newBal} TON`
     );
   }
@@ -95,6 +94,6 @@ export function initDeposits() {
     console.warn('Deposits disabled: missing PROJECT_WALLET');
     return;
   }
-  console.log('Deposit watcher started (tonapi)');
+  console.log('Deposit watcher started V2 tonapi');
   setInterval(poll, POLL_MS);
-      }
+  }
