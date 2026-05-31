@@ -10,9 +10,10 @@ const APP_URL = process.env.APP_URL;
 let bot = null;
 
 export function startBot() {
-  if (!TOKEN) { console.warn('BOT_TOKEN не задан — бот не запущен'); return; }
+  if (!TOKEN) { console.warn('BOT_TOKEN not set'); return; }
   bot = new TelegramBot(TOKEN, { polling: true });
-  console.log('Telegram бот запущен');
+  bot.on('polling_error', (e) => console.log('polling_error:', e.message));
+  console.log('Bot started');
 
   bot.onText(/\/start/, (msg) => {
     const text =
@@ -34,76 +35,60 @@ export function startBot() {
           ],
         ],
       },
-    });
+    }).catch(e => console.log('send error:', e.message));
   });
 
   bot.onText(/\/admin/, (msg) => {
     if (msg.from.id !== ADMIN_ID) return;
     bot.sendMessage(msg.chat.id,
-      '🛠 Админ-панель\n\n' +
-      'ПРОМОКОДЫ:\n' +
-      '/promo_add КОД НАГРАДА РЕЖИМ [число]\n' +
-      '  режимы: global | count | time\n' +
-      '  пример: /promo_add JANI 80 count 500\n' +
-      '  пример: /promo_add GIM60 80 global\n' +
-      '/promo_del КОД\n\n' +
-      'ЗАДАНИЯ:\n' +
-      '/task_add subscribe @канал НАГРАДА | Текст RU | Текст EN\n' +
-      '  пример: /task_add subscribe @mychan 50 | Подпишись | Subscribe\n' +
-      '/task_del ID\n\n' +
-      '/stats — статистика'
-    );
+      '🛠 Admin\n\n' +
+      '/promo_add CODE REWARD MODE [num]  (modes: global|count|time)\n' +
+      '/promo_del CODE\n' +
+      '/task_add subscribe @chan 50 | RU | EN\n' +
+      '/task_del ID\n' +
+      '/stats'
+    ).catch(() => {});
   });
 
   bot.onText(/\/promo_add (.+)/, async (msg, m) => {
     if (msg.from.id !== ADMIN_ID) return;
-    const parts = m[1].trim().split(/\s+/);
-    const [code, reward, mode, count] = parts;
-    if (!code || !reward) return bot.sendMessage(msg.chat.id, '❌ Формат: /promo_add КОД НАГРАДА РЕЖИМ [число]');
-    const row = {
-      code, reward_arc: Number(reward),
-      limit_mode: mode || 'global',
-      limit_count: count ? Number(count) : null,
-      is_active: true,
-    };
-    const { error } = await supabase.from('promocodes').insert(row);
-    bot.sendMessage(msg.chat.id, error ? `❌ ${error.message}` : `✅ Промокод ${code} создан (+${reward} ARC)`);
+    const [code, reward, mode, count] = m[1].trim().split(/\s+/);
+    if (!code || !reward) return bot.sendMessage(msg.chat.id, '❌ /promo_add CODE REWARD MODE [num]').catch(()=>{});
+    const { error } = await supabase.from('promocodes').insert({
+      code, reward_arc: Number(reward), limit_mode: mode || 'global',
+      limit_count: count ? Number(count) : null, is_active: true,
+    });
+    bot.sendMessage(msg.chat.id, error ? `❌ ${error.message}` : `✅ Promo ${code} created (+${reward} ARC)`).catch(()=>{});
   });
 
   bot.onText(/\/promo_del (.+)/, async (msg, m) => {
     if (msg.from.id !== ADMIN_ID) return;
-    const code = m[1].trim();
-    await supabase.from('promocodes').update({ is_active: false }).eq('code', code);
-    bot.sendMessage(msg.chat.id, `🗑 Промокод ${code} отключён`);
+    await supabase.from('promocodes').update({ is_active: false }).eq('code', m[1].trim());
+    bot.sendMessage(msg.chat.id, `🗑 Promo ${m[1].trim()} disabled`).catch(()=>{});
   });
 
   bot.onText(/\/task_add (.+)/, async (msg, m) => {
     if (msg.from.id !== ADMIN_ID) return;
     const [head, ru, en] = m[1].split('|').map(s => s.trim());
-    const parts = head.split(/\s+/);
-    const [type, target, reward] = parts;
-    if (!type || !reward) return bot.sendMessage(msg.chat.id, '❌ Формат: /task_add subscribe @chan 50 | RU | EN');
+    const [type, target, reward] = head.split(/\s+/);
+    if (!type || !reward) return bot.sendMessage(msg.chat.id, '❌ /task_add subscribe @chan 50 | RU | EN').catch(()=>{});
     const { error } = await supabase.from('tasks').insert({
-      type,
-      target: target && target.startsWith('@') ? target : null,
-      reward_arc: Number(reward),
-      title_ru: ru || 'Задание',
-      title_en: en || 'Task',
-      is_active: true,
+      type, target: target && target.startsWith('@') ? target : null,
+      reward_arc: Number(reward), title_ru: ru || 'Task', title_en: en || 'Task', is_active: true,
     });
-    bot.sendMessage(msg.chat.id, error ? `❌ ${error.message}` : `✅ Задание создано (+${reward} ARC)`);
+    bot.sendMessage(msg.chat.id, error ? `❌ ${error.message}` : `✅ Task created (+${reward} ARC)`).catch(()=>{});
   });
 
   bot.onText(/\/task_del (\d+)/, async (msg, m) => {
     if (msg.from.id !== ADMIN_ID) return;
     await supabase.from('tasks').update({ is_active: false }).eq('id', Number(m[1]));
-    bot.sendMessage(msg.chat.id, `🗑 Задание ${m[1]} отключено`);
+    bot.sendMessage(msg.chat.id, `🗑 Task ${m[1]} disabled`).catch(()=>{});
   });
 
   bot.onText(/\/stats/, async (msg) => {
     if (msg.from.id !== ADMIN_ID) return;
-    const { count: users } = await supabase.from('users').select('*', { count: 'exact', head: true });
-    bot.sendMessage(msg.chat.id, `📊 Пользователей: ${users}`);
+    const { count } = await supabase.from('users').select('*', { count: 'exact', head: true });
+    bot.sendMessage(msg.chat.id, `📊 Users: ${count}`).catch(()=>{});
   });
 }
 
