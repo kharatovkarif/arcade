@@ -18,9 +18,12 @@ function todayMsk() {
 }
 
 async function fetchTransactions() {
-  const url = `${API}/getTransactions?address=${encodeURIComponent(WALLET)}&limit=20&archival=false&api_key=${API_KEY}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('toncenter ' + res.status);
+  const url = `${API}/getTransactions?address=${encodeURIComponent(WALLET)}&limit=20&api_key=${API_KEY}`;
+  const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '');
+    throw new Error('toncenter ' + res.status + ' ' + txt.slice(0, 120));
+  }
   const data = await res.json();
   return data.result || [];
 }
