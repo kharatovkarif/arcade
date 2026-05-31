@@ -164,6 +164,18 @@ app.post('/api/pvp/bet', auth, async (req, res) => {
   res.json(result);
 });
 
+app.post('/api/wallet/connect', auth, async (req, res) => {
+  const wallet = (req.body.wallet || '').trim();
+  if (!wallet) return res.json({ ok: false });
+  await supabase.from('users').update({ wallet }).eq('tg_id', req.user.tg_id);
+  res.json({ ok: true });
+});
+
+app.post('/api/wallet/disconnect', auth, async (req, res) => {
+  await supabase.from('users').update({ wallet: null }).eq('tg_id', req.user.tg_id);
+  res.json({ ok: true });
+});
+
 function mskDate(offsetDays = 0) {
   const now = new Date();
   const msk = new Date(now.getTime() + 3 * 3600 * 1000 + offsetDays * 86400 * 1000);
