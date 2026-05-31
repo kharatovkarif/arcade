@@ -4,6 +4,7 @@ const INIT_DATA = tg?.initData || '';
 let LANG = 'ru';
 let ME = null;
 let pvpTimer = null;
+let tonConnectUI = null;
 
 async function api(path, body = {}) {
   const res = await fetch('/api' + path, {
@@ -179,7 +180,7 @@ async function renderFriends() {
   };
 }
 
-function shortWallet(w) { return !w ? '' : w.slice(0, 3) + '...' + w.slice(-4); }
+function shortWallet(w) { return !w ? '' : w.slice(0, 4) + '...' + w.slice(-4); }
 
 function renderProfile() {
   const el = document.getElementById('page-profile');
@@ -201,7 +202,9 @@ function renderProfile() {
       </div>
     </div>`;
   const conn = document.getElementById('connectBtn');
-  if (conn) conn.onclick = () => toast('TON Connect — ' + t('soon'));
+  if (conn) conn.onclick = () => tonConnectUI && tonConnectUI.openModal();
+  const dis = document.getElementById('disconnectBtn');
+  if (dis) dis.onclick = async () => { if (tonConnectUI) await tonConnectUI.disconnect(); };
   document.getElementById('depBtn').onclick = () => toast(t('soon'));
   document.getElementById('wdBtn').onclick = () => toast(t('soon'));
   document.getElementById('exBtn').onclick = () => toast(t('soon'));
@@ -283,6 +286,26 @@ document.getElementById('langBtn').onclick = async () => {
   applyLang();
 };
 
+// TON Connect
+function initTonConnect() {
+  try {
+    tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+      manifestUrl: window.location.origin + '/tonconnect-manifest.json',
+    });
+    tonConnectUI.onStatusChange(async (wallet) => {
+      if (wallet) {
+        const address = wallet.account.address;
+        await api('/wallet/connect', { wallet: address });
+        ME.wallet = address;
+      } else {
+        await api('/wallet/disconnect', {});
+        ME.wallet = null;
+      }
+      if (currentTab === 'profile') renderProfile();
+    });
+  } catch (e) { console.log('tonconnect init error', e); }
+}
+
 async function init() {
   ME = await api('/me');
   if (ME.error) {
@@ -291,5 +314,6 @@ async function init() {
   }
   LANG = ME.language || 'ru';
   renderHeader(); applyLang(); switchTab('main');
+  initTonConnect();
 }
 init();
