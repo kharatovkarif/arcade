@@ -1,0 +1,82 @@
+import { supabase } from './db.js';
+
+export async function getSetting(key) {
+  const { data } = await supabase.from('settings').select('value').eq('key', key).single();
+  return data?.value ?? null;
+}
+
+export async function setSetting(key, value) {
+  await supabase.from('settings').upsert({ key, value: String(value) });
+}
+
+export async function getOrCreateUser(tgUser, startParam) {
+  let { data: user } = await supabase
+    .from('users')
+    .select('*')
+    .eq('tg_id', tgUser.tg_id)
+    .single();
+
+  if (!user) {
+    let referrerId = null;
+    if (startParam && /^\d+$/.test(startParam)) {
+      const refTgId = parseInt(startParam, 10);
+      if (refTgId !== tgUser.tg_id) {
+        const { data: ref } = await supabase
+          .from('users').select('tg_id').eq('tg_id', refTgId).single();
+        if (ref) referrerId = refTgId;
+      }
+    }
+
+    const lang = tgUser.language_code === 'ru' ? 'ru' : 'en';
+    const { data: created } = await supabase
+      .from('users')
+      .insert({
+        tg_id: tgUser.tg_id,
+        username: tgUser.username,
+        first_name: tgUser.first_name,
+        language: lang,
+        referrer_id: referrerId,
+        is_admin: tgUser.tg_id === Number(process.env.ADMIN_ID),
+      })
+      .select()
+      .single();
+    user = created;
+  } else {
+    await supabase
+      .from('users')
+      .update({
+        username: tgUser.username,
+        first_name: tgUser.first_name,
+        last_seen: new Date().toISOString(),
+        burn_warned: false,
+      })
+      .eq('tg_id', tgUser.tg_id);
+  }
+  return user;
+}
+
+export function checkinMultiplier(day) {
+  const map = { 1: 1.0, 2: 1.1, 3: 1.2, 4: 1.3, 5: 1.4, 6: 1.5 };
+  if (day >= 6) return 1.5;
+  return map[day] || 1.0;
+}
+
+export async function changeArc(tgId, amount, type, note = '') {
+  const { data: u } = await supabase.from('users').select('balance_arc').eq('tg_id', tgId).single();
+  const newBal = Number(u.balance_arc) + Number(amount);
+  await supabase.from('users').update({ balance_arc: newBal }).eq('tg_id', tgId);
+  await supabase.from('transactions').insert({
+    tg_id: tgId, type, currency: 'ARC', amount, note,
+  });
+  return newBal;
+}
+
+export async function changeTon(tgId, amount, type, note = '', txHash = null) {
+  const { data: u } = await supabase.from('users').select('balance_ton').eq('tg_id', tgId).single();
+  const newBal = Number(u.balance_ton) + Number(amount);
+  await supabase.from('users').update({ balance_ton: newBal }).eq('tg_id', tgId);
+  await supabase.from('transactions').insert({
+    tg_id: tgId, type, currency: 'TON', amount, note, tx_hash: txHash,
+  });
+  return newBal;
+}
