@@ -65,7 +65,7 @@ input.field{width:100%;background:var(--card2);border:none;border-radius:12px;pa
 .player-card .name{font-weight:700;}
 .player-card .pct{font-weight:800;}
 .hash{text-align:center;color:var(--muted);font-size:12px;margin-top:8px;}
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:flex-end;justify-content:center;z-index:100;}
+.modal-overlay[hidden]{display:none;}
 .modal-box{background:var(--card);border-radius:22px 22px 0 0;width:100%;max-width:520px;padding:22px;position:relative;animation:slideup .25s ease;}
 @keyframes slideup{from{transform:translateY(100%);}to{transform:none;}}
 .modal-close{position:absolute;top:16px;right:16px;background:var(--card2);border:none;color:var(--text);width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;}
