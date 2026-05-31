@@ -10,6 +10,7 @@ import {
 } from './helpers.js';
 import { startBot, botCheckMember } from '../bot/bot.js';
 import { initGameLoop, getGameState, placeBet } from './game.js';
+import { initDeposits } from './deposits.js';
 
 dotenv.config();
 
@@ -176,6 +177,15 @@ app.post('/api/wallet/disconnect', auth, async (req, res) => {
   res.json({ ok: true });
 });
 
+app.post('/api/deposit/info', auth, async (req, res) => {
+  res.json({
+    wallet: process.env.PROJECT_WALLET,
+    comment: String(req.user.tg_id),
+    min: 0.1,
+    maxDay: 50,
+  });
+});
+
 function mskDate(offsetDays = 0) {
   const now = new Date();
   const msk = new Date(now.getTime() + 3 * 3600 * 1000 + offsetDays * 86400 * 1000);
@@ -187,4 +197,5 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`ARCADE server running on :${PORT}`);
   startBot();
   initGameLoop();
+  initDeposits();
 });
