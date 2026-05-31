@@ -287,6 +287,15 @@ document.getElementById('langBtn').onclick = async () => {
 };
 
 // TON Connect
+function toFriendly(rawAddress) {
+  try {
+    if (window.TON_CONNECT_UI && typeof TON_CONNECT_UI.toUserFriendlyAddress === 'function') {
+      return TON_CONNECT_UI.toUserFriendlyAddress(rawAddress, false);
+    }
+  } catch (e) { console.log('addr convert error', e); }
+  return rawAddress;
+}
+
 function initTonConnect() {
   try {
     tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
@@ -294,7 +303,7 @@ function initTonConnect() {
     });
     tonConnectUI.onStatusChange(async (wallet) => {
       if (wallet) {
-        const address = wallet.account.address;
+        const address = toFriendly(wallet.account.address);
         await api('/wallet/connect', { wallet: address });
         ME.wallet = address;
       } else {
