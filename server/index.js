@@ -103,4 +103,76 @@ app.post('/api/tasks/check', auth, async (req, res) => {
   const taskId = req.body.task_id;
   const { data: task } = await supabase.from('tasks')
     .select('*').eq('id', taskId).eq('is_active', true).single();
-  if (!task) return res.json({ ok: false, error: 'not_found'
+  if (!task) return res.json({ ok: false, error: 'not_found' });
+  const { data: c } = await supabase.from('task_completions')
+    .select('id').eq('task_id', taskId).eq('tg_id', req.user.tg_id).single();
+  if (c) return res.json({ ok: false, error: 'already_done' });
+  if (task.limit_mode === 'count' && task.used_count >= task.limit_count)
+    return res.json({ ok: false, error: 'limit_reached' });
+  if (task.limit_mode === 'time' && task.expires_at && new Date(task.expires_at) < new Date())
+    return res.json({ ok: false, error: 'expired' });
+  if (task.type === 'subscribe' && task.target) {
+    const ok = await botCheckMember(task.target, req.user.tg_id);
+    if (!ok) return res.json({ ok: false, error: 'not_subscribed' });
+  }
+  await supabase.from('task_completions').insert({ task_id: taskId, tg_id: req.user.tg_id });
+  await supabase.from('tasks').update({ used_count: task.used_count + 1 }).eq('id', taskId);
+  const newBal = await changeArc(req.user.tg_id, task.reward_arc, 'task', `task ${taskId}`);
+  res.json({ ok: true, reward: Number(task.reward_arc), balance_arc: newBal });
+});
+
+app.post('/api/referrals', auth, async (req, res) => {
+  const { data: lvl1 } = await supabase.from('users')
+    .select('tg_id, username').eq('referrer_id', req.user.tg_id);
+  const lvl1Ids = (lvl1 || []).map(u => u.tg_id);
+  let lvl2 = [];
+  if (lvl1Ids.length) {
+    const { data } = await supabase.from('users')
+      .select('tg_id, username').in('referrer_id', lvl1Ids);
+    lvl2 = data || [];
+  }
+  const earnings = await referralEarnings(req.user.tg_id);
+  res.json({
+    link: `https://t.me/${process.env.BOT_USERNAME || 'arc_tonbot'}?startapp=${req.user.tg_id}`,
+    level1: (lvl1 || []).map(u => ({ username: u.username, earned: earnings[u.tg_id] || 0 })),
+    level2: lvl2.map(u => ({ username: u.username, earned: earnings[u.tg_id] || 0 })),
+  });
+});
+
+async function referralEarnings(tgId) {
+  const { data } = await supabase.from('transactions')
+    .select('amount, note').eq('tg_id', tgId).eq('type', 'referral');
+  const map = {};
+  (data || []).forEach(t => {
+    const from = (t.note || '').replace('from ', '');
+    map[from] = (map[from] || 0) + Number(t.amount);
+  });
+  return map;
+}
+
+app.post('/api/pvp/state', auth, async (req, res) => {
+  res.json(await getGameState());
+});
+
+app.post('/api/pvp/bet', auth, async (req, res) => {
+  const amount = Number(req.body.amount);
+  if (!(amount >= 10 && amount <= 1000)) return res.json({ ok: false, error: 'bad_amount' });
+  const { data: u } = await supabase.from('users')
+    .select('balance_arc').eq('tg_id', req.user.tg_id).single();
+  if (Number(u.balance_arc) < amount) return res.json({ ok: false, error: 'not_enough' });
+  const result = await placeBet(req.user.tg_id, req.user.username, amount);
+  res.json(result);
+});
+
+function mskDate(offsetDays = 0) {
+  const now = new Date();
+  const msk = new Date(now.getTime() + 3 * 3600 * 1000 + offsetDays * 86400 * 1000);
+  return msk.toISOString().slice(0, 10);
+}
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`ARCADE server running on :${PORT}`);
+  startBot();
+  initGameLoop();
+});
