@@ -171,7 +171,7 @@ function mskDate(offsetDays = 0) {
 }
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`ARCADE server running on :${PORT}`);
   startBot();
   initGameLoop();
