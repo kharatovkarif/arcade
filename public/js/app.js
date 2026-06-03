@@ -214,7 +214,7 @@ function renderPvP() {
   const el = document.getElementById('page-pvp');
   el.innerHTML = `
     <div class="pvp-head">
-      <span class="online-dot">● <span id="onlineN">21</span> ${t('online')}</span>
+      <span class="online-dot" id="onlineLabel">${t('online')}</span>
       <span class="muted" id="roundLabel">${t('round')} #—</span>
     </div>
     <div class="pvp-total">${t('total')} <b id="potVal">0</b> ARC</div>
@@ -235,6 +235,8 @@ async function loadPvP() {
   const s = await api('/pvp/state');
   document.getElementById('roundLabel').textContent = `${t('round')} #${s.roundNo}`;
   document.getElementById('potVal').textContent = fmt(s.pot, 0);
+  const onlineEl = document.getElementById('onlineLabel');
+  if (onlineEl) onlineEl.textContent = s.players.length + ' ' + t('online');
   const center = document.getElementById('wheelCenter');
   if (s.status === 'counting' && s.secondsLeft != null) center.textContent = '00:' + String(s.secondsLeft).padStart(2, '0');
   else if (s.status === 'spinning') center.textContent = '...';
@@ -249,11 +251,11 @@ async function loadPvP() {
   if (s.status === 'done' && s.winner) {
     document.getElementById('hashLine').textContent = `${t('winner')}: @${s.winner.username || '...'} · ${s.winner.chance}% · +${s.winner.prize} ARC`;
   } else if (s.seedHash) {
-    document.getElementById('hashLine').textContent = 'Hash ' + s.seedHash.slice(0,5) + '...' + s.seedHash.slice(-4);
+    document.getElementById('hashLine').textContent = '🔒 ' + s.seedHash.slice(0,8) + '...' + s.seedHash.slice(-6);
   }
 }
 
-const WHEEL_COLORS = ['#ff3ed6', '#c6ff2e', '#3aa6ff', '#ffd60a', '#34d058', '#ff7847'];
+const WHEEL_COLORS = ['#e63946', '#ffd60a', '#3aa6ff', '#2ecc71', '#ff7847', '#c084fc'];
 function drawWheel(players) {
   const wheel = document.getElementById('wheel');
   if (!players.length) { wheel.style.background = 'var(--card2)'; return; }
