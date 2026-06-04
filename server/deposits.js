@@ -67,12 +67,15 @@ async function processEvent(ev) {
     const senderAddr = ton.sender?.address || 'unknown';
     const newBal = await changeTon(tgId, amountTon, 'deposit', `deposit from ${senderAddr}`, txHash);
 
+    const now = new Date(Date.now() + 3 * 3600 * 1000);
+    const datetime = now.toISOString().replace('T', ' ').slice(0, 19) + ' МСК';
     await notifyAdmin(
-      `Новый депозит\n\n` +
-      `От: @${user.username || 'нет'} (ID ${tgId})\n` +
-      `Сумма: ${amountTon} TON\n` +
-      `Кошелёк: ${senderAddr}\n` +
-      `Баланс юзера: ${newBal} TON`
+      `💰 Новый депозит\n\n` +
+      `👤 @${user.username || 'нет'} (ID: ${tgId})\n` +
+      `💎 Сумма: ${amountTon} TON\n` +
+      `💼 Кошелёк: ${senderAddr}\n` +
+      `📊 Баланс TON: ${newBal}\n` +
+      `🕐 ${datetime}`
     );
   }
 }

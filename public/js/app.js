@@ -276,7 +276,7 @@ function renderProfile() {
     </div>`;
   const conn = document.getElementById('connectBtn');
   if (conn) conn.onclick = () => tonConnectUI && tonConnectUI.openModal();
-  document.getElementById('depBtn').onclick = () => toast(t('soon'));
+  document.getElementById('depBtn').onclick = openDeposit;
   document.getElementById('wdBtn').onclick = () => toast(t('soon'));
   document.getElementById('exBtn').onclick = () => toast(t('soon'));
 }
@@ -409,6 +409,66 @@ document.getElementById('langBtn').onclick = async () => {
   await api('/language', { language: LANG });
   applyLang();
 };
+
+function createCommentBOC(text) {
+  const textBytes = new TextEncoder().encode(text);
+  const cellData = new Uint8Array(4 + textBytes.length);
+  cellData.set(textBytes, 4);
+  const d2 = cellData.length * 2;
+  const cell = new Uint8Array(2 + cellData.length);
+  cell[0] = 0; cell[1] = d2;
+  cell.set(cellData, 2);
+  const hdr = new Uint8Array([0xb5,0xee,0x9c,0x72,0x01,0x01,0x01,0x01,0x00,cell.length,0x00]);
+  const boc = new Uint8Array(hdr.length + cell.length);
+  boc.set(hdr); boc.set(cell, hdr.length);
+  return btoa(String.fromCharCode(...boc));
+}
+
+async function openDeposit() {
+  if (!ME.wallet) { toast('Сначала подключите кошелёк'); return; }
+  openModal(`<p class="muted">${t('loading')}</p>`);
+  const info = await api('/deposit/info');
+  document.getElementById('modalContent').innerHTML = `
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px">💎 Депозит TON</div>
+    <div class="ci-hint" style="margin-bottom:12px;font-size:13px;line-height:1.8">
+      Кошелёк получателя:<br><b style="font-size:12px;word-break:break-all">${info.wallet}</b><br><br>
+      ❗ Комментарий (обязательно): <b>${info.comment}</b><br>
+      Мин. сумма: <b>${info.min} TON</b> · Лимит в день: <b>${info.maxDay} TON</b>
+    </div>
+    <input class="field" id="depAmount" type="number" step="0.1" min="${info.min}" placeholder="${info.min} — ${info.maxDay} TON" />
+    <div id="depPreview" style="color:var(--blue);font-size:13px;font-weight:700;margin-bottom:10px;min-height:18px"></div>
+    <button class="btn btn-blue" id="depConfirm">Открыть кошелёк и отправить</button>`;
+  document.getElementById('depAmount').oninput = () => {
+    const v = Number(document.getElementById('depAmount').value);
+    document.getElementById('depPreview').textContent = v >= info.min ? `→ зачислится ${v} TON на баланс` : '';
+  };
+  document.getElementById('depConfirm').onclick = async () => {
+    const amount = Number(document.getElementById('depAmount').value);
+    if (!(amount >= info.min)) return toast(`Минимум ${info.min} TON`);
+    if (!tonConnectUI) return toast('Кошелёк не подключён');
+    const btn = document.getElementById('depConfirm');
+    btn.disabled = true; btn.textContent = 'Открываю кошелёк...';
+    try {
+      await tonConnectUI.sendTransaction({
+        validUntil: Math.floor(Date.now() / 1000) + 600,
+        messages: [{
+          address: info.wallet,
+          amount: String(Math.round(amount * 1e9)),
+          payload: createCommentBOC(info.comment),
+        }],
+      });
+      closeModal();
+      toast('✓ Отправлено! Зачисление через ~10 сек');
+    } catch(e) {
+      if (e?.message?.includes('UserRejects') || e?.code === 300) {
+        toast('Отменено');
+      } else {
+        toast(t('error'));
+      }
+      btn.disabled = false; btn.textContent = 'Открыть кошелёк и отправить';
+    }
+  };
+}
 
 async function openExchange() {
   openModal(`<p class="muted">${t('loading')}</p>`);
