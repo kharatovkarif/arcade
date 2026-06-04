@@ -278,7 +278,7 @@ function renderProfile() {
   if (conn) conn.onclick = () => tonConnectUI && tonConnectUI.openModal();
   document.getElementById('depBtn').onclick = () => toast(t('soon'));
   document.getElementById('wdBtn').onclick = () => toast(t('soon'));
-  document.getElementById('exBtn').onclick = openExchange;
+  document.getElementById('exBtn').onclick = () => toast(t('soon'));
 }
 
 function renderPvP() {
