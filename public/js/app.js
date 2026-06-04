@@ -390,7 +390,12 @@ const WHEEL_EMPTY = `conic-gradient(
 function drawWheel(players) {
   const wheel = document.getElementById('wheel');
   if (!wheel) return;
-  if (!players.length) { wheel.style.background = WHEEL_EMPTY; return; }
+  if (!players.length) {
+    wheel.style.background = WHEEL_EMPTY;
+    wheel.classList.add('idle');
+    return;
+  }
+  wheel.classList.remove('idle');
   let acc = 0; const stops = [];
   players.forEach((p, i) => {
     const start = acc; acc += Number(p.chance);

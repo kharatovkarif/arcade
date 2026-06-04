@@ -104,6 +104,8 @@ input.field:focus{border-color:var(--blue)}
 .pvp-mybal-val{font-size:18px;font-weight:900;color:var(--blue);text-align:right}
 .wheel-wrap{position:relative;width:264px;height:264px;margin:0 auto 14px}
 .wheel{width:100%;height:100%;border-radius:50%;transition:transform 4s cubic-bezier(.17,.67,.2,1);background:var(--card2);border:2px solid #2a2a2a;box-shadow:0 0 0 1px #111,inset 0 0 30px rgba(0,0,0,.5)}
+.wheel.idle{animation:wheel-idle 6s linear infinite;transition:none}
+@keyframes wheel-idle{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 .wheel-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:96px;height:96px;border-radius:50%;background:#0a0a0a;border:2px solid #222;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:var(--muted2);z-index:6;text-align:center;padding:8px;box-shadow:0 0 20px rgba(0,0,0,.8)}
 .wheel-pointer{position:absolute;top:-2px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-top:18px solid #fff;z-index:6;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
 .pvp-input-row{display:flex;gap:8px;margin-bottom:8px;align-items:stretch}
