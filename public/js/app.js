@@ -278,7 +278,7 @@ function renderProfile() {
   if (conn) conn.onclick = () => tonConnectUI && tonConnectUI.openModal();
   document.getElementById('depBtn').onclick = () => toast(t('soon'));
   document.getElementById('wdBtn').onclick = () => toast(t('soon'));
-  document.getElementById('exBtn').onclick = () => toast(t('soon'));
+  document.getElementById('exBtn').onclick = openExchange;
 }
 
 function renderPvP() {
@@ -409,6 +409,52 @@ document.getElementById('langBtn').onclick = async () => {
   await api('/language', { language: LANG });
   applyLang();
 };
+
+async function openExchange() {
+  openModal(`<p class="muted">${t('loading')}</p>`);
+  const info = await api('/exchange/info');
+  const pct = info.limit_ton ? Math.min(100, (info.used_ton / info.limit_ton) * 100) : 0;
+  document.getElementById('modalContent').innerHTML = `
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px">${t('exchange_ton_arc')}</div>
+    <div style="background:var(--blue);border-radius:14px;padding:16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <span style="font-weight:800;font-size:16px">1 TON =</span>
+      <span style="font-weight:900;font-size:20px">${info.rate ? info.rate.toLocaleString() + ' ARC' : '—'}</span>
+    </div>
+    <div style="background:var(--card2);border-radius:14px;padding:14px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+        <span style="color:var(--muted2);font-size:14px">${t('exchange_limit')}</span>
+        <span style="font-weight:700;font-size:14px">${info.used_ton.toFixed(2)} / ${info.limit_ton} TON</span>
+      </div>
+      <div style="height:4px;background:#2a2a2a;border-radius:4px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:var(--blue);border-radius:4px"></div>
+      </div>
+    </div>
+    <input class="field" id="exAmount" type="number" step="0.1" min="0.1" max="${info.limit_ton}" placeholder="0.1 — ${info.limit_ton} TON" />
+    <div id="exPreview" style="color:var(--muted2);font-size:13px;margin-bottom:10px;min-height:18px"></div>
+    <button class="btn btn-white" id="exConfirm">${t('confirm')}</button>`;
+  const inp = document.getElementById('exAmount');
+  const preview = document.getElementById('exPreview');
+  inp.oninput = () => {
+    const v = Number(inp.value);
+    preview.textContent = v >= 0.1 && info.rate ? `≈ ${Math.round(v * info.rate).toLocaleString()} ARC` : '';
+  };
+  document.getElementById('exConfirm').onclick = async () => {
+    const amount = Number(inp.value);
+    if (!(amount >= 0.1)) return toast(t('enter_amount'));
+    const btn = document.getElementById('exConfirm');
+    btn.disabled = true;
+    const r = await api('/exchange/ton-arc', { amount });
+    if (r.ok) {
+      ME.balance_arc = r.balance_arc; ME.balance_ton = r.balance_ton;
+      renderHeader(); closeModal(); renderProfile();
+      toast(`+${r.arc_received.toLocaleString()} ARC`);
+    } else {
+      const errs = { not_enough_ton: 'Недостаточно TON', limit_exceeded: 'Лимит исчерпан', rate_unavailable: 'Курс недоступен', bad_amount: t('enter_amount') };
+      toast(errs[r.error] || t('error'));
+      btn.disabled = false;
+    }
+  };
+}
 
 function toFriendly(rawAddress) {
   try {

@@ -192,6 +192,46 @@ app.post('/api/deposit/info', auth, async (req, res) => {
   });
 });
 
+app.post('/api/exchange/info', auth, async (req, res) => {
+  const [tonUsd, arcUsd, limitTon] = await Promise.all([
+    getSetting('ton_usd'), getSetting('arc_usd'), getSetting('exchange_daily_limit_ton'),
+  ]);
+  const rate = (tonUsd && arcUsd) ? Math.round(Number(tonUsd) / Number(arcUsd)) : 0;
+  const limit = Number(limitTon || 5);
+  const today = mskDate();
+  const { data: daily } = await supabase.from('exchange_daily')
+    .select('used_ton').eq('tg_id', req.user.tg_id).eq('date', today).single();
+  res.json({ rate, limit_ton: limit, used_ton: daily ? Number(daily.used_ton) : 0 });
+});
+
+app.post('/api/exchange/ton-arc', auth, async (req, res) => {
+  const amount = Number(req.body.amount);
+  if (!(amount >= 0.1)) return res.json({ ok: false, error: 'bad_amount' });
+  const [tonUsd, arcUsd, limitTon] = await Promise.all([
+    getSetting('ton_usd'), getSetting('arc_usd'), getSetting('exchange_daily_limit_ton'),
+  ]);
+  if (!tonUsd || !arcUsd) return res.json({ ok: false, error: 'rate_unavailable' });
+  const limit = Number(limitTon || 5);
+  const { data: u } = await supabase.from('users').select('balance_ton').eq('tg_id', req.user.tg_id).single();
+  if (Number(u.balance_ton) < amount) return res.json({ ok: false, error: 'not_enough_ton' });
+  const today = mskDate();
+  const { data: daily } = await supabase.from('exchange_daily')
+    .select('used_ton').eq('tg_id', req.user.tg_id).eq('date', today).single();
+  const usedTon = daily ? Number(daily.used_ton) : 0;
+  if (usedTon + amount > limit) return res.json({ ok: false, error: 'limit_exceeded' });
+  const rate = Math.round(Number(tonUsd) / Number(arcUsd));
+  const arcAmount = Math.round(amount * rate);
+  await changeTon(req.user.tg_id, -amount, 'exchange', `ton→arc ${amount}`);
+  const newArc = await changeArc(req.user.tg_id, arcAmount, 'exchange', `ton→arc ${amount}`);
+  if (daily) {
+    await supabase.from('exchange_daily').update({ used_ton: usedTon + amount }).eq('tg_id', req.user.tg_id).eq('date', today);
+  } else {
+    await supabase.from('exchange_daily').insert({ tg_id: req.user.tg_id, date: today, used_ton: amount });
+  }
+  const { data: me } = await supabase.from('users').select('balance_ton').eq('tg_id', req.user.tg_id).single();
+  res.json({ ok: true, arc_received: arcAmount, balance_arc: newArc, balance_ton: Number(me.balance_ton) });
+});
+
 function mskDate(offsetDays = 0) {
   const now = new Date();
   const msk = new Date(now.getTime() + 3 * 3600 * 1000 + offsetDays * 86400 * 1000);
