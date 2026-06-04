@@ -42,10 +42,13 @@ document.getElementById('modalClose').onclick = closeModal;
 
 function renderHeader() {
   if (!ME) return;
-  document.getElementById('topUsername').textContent = ME.username ? '@' + ME.username : (ME.first_name || 'Player');
-  document.getElementById('balTon').textContent = fmt(ME.balance_ton, 2);
-  document.getElementById('balArc').textContent = fmt(ME.balance_arc, 0);
+  const name = ME.username ? '@' + ME.username : (ME.first_name || 'Player');
+  document.getElementById('topUsername').textContent = name;
+  document.getElementById('topSubBal').textContent = fmt(ME.balance_ton, 2) + ' TON · ' + fmt(ME.balance_arc, 0) + ' ARC';
+  const av = document.getElementById('topAvatar');
+  if (av) av.textContent = (ME.username || ME.first_name || 'P')[0].toUpperCase();
 }
+
 function fmt(n, d = 2) {
   return Number(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: d });
 }
@@ -56,7 +59,7 @@ const PAGES = ['pvp', 'tasks', 'main', 'friends', 'profile'];
 function switchTab(tab) {
   currentTab = tab;
   PAGES.forEach(p => document.getElementById('page-' + p).hidden = (p !== tab));
-  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tab, .tab-center').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   if (pvpTimer) { clearInterval(pvpTimer); pvpTimer = null; }
   renderCurrentTab();
 }
@@ -70,30 +73,53 @@ function renderCurrentTab() {
   if (currentTab === 'profile') renderProfile();
 }
 
-document.querySelectorAll('.tab').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
+document.querySelectorAll('.tab, .tab-center').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
 
 function renderMain() {
+  const walletHtml = ME.wallet
+    ? `<div class="hero-wallet">${ME.wallet.slice(0,4)}...${ME.wallet.slice(-4)}</div>` : '';
   const ads = [1, 2, 3].map(n => `
     <div class="row">
       <div class="info">
         <span class="title">${t('ad_reward')} ${n} — 5 ARC</span>
         <span class="sub">${t('ad_unavailable')}</span>
       </div>
-      <button class="btn btn-sm btn-gray" disabled>${t('ad_watch')}</button>
+      <button class="btn btn-sm btn-dark" disabled>${t('ad_watch')}</button>
     </div>`).join('');
   document.getElementById('page-main').innerHTML = `
-    <div class="block"><h2>${t('about_title')}</h2><p class="muted">${t('about_text')}</p></div>
-    <div class="block"><h2>${t('watch_ads')}</h2>${ads}</div>`;
+    <div class="hero-card">
+      ${walletHtml}
+      <div class="hero-platform">TON PLATFORM</div>
+      <div class="hero-name">ARCADE</div>
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <div class="hv">${fmt(ME.balance_ton, 2)}</div>
+          <div class="hl">TON</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hv">${fmt(ME.balance_arc, 0)}</div>
+          <div class="hl">ARC</div>
+        </div>
+      </div>
+    </div>
+    <div class="block">
+      <div class="block-hdr">${t('about_title')}</div>
+      <p class="muted">${t('about_text')}</p>
+    </div>
+    <div class="block">
+      <div class="block-hdr">${t('watch_ads')}</div>
+      ${ads}
+    </div>`;
 }
 
 async function renderTasks() {
   const el = document.getElementById('page-tasks');
   el.innerHTML = `<div class="block"><p class="muted">${t('loading')}</p></div>`;
   const ci = await api('/checkin/status');
+  const mult = {1:'1.0',2:'1.1',3:'1.2',4:'1.3',5:'1.4',6:'1.5'};
   const days = [1,2,3,4,5,6].map(d => {
-    const mult = {1:'1.0',2:'1.1',3:'1.2',4:'1.3',5:'1.4',6:'1.5'}[d];
     const cur = ci.day === d ? 'cur' : '';
-    return `<div class="day ${cur}"><div class="d">${t('day')} ${d}</div><div class="x">×${mult}</div></div>`;
+    return `<div class="ci-day ${cur}"><span class="dn">Д${d}</span><span class="dx">×${mult[d]}</span></div>`;
   }).join('');
   const tasks = await api('/tasks');
   let tasksHtml = !tasks.length ? `<p class="muted">${t('no_tasks')}</p>` :
@@ -103,23 +129,32 @@ async function renderTasks() {
           <span class="title">${LANG === 'ru' ? tk.title_ru : tk.title_en}</span>
           <span class="sub">+${tk.reward_arc} ARC</span>
         </div>
-        ${tk.completed ? `<span class="tag">✓</span>` : `<button class="btn btn-sm btn-lime" onclick="checkTask(${tk.id}, this)">${t('check')}</button>`}
+        ${tk.completed
+          ? `<span class="tag tag-done">✓</span>`
+          : `<button class="btn btn-sm btn-green" onclick="checkTask(${tk.id}, this)">${t('check')}</button>`}
       </div>`).join('');
   el.innerHTML = `
-    <div class="block">
-      <h2>${t('daily_checkin')}</h2>
-      <p class="muted" style="margin-bottom:12px">${t('checkin_hint')}</p>
-      <div class="checkin">${days}</div>
-      <button class="btn btn-yellow" style="margin-top:14px" id="checkinBtn" ${ci.canClaim ? '' : 'disabled'}>
+    <div class="ci-card">
+      <div class="ci-hdr">${t('daily_checkin')}</div>
+      <div class="ci-stats">
+        <div class="ci-stat"><div class="cv">${ci.day}</div><div class="cl">${t('day')}</div></div>
+        <div class="ci-stat"><div class="cv">×${mult[ci.day] || '1.5'}</div><div class="cl">${t('multiplier')}</div></div>
+      </div>
+      <div class="ci-days">${days}</div>
+      <div class="ci-hint">💡 ${t('checkin_hint')}</div>
+      <button class="btn btn-white" id="checkinBtn" ${ci.canClaim ? '' : 'disabled'}>
         ${ci.canClaim ? t('claim') : t('checkin_done')}
       </button>
     </div>
     <div class="block">
-      <h2>${t('promo_title')}</h2>
+      <div class="block-hdr">${t('promo_title')}</div>
       <input class="field" id="promoInput" placeholder="${t('promo_placeholder')}" />
-      <button class="btn btn-lime" id="promoBtn">${t('activate')}</button>
+      <button class="btn btn-blue" id="promoBtn">${t('activate')}</button>
     </div>
-    <div class="block"><h2>${t('tasks_title')}</h2>${tasksHtml}</div>`;
+    <div class="block">
+      <div class="block-hdr">${t('tasks_title')}</div>
+      ${tasksHtml}
+    </div>`;
   document.getElementById('checkinBtn').onclick = doCheckin;
   document.getElementById('promoBtn').onclick = doPromo;
 }
@@ -139,7 +174,8 @@ async function doPromo() {
     ME.balance_arc = r.balance_arc; renderHeader();
     document.getElementById('promoInput').value = '';
   } else {
-    toast(t('promo_' + (r.error === 'not_found' ? 'not_found' : r.error === 'already_used' ? 'used' : r.error === 'expired' ? 'expired' : r.error === 'limit_reached' ? 'limit' : 'not_found')));
+    const errMap = { not_found: 'promo_not_found', already_used: 'promo_used', expired: 'promo_expired', limit_reached: 'promo_limit' };
+    toast(t(errMap[r.error] || 'promo_not_found'));
   }
 }
 
@@ -154,23 +190,35 @@ async function renderFriends() {
   const el = document.getElementById('page-friends');
   el.innerHTML = `<div class="block"><p class="muted">${t('loading')}</p></div>`;
   const r = await api('/referrals');
+  const totalInvited = r.level1.length + r.level2.length;
+  const totalEarned = [...r.level1, ...r.level2].reduce((s, u) => s + (u.earned || 0), 0);
   const col = (arr) => arr.length
-    ? arr.map(u => `<div class="ref-item"><span class="u">@${u.username || '...'}</span> — <span class="e">${fmt(u.earned,0)} ARC</span></div>`).join('')
-    : `<p class="muted">${t('no_referrals')}</p>`;
+    ? arr.map(u => `<div class="ref-item"><span class="ru">@${u.username || '...'}</span><span class="re">${fmt(u.earned,0)} ARC</span></div>`).join('')
+    : `<p class="muted" style="font-size:13px">${t('no_referrals')}</p>`;
   el.innerHTML = `
-    <div class="block">
-      <h2>${t('friends_title')}</h2>
-      <p class="muted" style="margin-bottom:12px">${t('friends_hint')}</p>
-      <input class="field" id="refLink" value="${r.link}" readonly />
-      <div style="display:flex;gap:10px">
-        <button class="btn btn-yellow" id="copyBtn">${t('copy')}</button>
-        <button class="btn btn-ton" id="shareBtn">${t('share')}</button>
+    <div class="ref-card">
+      <div class="ref-title">${t('friends_title')}</div>
+      <div class="ref-sub">${t('friends_hint')}</div>
+      <div class="ref-stats">
+        <div class="ref-stat"><div class="rv">${totalInvited}</div><div class="rl">Приглашено</div></div>
+        <div class="ref-stat"><div class="rv">${fmt(totalEarned,0)}</div><div class="rl">ARC заработано</div></div>
+      </div>
+      <input class="field" id="refLink" value="${r.link}" readonly style="margin-bottom:8px" />
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-white" id="copyBtn">${t('copy')}</button>
+        <button class="btn btn-blue" id="shareBtn">${t('share')}</button>
       </div>
     </div>
     <div class="block">
       <div class="ref-cols">
-        <div class="ref-col"><h3>${t('level1')} · 20%</h3>${col(r.level1)}</div>
-        <div class="ref-col"><h3>${t('level2')} · 10%</h3>${col(r.level2)}</div>
+        <div class="ref-col">
+          <div class="ref-col-hdr">${t('level1')} · 20%</div>
+          ${col(r.level1)}
+        </div>
+        <div class="ref-col">
+          <div class="ref-col-hdr">${t('level2')} · 10%</div>
+          ${col(r.level2)}
+        </div>
       </div>
     </div>`;
   document.getElementById('copyBtn').onclick = () => { navigator.clipboard?.writeText(r.link); toast(t('copied')); };
@@ -184,21 +232,37 @@ function shortWallet(w) { return !w ? '' : w.slice(0, 4) + '...' + w.slice(-4); 
 
 function renderProfile() {
   const el = document.getElementById('page-profile');
+  const letter = (ME.username || ME.first_name || 'P')[0].toUpperCase();
   const walletBlock = ME.wallet
-    ? `<div class="block"><h2>${t('my_wallet')}</h2><p class="big">${shortWallet(ME.wallet)}</p>
-         <button class="btn btn-gray" style="margin-top:10px" id="disconnectBtn">${t('disconnect')}</button></div>`
-    : `<div class="block"><button class="btn btn-ton" id="connectBtn">${t('connect_wallet')}</button></div>`;
+    ? `<div class="wallet-row">
+        <div class="wallet-icon">💼</div>
+        <div class="wallet-info">
+          <div class="wallet-addr">${shortWallet(ME.wallet)}</div>
+          <div class="wallet-status">● Подключён ✓</div>
+        </div>
+        <button class="btn btn-sm btn-dark" id="disconnectBtn">${t('disconnect')}</button>
+       </div>`
+    : `<button class="btn btn-blue" style="margin-bottom:10px" id="connectBtn">${t('connect_wallet')}</button>`;
   el.innerHTML = `
-    <div class="block"><h2>${t('profile_title')}</h2><p class="muted">${ME.username ? '@'+ME.username : ME.first_name}</p></div>
+    <div class="profile-card">
+      <div class="profile-avatar">${letter}</div>
+      <div class="profile-name">${ME.username ? '@' + ME.username : ME.first_name}</div>
+      <div class="profile-stats">
+        <div class="profile-stat"><div class="pv">${fmt(ME.balance_ton, 2)}</div><div class="pl">TON</div></div>
+        <div class="profile-stat"><div class="pv">${fmt(ME.balance_arc, 0)}</div><div class="pl">ARC</div></div>
+        <div class="profile-stat"><div class="pv">×${ME.checkin_day >= 6 ? '1.5' : (1 + (ME.checkin_day - 1) * 0.1).toFixed(1)}</div><div class="pl">Множитель</div></div>
+      </div>
+    </div>
     ${walletBlock}
     <div class="block">
-      <div style="display:flex;gap:10px;margin-bottom:10px">
-        <button class="btn btn-yellow" id="depBtn">${t('deposit')}</button>
-        <button class="btn btn-gray" id="wdBtn">${t('withdraw')}</button>
+      <div class="block-hdr">Операции</div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <button class="btn btn-blue" id="depBtn">${t('deposit')}</button>
+        <button class="btn btn-dark" id="wdBtn">${t('withdraw')}</button>
       </div>
-      <div style="display:flex;gap:10px">
-        <button class="btn btn-lime" id="exBtn">${t('exchange_ton_arc')}</button>
-        <button class="btn btn-gray" disabled>${t('exchange_arc_ton')} <span class="tag tag-soon">${t('soon')}</span></button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-white" id="exBtn">${t('exchange_ton_arc')}</button>
+        <button class="btn btn-dark" disabled>${t('exchange_arc_ton')} <span class="tag tag-soon">${t('soon')}</span></button>
       </div>
     </div>`;
   const conn = document.getElementById('connectBtn');
@@ -213,51 +277,109 @@ function renderProfile() {
 function renderPvP() {
   const el = document.getElementById('page-pvp');
   el.innerHTML = `
-    <div class="pvp-head">
-      <span class="online-dot" id="onlineLabel">${t('online')}</span>
-      <span class="muted" id="roundLabel">${t('round')} #—</span>
+    <div class="pvp-top">
+      <div class="pvp-logo">
+        <span class="pvp-logo-icon">⚔️</span>
+        <span class="pvp-logo-text">PvP</span>
+        <span class="pvp-round" id="roundLabel">ИГРА #—</span>
+      </div>
+      <button class="lang-switch" onclick="switchLangFromPvp()">${LANG.toUpperCase()}</button>
     </div>
-    <div class="pvp-total">${t('total')} <b id="potVal">0</b> ARC</div>
+    <div class="pvp-banks">
+      <div class="pvp-bank-side">
+        <div class="pvp-bank-lbl">БАНК</div>
+        <div class="pvp-bank-val"><span id="potVal">0</span> ARC</div>
+      </div>
+      <div class="pvp-bank-side" style="text-align:right">
+        <div class="pvp-bank-lbl">МОЙ БАЛАНС</div>
+        <div class="pvp-mybal-val">${fmt(ME?.balance_arc ?? 0, 0)} ARC</div>
+      </div>
+    </div>
     <div class="wheel-wrap">
       <div class="wheel-pointer"></div>
       <div class="wheel" id="wheel"></div>
       <div class="wheel-center" id="wheelCenter">${t('waiting')}</div>
     </div>
-    <button class="btn btn-yellow" id="addBetBtn">+ ${t('add_bet')}</button>
-    <div id="playersList" style="margin-top:14px"></div>
+    <div class="pvp-input-row">
+      <input class="pvp-input" id="betInput" type="number" min="10" max="1000" placeholder="0 ARC" />
+      <button class="pvp-bet-btn" id="addBetBtn">+ ${t('add_bet')}</button>
+    </div>
+    <div class="pvp-amts">
+      <div class="pvp-amt" onclick="setBet(10)">10</div>
+      <div class="pvp-amt" onclick="setBet(50)">50</div>
+      <div class="pvp-amt" onclick="setBet(100)">100</div>
+      <div class="pvp-amt" onclick="setBet(500)">500</div>
+    </div>
+    <div class="pvp-section-lbl">
+      <span>УЧАСТНИКИ</span>
+      <span id="onlineLabel" style="color:var(--green)">0 онлайн</span>
+    </div>
+    <div id="playersList"></div>
     <div class="hash" id="hashLine"></div>`;
-  document.getElementById('addBetBtn').onclick = openBetModal;
+  document.getElementById('addBetBtn').onclick = doBet;
   loadPvP();
   pvpTimer = setInterval(loadPvP, 1500);
 }
 
+window.setBet = (v) => {
+  const inp = document.getElementById('betInput');
+  if (inp) inp.value = v;
+};
+
+window.switchLangFromPvp = async () => {
+  LANG = LANG === 'ru' ? 'en' : 'ru';
+  await api('/language', { language: LANG });
+  applyLang();
+};
+
+async function doBet() {
+  const amount = Number(document.getElementById('betInput')?.value);
+  if (!(amount >= 10 && amount <= 1000)) return toast(t('pvp_min_max'));
+  const r = await api('/pvp/bet', { amount });
+  if (r.ok) { ME.balance_arc = r.balance_arc; renderHeader(); loadPvP(); }
+  else toast(r.error === 'not_enough' ? t('not_enough') : t('error'));
+}
+
 async function loadPvP() {
   const s = await api('/pvp/state');
-  document.getElementById('roundLabel').textContent = `${t('round')} #${s.roundNo}`;
-  document.getElementById('potVal').textContent = fmt(s.pot, 0);
+  const roundEl = document.getElementById('roundLabel');
+  if (roundEl) roundEl.textContent = `ИГРА #${s.roundNo}`;
+  const potEl = document.getElementById('potVal');
+  if (potEl) potEl.textContent = fmt(s.pot, 0);
   const onlineEl = document.getElementById('onlineLabel');
   if (onlineEl) onlineEl.textContent = s.players.length + ' ' + t('online');
   const center = document.getElementById('wheelCenter');
-  if (s.status === 'counting' && s.secondsLeft != null) center.textContent = '00:' + String(s.secondsLeft).padStart(2, '0');
-  else if (s.status === 'spinning') center.textContent = '...';
-  else if (s.status === 'done' && s.winner) center.textContent = '🏆';
-  else center.textContent = t('waiting');
+  if (center) {
+    if (s.status === 'counting' && s.secondsLeft != null) center.textContent = '00:' + String(s.secondsLeft).padStart(2, '0');
+    else if (s.status === 'spinning') center.textContent = '...';
+    else if (s.status === 'done' && s.winner) center.textContent = '🏆';
+    else center.textContent = t('waiting');
+  }
   drawWheel(s.players);
-  document.getElementById('playersList').innerHTML = s.players.map(p => `
-    <div class="player-card">
-      <span class="name">@${p.username || '...'}</span>
-      <span class="pct">${p.chance}% · ${fmt(p.amount,0)} ARC</span>
-    </div>`).join('');
-  if (s.status === 'done' && s.winner) {
-    document.getElementById('hashLine').textContent = `${t('winner')}: @${s.winner.username || '...'} · ${s.winner.chance}% · +${s.winner.prize} ARC`;
-  } else if (s.seedHash) {
-    document.getElementById('hashLine').textContent = '🔒 ' + s.seedHash.slice(0,8) + '...' + s.seedHash.slice(-6);
+  const pl = document.getElementById('playersList');
+  if (pl) {
+    pl.innerHTML = s.players.length
+      ? s.players.map(p => `
+          <div class="player-card">
+            <span class="pname">@${p.username || '...'}</span>
+            <span class="pchance">${p.chance}% · ${fmt(p.amount,0)} ARC</span>
+          </div>`).join('')
+      : `<div class="pvp-empty">Будь первым — сделай ставку!</div>`;
+  }
+  const hl = document.getElementById('hashLine');
+  if (hl) {
+    if (s.status === 'done' && s.winner) {
+      hl.textContent = `${t('winner')}: @${s.winner.username || '...'} · ${s.winner.chance}% · +${s.winner.prize} ARC`;
+    } else if (s.seedHash) {
+      hl.textContent = '🔒 ' + s.seedHash.slice(0,8) + '...' + s.seedHash.slice(-6);
+    }
   }
 }
 
-const WHEEL_COLORS = ['#e63946', '#ffd60a', '#3aa6ff', '#2ecc71', '#ff7847', '#c084fc'];
+const WHEEL_COLORS = ['#3b82f6','#ffd60a','#22c55e','#ef4444','#a855f7','#f97316'];
 function drawWheel(players) {
   const wheel = document.getElementById('wheel');
+  if (!wheel) return;
   if (!players.length) { wheel.style.background = 'var(--card2)'; return; }
   let acc = 0; const stops = [];
   players.forEach((p, i) => {
@@ -267,34 +389,18 @@ function drawWheel(players) {
   wheel.style.background = `conic-gradient(${stops.join(',')})`;
 }
 
-function openBetModal() {
-  openModal(`
-    <h2 style="margin-bottom:14px">${t('add_bet')}</h2>
-    <p class="muted" style="margin-bottom:12px">${t('pvp_min_max')}</p>
-    <input class="field" id="betInput" type="number" min="10" max="1000" placeholder="${t('bet_amount')}" />
-    <button class="btn btn-yellow" id="betConfirm">${t('confirm')}</button>`);
-  document.getElementById('betConfirm').onclick = async () => {
-    const amount = Number(document.getElementById('betInput').value);
-    if (!(amount >= 10 && amount <= 1000)) return toast(t('pvp_min_max'));
-    const r = await api('/pvp/bet', { amount });
-    if (r.ok) { ME.balance_arc = r.balance_arc; renderHeader(); closeModal(); loadPvP(); }
-    else toast(r.error === 'not_enough' ? t('not_enough') : t('error'));
-  };
-}
-
 document.getElementById('langBtn').onclick = async () => {
   LANG = LANG === 'ru' ? 'en' : 'ru';
   await api('/language', { language: LANG });
   applyLang();
 };
 
-// TON Connect
 function toFriendly(rawAddress) {
   try {
     if (window.TON_CONNECT_UI && typeof TON_CONNECT_UI.toUserFriendlyAddress === 'function') {
       return TON_CONNECT_UI.toUserFriendlyAddress(rawAddress, false);
     }
-  } catch (e) { console.log('addr convert error', e); }
+  } catch (e) {}
   return rawAddress;
 }
 
@@ -312,9 +418,11 @@ function initTonConnect() {
         await api('/wallet/disconnect', {});
         ME.wallet = null;
       }
+      renderHeader();
       if (currentTab === 'profile') renderProfile();
+      if (currentTab === 'main') renderMain();
     });
-  } catch (e) { console.log('tonconnect init error', e); }
+  } catch (e) {}
 }
 
 async function init() {
