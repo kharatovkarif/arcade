@@ -230,6 +230,15 @@ async function renderFriends() {
 
 function shortWallet(w) { return !w ? '' : w.slice(0, 4) + '...' + w.slice(-4); }
 
+window.disconnectWallet = async () => {
+  try { if (tonConnectUI) await tonConnectUI.disconnect(); } catch(e) {}
+  await api('/wallet/disconnect', {});
+  ME.wallet = null;
+  renderHeader();
+  renderProfile();
+  renderMain();
+};
+
 function renderProfile() {
   const el = document.getElementById('page-profile');
   const letter = (ME.username || ME.first_name || 'P')[0].toUpperCase();
@@ -240,7 +249,7 @@ function renderProfile() {
           <div class="wallet-addr">${shortWallet(ME.wallet)}</div>
           <div class="wallet-status">● Подключён ✓</div>
         </div>
-        <button class="btn btn-sm btn-dark" id="disconnectBtn">${t('disconnect')}</button>
+        <button class="btn btn-sm btn-dark" onclick="disconnectWallet()">${t('disconnect')}</button>
        </div>`
     : `<button class="btn btn-blue" style="margin-bottom:10px" id="connectBtn">${t('connect_wallet')}</button>`;
   el.innerHTML = `
@@ -267,8 +276,6 @@ function renderProfile() {
     </div>`;
   const conn = document.getElementById('connectBtn');
   if (conn) conn.onclick = () => tonConnectUI && tonConnectUI.openModal();
-  const dis = document.getElementById('disconnectBtn');
-  if (dis) dis.onclick = async () => { if (tonConnectUI) await tonConnectUI.disconnect(); };
   document.getElementById('depBtn').onclick = () => toast(t('soon'));
   document.getElementById('wdBtn').onclick = () => toast(t('soon'));
   document.getElementById('exBtn').onclick = () => toast(t('soon'));
@@ -377,10 +384,19 @@ async function loadPvP() {
 }
 
 const WHEEL_COLORS = ['#3b82f6','#ffd60a','#22c55e','#ef4444','#a855f7','#f97316'];
+const WHEEL_EMPTY = `conic-gradient(
+  #1e1e1e 0deg 44deg,#252525 44deg 46deg,
+  #1e1e1e 46deg 89deg,#252525 89deg 91deg,
+  #1e1e1e 91deg 134deg,#252525 134deg 136deg,
+  #1e1e1e 136deg 179deg,#252525 179deg 181deg,
+  #1e1e1e 181deg 224deg,#252525 224deg 226deg,
+  #1e1e1e 226deg 269deg,#252525 269deg 271deg,
+  #1e1e1e 271deg 314deg,#252525 314deg 316deg,
+  #1e1e1e 316deg 360deg)`;
 function drawWheel(players) {
   const wheel = document.getElementById('wheel');
   if (!wheel) return;
-  if (!players.length) { wheel.style.background = 'var(--card2)'; return; }
+  if (!players.length) { wheel.style.background = WHEEL_EMPTY; return; }
   let acc = 0; const stops = [];
   players.forEach((p, i) => {
     const start = acc; acc += Number(p.chance);
