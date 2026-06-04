@@ -379,14 +379,14 @@ async function loadPvP() {
 
 const WHEEL_COLORS = ['#3b82f6','#ffd60a','#22c55e','#ef4444','#a855f7','#f97316'];
 const WHEEL_EMPTY = `conic-gradient(
-  #1e1e1e 0deg 43deg,#2e2e2e 43deg 47deg,
-  #1a1a1a 47deg 88deg,#2e2e2e 88deg 92deg,
-  #1e1e1e 92deg 133deg,#2e2e2e 133deg 137deg,
-  #1a1a1a 137deg 178deg,#2e2e2e 178deg 182deg,
-  #1e1e1e 182deg 223deg,#2e2e2e 223deg 227deg,
-  #1a1a1a 227deg 268deg,#2e2e2e 268deg 272deg,
-  #1e1e1e 272deg 313deg,#2e2e2e 313deg 317deg,
-  #1a1a1a 317deg 360deg)`;
+  #1f1f1f 0deg 44deg,   #0d0d0d 44deg 46deg,
+  #303030 46deg 89deg,  #0d0d0d 89deg 91deg,
+  #1f1f1f 91deg 134deg, #0d0d0d 134deg 136deg,
+  #303030 136deg 179deg,#0d0d0d 179deg 181deg,
+  #1f1f1f 181deg 224deg,#0d0d0d 224deg 226deg,
+  #303030 226deg 269deg,#0d0d0d 269deg 271deg,
+  #1f1f1f 271deg 314deg,#0d0d0d 314deg 316deg,
+  #303030 316deg 360deg)`;
 function drawWheel(players) {
   const wheel = document.getElementById('wheel');
   if (!wheel) return;
