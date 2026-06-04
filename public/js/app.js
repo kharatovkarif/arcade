@@ -290,7 +290,6 @@ function renderPvP() {
         <span class="pvp-logo-text">PvP</span>
         <span class="pvp-round" id="roundLabel">ИГРА #—</span>
       </div>
-      <button class="lang-switch" onclick="switchLangFromPvp()">${LANG.toUpperCase()}</button>
     </div>
     <div class="pvp-banks">
       <div class="pvp-bank-side">
@@ -333,11 +332,6 @@ window.setBet = (v) => {
   if (inp) inp.value = v;
 };
 
-window.switchLangFromPvp = async () => {
-  LANG = LANG === 'ru' ? 'en' : 'ru';
-  await api('/language', { language: LANG });
-  applyLang();
-};
 
 async function doBet() {
   const amount = Number(document.getElementById('betInput')?.value);
@@ -385,14 +379,14 @@ async function loadPvP() {
 
 const WHEEL_COLORS = ['#3b82f6','#ffd60a','#22c55e','#ef4444','#a855f7','#f97316'];
 const WHEEL_EMPTY = `conic-gradient(
-  #1e1e1e 0deg 44deg,#252525 44deg 46deg,
-  #1e1e1e 46deg 89deg,#252525 89deg 91deg,
-  #1e1e1e 91deg 134deg,#252525 134deg 136deg,
-  #1e1e1e 136deg 179deg,#252525 179deg 181deg,
-  #1e1e1e 181deg 224deg,#252525 224deg 226deg,
-  #1e1e1e 226deg 269deg,#252525 269deg 271deg,
-  #1e1e1e 271deg 314deg,#252525 314deg 316deg,
-  #1e1e1e 316deg 360deg)`;
+  #1e1e1e 0deg 43deg,#2e2e2e 43deg 47deg,
+  #1a1a1a 47deg 88deg,#2e2e2e 88deg 92deg,
+  #1e1e1e 92deg 133deg,#2e2e2e 133deg 137deg,
+  #1a1a1a 137deg 178deg,#2e2e2e 178deg 182deg,
+  #1e1e1e 182deg 223deg,#2e2e2e 223deg 227deg,
+  #1a1a1a 227deg 268deg,#2e2e2e 268deg 272deg,
+  #1e1e1e 272deg 313deg,#2e2e2e 313deg 317deg,
+  #1a1a1a 317deg 360deg)`;
 function drawWheel(players) {
   const wheel = document.getElementById('wheel');
   if (!wheel) return;
