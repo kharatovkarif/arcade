@@ -277,7 +277,7 @@ function renderProfile() {
   const conn = document.getElementById('connectBtn');
   if (conn) conn.onclick = () => tonConnectUI && tonConnectUI.openModal();
   document.getElementById('depBtn').onclick = openDeposit;
-  document.getElementById('wdBtn').onclick = () => toast(t('soon'));
+  document.getElementById('wdBtn').onclick = openWithdraw;
   document.getElementById('exBtn').onclick = () => toast(t('soon'));
 }
 
@@ -422,6 +422,48 @@ function createCommentBOC(text) {
   const boc = new Uint8Array(hdr.length + cell.length);
   boc.set(hdr); boc.set(cell, hdr.length);
   return btoa(String.fromCharCode(...boc));
+}
+
+async function openWithdraw() {
+  if (!ME.wallet) { toast('Сначала подключите кошелёк'); return; }
+  openModal(`
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px">💸 Вывод TON</div>
+    <div class="ci-hint" style="margin-bottom:12px;font-size:13px;line-height:1.8">
+      Баланс: <b>${ME.balance_ton.toFixed(4)} TON</b><br>
+      Мин. сумма: <b>0.1 TON</b><br>
+      Кошелёк: <b style="font-size:12px;word-break:break-all">${ME.wallet}</b>
+    </div>
+    <input class="field" id="wdAmount" type="number" step="0.1" min="0.1" max="${ME.balance_ton}" placeholder="0.1 — ${ME.balance_ton.toFixed(2)} TON" />
+    <div id="wdPreview" style="color:var(--blue);font-size:13px;font-weight:700;margin-bottom:10px;min-height:18px"></div>
+    <button class="btn btn-blue" id="wdConfirm">Отправить заявку</button>
+  `);
+  document.getElementById('wdAmount').oninput = () => {
+    const v = Number(document.getElementById('wdAmount').value);
+    document.getElementById('wdPreview').textContent = v >= 0.1 ? `→ спишется ${v} TON с баланса` : '';
+  };
+  document.getElementById('wdConfirm').onclick = async () => {
+    const amount = Number(document.getElementById('wdAmount').value);
+    if (!(amount >= 0.1)) return toast('Минимум 0.1 TON');
+    if (amount > ME.balance_ton) return toast('Недостаточно TON');
+    const btn = document.getElementById('wdConfirm');
+    btn.disabled = true; btn.textContent = 'Отправляю...';
+    const r = await api('/withdraw', { amount });
+    if (r.ok) {
+      ME.balance_ton = r.balance_ton;
+      renderHeader();
+      closeModal();
+      toast('✓ Заявка отправлена! Ожидайте подтверждения.');
+    } else if (r.error === 'not_enough') {
+      toast('Недостаточно TON');
+      btn.disabled = false; btn.textContent = 'Отправить заявку';
+    } else if (r.error === 'no_wallet') {
+      toast('Кошелёк не подключён');
+      closeModal();
+    } else {
+      toast(t('error'));
+      btn.disabled = false; btn.textContent = 'Отправить заявку';
+    }
+  };
 }
 
 async function openDeposit() {

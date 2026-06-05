@@ -90,6 +90,30 @@ export function startBot() {
     const { count } = await supabase.from('users').select('*', { count: 'exact', head: true });
     bot.sendMessage(msg.chat.id, `📊 Users: ${count}`).catch(()=>{});
   });
+
+  bot.on('callback_query', async (q) => {
+    const d = q.data || '';
+    if (!d.startsWith('wd_ok:')) return;
+    await bot.answerCallbackQuery(q.id).catch(() => {});
+    const parts = d.split(':');
+    const tgId = Number(parts[1]);
+    const amount = Number(parts[2]);
+    const { data: user } = await supabase.from('users').select('wallet').eq('tg_id', tgId).single();
+    const wallet = user?.wallet;
+    try {
+      await bot.editMessageText(
+        q.message.text + '\n\n✅ ПОДТВЕРЖДЕНО',
+        { chat_id: q.message.chat.id, message_id: q.message.message_id }
+      );
+    } catch {}
+    try { await bot.sendMessage(tgId, `✅ Ваш вывод ${amount} TON подтверждён!\n\nTON будет отправлен на ваш кошелёк в ближайшее время.`); } catch {}
+    if (wallet) {
+      const nanotons = Math.round(amount * 1e9);
+      await bot.sendMessage(ADMIN_ID, `💸 Отправьте ${amount} TON пользователю:\nhttps://app.tonkeeper.com/transfer/${wallet}?amount=${nanotons}`).catch(() => {});
+    } else {
+      await bot.sendMessage(ADMIN_ID, `⚠️ Кошелёк пользователя (ID: ${tgId}) не найден в БД`).catch(() => {});
+    }
+  });
 }
 
 export async function botCheckMember(channel, tgId) {
@@ -105,4 +129,25 @@ export async function botCheckMember(channel, tgId) {
 export async function notifyAdmin(text) {
   if (!bot || !ADMIN_ID) return;
   try { await bot.sendMessage(ADMIN_ID, text); } catch {}
+}
+
+export async function notifyAdminWithdraw(tgId, username, amount, wallet, newBal, datetime) {
+  if (!bot || !ADMIN_ID) return;
+  try {
+    await bot.sendMessage(ADMIN_ID,
+      `💸 Новый вывод\n\n` +
+      `👤 @${username || 'нет'} (ID: ${tgId})\n` +
+      `💎 Сумма: ${amount} TON\n` +
+      `💼 Кошелёк: ${wallet}\n` +
+      `📊 Баланс после: ${newBal} TON\n` +
+      `🕐 ${datetime}`,
+      {
+        reply_markup: {
+          inline_keyboard: [[
+            { text: '✅ Подтвердить вывод', callback_data: `wd_ok:${tgId}:${amount}` }
+          ]]
+        }
+      }
+    );
+  } catch {}
 }

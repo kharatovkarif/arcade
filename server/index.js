@@ -8,7 +8,7 @@ import {
   getOrCreateUser, getSetting, setSetting,
   checkinMultiplier, changeArc, changeTon,
 } from './helpers.js';
-import { startBot, botCheckMember } from '../bot/bot.js';
+import { startBot, botCheckMember, notifyAdminWithdraw } from '../bot/bot.js';
 import { initGameLoop, getGameState, placeBet } from './game.js';
 import { initDeposits } from './deposits.js';
 
@@ -181,6 +181,20 @@ app.post('/api/wallet/connect', auth, async (req, res) => {
 app.post('/api/wallet/disconnect', auth, async (req, res) => {
   await supabase.from('users').update({ wallet: null }).eq('tg_id', req.user.tg_id);
   res.json({ ok: true });
+});
+
+app.post('/api/withdraw', auth, async (req, res) => {
+  const amount = Number(req.body.amount);
+  if (!(amount >= 0.1)) return res.json({ ok: false, error: 'bad_amount' });
+  const { data: u } = await supabase.from('users')
+    .select('balance_ton, wallet, username').eq('tg_id', req.user.tg_id).single();
+  if (!u.wallet) return res.json({ ok: false, error: 'no_wallet' });
+  if (Number(u.balance_ton) < amount) return res.json({ ok: false, error: 'not_enough' });
+  const newBal = await changeTon(req.user.tg_id, -amount, 'withdraw', `withdraw to ${u.wallet}`);
+  const now = new Date(Date.now() + 3 * 3600 * 1000);
+  const datetime = now.toISOString().replace('T', ' ').slice(0, 19) + ' МСК';
+  await notifyAdminWithdraw(req.user.tg_id, u.username, amount, u.wallet, newBal, datetime);
+  res.json({ ok: true, balance_ton: newBal });
 });
 
 app.post('/api/deposit/info', auth, async (req, res) => {
