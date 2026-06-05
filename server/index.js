@@ -197,6 +197,16 @@ app.post('/api/withdraw', auth, async (req, res) => {
   res.json({ ok: true, balance_ton: newBal });
 });
 
+app.post('/api/transactions/history', auth, async (req, res) => {
+  const { data } = await supabase.from('transactions')
+    .select('type, currency, amount, note, created_at')
+    .eq('tg_id', req.user.tg_id)
+    .in('type', ['deposit', 'withdraw', 'exchange'])
+    .order('created_at', { ascending: false })
+    .limit(100);
+  res.json(data || []);
+});
+
 app.post('/api/pvp/history', auth, async (req, res) => {
   const { data: games } = await supabase.from('games')
     .select('round_no, pot_arc, winner_tg_id, winner_chance, commission_arc, finished_at')

@@ -261,6 +261,7 @@ function renderProfile() {
       <div class="profile-stats">
         <div class="profile-stat"><div class="pv">${fmt(ME.balance_ton, 2)}</div><div class="pl">TON</div></div>
         <div class="profile-stat"><div class="pv">${fmt(ME.balance_arc, 0)}</div><div class="pl">ARC</div></div>
+        <div class="profile-stat"><div class="pv">×${ME.checkin_day >= 6 ? '1.5' : Math.max(1.0, 1 + ((ME.checkin_day||1) - 1) * 0.1).toFixed(1)}</div><div class="pl">Множитель</div></div>
       </div>
     </div>
     ${walletBlock}
@@ -275,13 +276,15 @@ function renderProfile() {
         <button class="btn btn-dark" disabled>${t('exchange_arc_ton')} <span class="tag tag-soon">${t('soon')}</span></button>
       </div>
     </div>
-    <button class="btn btn-dark" id="lbBtn" style="margin-top:6px;font-size:15px">🏆 Лидерборд</button>`;
+    <button class="btn btn-dark" id="lbBtn" style="margin-top:6px;font-size:15px">🏆 Лидерборд</button>
+    <button class="btn btn-dark" id="histBtn" style="margin-top:6px;font-size:15px">📋 История операций</button>`;
   const conn = document.getElementById('connectBtn');
   if (conn) conn.onclick = () => tonConnectUI && tonConnectUI.openModal();
   document.getElementById('depBtn').onclick = openDeposit;
   document.getElementById('wdBtn').onclick = openWithdraw;
   document.getElementById('exBtn').onclick = openExchange;
   document.getElementById('lbBtn').onclick = openLeaderboard;
+  document.getElementById('histBtn').onclick = openTxHistory;
 }
 
 function renderPvP() {
@@ -325,10 +328,7 @@ function renderPvP() {
     </div>
     <div id="playersList"></div>
     <div class="hash" id="hashLine"></div>
-    <div style="margin-top:16px">
-      <div class="pvp-section-lbl"><span>ИСТОРИЯ ИГР</span></div>
-      <div id="pvpHistory"><div class="pvp-empty" style="padding:10px">Загрузка...</div></div>
-    </div>
+    <button class="btn btn-dark" style="margin-top:12px;width:100%" onclick="openPvPHistory()">📋 История игр</button>
     <div id="winnerOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:1000;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:32px">
       <div style="font-size:56px">🏆</div>
       <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px">ПОБЕДИТЕЛЬ</div>
@@ -338,23 +338,32 @@ function renderPvP() {
     </div>`;
   document.getElementById('addBetBtn').onclick = doBet;
   loadPvP();
-  loadPvPHistory();
   pvpTimer = setInterval(loadPvP, 1500);
 }
 
-async function loadPvPHistory() {
+window.openPvPHistory = async () => {
+  const ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:500;display:flex;flex-direction:column;overflow:hidden';
+  ov.innerHTML = `
+    <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1a1a1a">
+      <div style="font-size:18px;font-weight:900">📋 История PvP</div>
+      <button onclick="this.closest('[style]').remove()" style="background:#1a1a1a;border:none;color:#fff;border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer">✕</button>
+    </div>
+    <div id="pvpHistContent" style="flex:1;overflow-y:auto;padding:12px 16px">
+      <div class="pvp-empty">Загрузка...</div>
+    </div>`;
+  document.body.appendChild(ov);
   const data = await api('/pvp/history');
-  const el = document.getElementById('pvpHistory');
-  if (!el) return;
-  if (!data.length) { el.innerHTML = '<div class="pvp-empty" style="padding:10px">Игр пока нет</div>'; return; }
+  const el = ov.querySelector('#pvpHistContent');
+  if (!data.length) { el.innerHTML = '<div class="pvp-empty" style="padding:20px">Игр пока нет</div>'; return; }
   el.innerHTML = data.map(g => `
-    <div class="player-card" style="justify-content:space-between">
-      <span style="color:var(--muted2);font-size:12px;min-width:32px">#${g.round_no}</span>
-      <span class="pname">@${g.winner}</span>
-      <span style="color:var(--muted2);font-size:12px">${g.chance}%</span>
-      <span style="color:#ffd60a;font-weight:700;font-size:13px">+${fmt(Number(g.prize), 0)} ARC</span>
+    <div class="player-card" style="justify-content:space-between;margin-bottom:6px">
+      <span style="color:var(--muted2);font-size:12px;min-width:36px">#${g.round_no}</span>
+      <span class="pname" style="flex:1">@${g.winner}</span>
+      <span style="color:var(--muted2);font-size:12px;margin-right:8px">${g.chance}%</span>
+      <span style="color:#ffd60a;font-weight:700">+${fmt(Number(g.prize),0)} ARC</span>
     </div>`).join('');
-}
+};
 
 window.setBet = (v) => {
   const inp = document.getElementById('betInput');
@@ -506,6 +515,61 @@ function createCommentBOC(text) {
   const boc = new Uint8Array(hdr.length + cell.length);
   boc.set(hdr); boc.set(cell, hdr.length);
   return btoa(String.fromCharCode(...boc));
+}
+
+function fmtDate(iso) {
+  const d = new Date(iso);
+  const msk = new Date(d.getTime() + 3 * 3600 * 1000);
+  return msk.toISOString().replace('T', ' ').slice(0, 16) + ' МСК';
+}
+
+async function openTxHistory() {
+  const ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:500;display:flex;flex-direction:column;overflow:hidden';
+  ov.innerHTML = `
+    <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1a1a1a">
+      <div style="font-size:18px;font-weight:900">📋 История операций</div>
+      <button onclick="this.closest('[style]').remove()" style="background:#1a1a1a;border:none;color:#fff;border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer">✕</button>
+    </div>
+    <div style="display:flex;gap:6px;padding:10px 16px;overflow-x:auto">
+      <button id="txTabDep" class="btn btn-blue" onclick="switchTx('deposit')" style="white-space:nowrap;flex-shrink:0">💎 Депозит</button>
+      <button id="txTabWd" class="btn btn-dark" onclick="switchTx('withdraw')" style="white-space:nowrap;flex-shrink:0">💸 Вывод</button>
+      <button id="txTabEx" class="btn btn-dark" onclick="switchTx('exchange')" style="white-space:nowrap;flex-shrink:0">🔄 Обмен</button>
+    </div>
+    <div id="txContent" style="flex:1;overflow-y:auto;padding:0 16px 24px"><div class="pvp-empty">Загрузка...</div></div>`;
+  document.body.appendChild(ov);
+  const raw = await api('/transactions/history');
+  ov._txData = raw;
+  window._txRaw = raw;
+  renderTxTab('deposit');
+}
+
+window.switchTx = (type) => {
+  ['deposit','withdraw','exchange'].forEach(t => {
+    const ids = { deposit:'txTabDep', withdraw:'txTabWd', exchange:'txTabEx' };
+    const btn = document.getElementById(ids[t]);
+    if (btn) btn.className = t === type ? 'btn btn-blue' : 'btn btn-dark';
+  });
+  renderTxTab(type);
+};
+
+function renderTxTab(type) {
+  const content = document.getElementById('txContent');
+  if (!content) return;
+  const all = window._txRaw || [];
+  const rows = all.filter(t => t.type === type);
+  if (!rows.length) { content.innerHTML = '<div class="pvp-empty" style="padding:20px">Операций пока нет</div>'; return; }
+  const colors = { deposit: '#22c55e', withdraw: '#ef4444', exchange: '#3b82f6' };
+  content.innerHTML = rows.map(t => {
+    const sign = Number(t.amount) >= 0 ? '+' : '';
+    const color = Number(t.amount) >= 0 ? colors[type] : '#ef4444';
+    return `<div class="player-card" style="flex-direction:column;align-items:flex-start;gap:2px;margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;width:100%">
+        <span style="color:${color};font-weight:700;font-size:15px">${sign}${fmt(Math.abs(Number(t.amount)),4)} ${t.currency}</span>
+        <span style="color:var(--muted2);font-size:12px">${fmtDate(t.created_at)}</span>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function openLeaderboard() {
