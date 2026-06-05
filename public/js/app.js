@@ -352,11 +352,22 @@ async function loadPvP() {
   const center = document.getElementById('wheelCenter');
   if (center) {
     if (s.status === 'counting' && s.secondsLeft != null) center.textContent = '00:' + String(s.secondsLeft).padStart(2, '0');
-    else if (s.status === 'spinning') center.textContent = '...';
+    else if (s.status === 'spinning') center.textContent = '🎰';
     else if (s.status === 'done' && s.winner) center.textContent = '🏆';
     else center.textContent = t('waiting');
   }
-  drawWheel(s.players);
+  if (s.status === 'spinning') {
+    if (!spinTriggered && s.winner?.roll != null) {
+      spinTriggered = true;
+      spinWheel(s.players, s.winner.roll);
+    }
+  } else if (s.status === 'done') {
+    if (!spinTriggered) drawWheel(s.players);
+    // else keep wheel in spun position
+  } else {
+    if (spinTriggered) spinTriggered = false;
+    drawWheel(s.players);
+  }
   const pl = document.getElementById('playersList');
   if (pl) {
     pl.innerHTML = s.players.length
@@ -387,21 +398,45 @@ const WHEEL_EMPTY = `conic-gradient(
   #303030 226deg 269deg,#0d0d0d 269deg 271deg,
   #1f1f1f 271deg 314deg,#0d0d0d 314deg 316deg,
   #303030 316deg 360deg)`;
+
+let spinTriggered = false;
+
+function buildWheelGradient(players) {
+  let acc = 0; const stops = [];
+  players.forEach((p, i) => {
+    const start = acc; acc += Number(p.chance);
+    stops.push(`${WHEEL_COLORS[i % WHEEL_COLORS.length]} ${start}% ${acc}%`);
+  });
+  return `conic-gradient(${stops.join(',')})`;
+}
+
 function drawWheel(players) {
   const wheel = document.getElementById('wheel');
   if (!wheel) return;
+  wheel.style.transition = 'none';
+  wheel.style.transform = '';
   if (!players.length) {
     wheel.style.background = WHEEL_EMPTY;
     wheel.classList.add('idle');
     return;
   }
   wheel.classList.remove('idle');
-  let acc = 0; const stops = [];
-  players.forEach((p, i) => {
-    const start = acc; acc += Number(p.chance);
-    stops.push(`${WHEEL_COLORS[i % WHEEL_COLORS.length]} ${start}% ${acc}%`);
-  });
-  wheel.style.background = `conic-gradient(${stops.join(',')})`;
+  wheel.style.background = buildWheelGradient(players);
+}
+
+function spinWheel(players, roll) {
+  const wheel = document.getElementById('wheel');
+  if (!wheel) return;
+  wheel.classList.remove('idle');
+  wheel.style.background = buildWheelGradient(players);
+  // Reset to 0 instantly, then animate to target
+  wheel.style.transition = 'none';
+  wheel.style.transform = 'rotate(0deg)';
+  wheel.getBoundingClientRect(); // force reflow
+  // 7 full rotations, land on roll position at top (pointer)
+  const finalAngle = 360 * (7 - roll);
+  wheel.style.transition = '';   // restore CSS transition from stylesheet
+  wheel.style.transform = `rotate(${finalAngle}deg)`;
 }
 
 document.getElementById('langBtn').onclick = async () => {

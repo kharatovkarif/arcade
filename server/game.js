@@ -3,6 +3,7 @@ import { supabase } from './db.js';
 import { getSetting, setSetting, changeArc } from './helpers.js';
 
 const COUNTDOWN = 15;
+const SPIN_DURATION = 4;
 const SHOW_RESULT = 3;
 const COMMISSION = 0.10;
 const MIN_BET = 10, MAX_BET = 1000;
@@ -65,6 +66,7 @@ export async function placeBet(tgId, username, amount) {
 }
 
 async function finishRound() {
+  if (current.status !== 'counting') return;
   current.status = 'spinning';
   await supabase.from('games').update({ status: 'spinning' }).eq('id', current.gameId);
 
@@ -91,11 +93,12 @@ async function finishRound() {
     prize: prize.toFixed(2),
     roll,
   };
+  current.spinEndsAt = Date.now() + SPIN_DURATION * 1000;
 
   await changeArc(winner.tg_id, prize, 'pvp', `win round ${current.roundNo}`);
 
   await supabase.from('games').update({
-    status: 'done',
+    status: 'spinning',
     pot_arc: current.pot,
     winner_tg_id: winner.tg_id,
     winner_chance: chance,
@@ -104,7 +107,6 @@ async function finishRound() {
     finished_at: new Date().toISOString(),
   }).eq('id', current.gameId);
 
-  current.status = 'done';
   await setSetting('round_counter', current.roundNo + 1);
 }
 
@@ -125,6 +127,7 @@ function stateView() {
   if (current.status === 'counting' && current.countdownEnd) {
     secondsLeft = Math.max(0, Math.ceil((current.countdownEnd - Date.now()) / 1000));
   }
+  const showWinner = current.status === 'done' || current.status === 'spinning';
   return {
     status: current.status,
     roundNo: current.roundNo,
@@ -132,7 +135,7 @@ function stateView() {
     players,
     secondsLeft,
     seedHash: current.seedHash,
-    winner: current.status === 'done' ? current.winner : null,
+    winner: showWinner ? current.winner : null,
     serverSeed: current.status === 'done' ? current.serverSeed : null,
   };
 }
@@ -148,6 +151,10 @@ export function initGameLoop() {
     if (!current) return;
     if (current.status === 'counting' && Date.now() >= current.countdownEnd) {
       await finishRound();
+    }
+    if (current.status === 'spinning' && current.spinEndsAt && Date.now() >= current.spinEndsAt) {
+      current.status = 'done';
+      await supabase.from('games').update({ status: 'done' }).eq('id', current.gameId);
       setTimeout(() => newRound(), SHOW_RESULT * 1000);
     }
   }, 1000);
