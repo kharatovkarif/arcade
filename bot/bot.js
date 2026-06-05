@@ -133,6 +133,11 @@ export async function notifyAdmin(text) {
   try { await bot.sendMessage(ADMIN_ID, text); } catch {}
 }
 
+export async function notifyUser(tgId, text) {
+  if (!bot) return;
+  try { await bot.sendMessage(tgId, text); } catch {}
+}
+
 export async function notifyAdminWithdraw(tgId, username, amount, wallet, newBal, datetime) {
   if (!bot || !ADMIN_ID) return;
   pendingWithdrawals.set(tgId, { amount, wallet });

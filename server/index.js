@@ -252,10 +252,29 @@ function mskDate(offsetDays = 0) {
   return msk.toISOString().slice(0, 10);
 }
 
+async function updateTonPrice() {
+  try {
+    const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=the-open-network&vs_currencies=usd');
+    const data = await res.json();
+    const price = data?.['the-open-network']?.usd;
+    if (price) await setSetting('ton_usd', String(price));
+  } catch (e) {
+    console.log('price fetch error:', e.message);
+  }
+}
+
+async function initSettings() {
+  if (!await getSetting('arc_usd')) await setSetting('arc_usd', '0.0003');
+  if (!await getSetting('exchange_daily_limit_ton')) await setSetting('exchange_daily_limit_ton', '5');
+  await updateTonPrice();
+  setInterval(updateTonPrice, 10 * 60 * 1000);
+}
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`ARCADE server running on :${PORT}`);
   startBot();
   initGameLoop();
   initDeposits();
+  initSettings();
 });

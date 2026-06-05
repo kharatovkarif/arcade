@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import { supabase } from './db.js';
 import { changeTon } from './helpers.js';
-import { notifyAdmin } from '../bot/bot.js';
+import { notifyAdmin, notifyUser } from '../bot/bot.js';
 dotenv.config();
 
 const WALLET = process.env.PROJECT_WALLET;
@@ -69,6 +69,7 @@ async function processEvent(ev) {
 
     const senderAddr = ton.sender?.address || 'unknown';
     const newBal = await changeTon(tgId, amountTon, 'deposit', `deposit from ${senderAddr}`, txHash);
+    notifyUser(tgId, `✅ Депозит: +${amountTon.toFixed(3)} TON\nВаш баланс: ${newBal.toFixed(4)} TON`).catch(() => {});
 
     const walletShown = user.wallet || senderAddr;
     const now = new Date(Date.now() + 3 * 3600 * 1000);

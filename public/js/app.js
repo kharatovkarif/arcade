@@ -278,7 +278,7 @@ function renderProfile() {
   if (conn) conn.onclick = () => tonConnectUI && tonConnectUI.openModal();
   document.getElementById('depBtn').onclick = openDeposit;
   document.getElementById('wdBtn').onclick = openWithdraw;
-  document.getElementById('exBtn').onclick = () => toast(t('soon'));
+  document.getElementById('exBtn').onclick = openExchange;
 }
 
 function renderPvP() {
@@ -588,6 +588,18 @@ function initTonConnect() {
   } catch (e) {}
 }
 
+async function refreshBalance() {
+  if (!ME) return;
+  try {
+    const u = await api('/me');
+    if (u?.tg_id) {
+      ME.balance_ton = u.balance_ton;
+      ME.balance_arc = u.balance_arc;
+      renderHeader();
+    }
+  } catch {}
+}
+
 async function init() {
   ME = await api('/me');
   if (ME.error) {
@@ -597,5 +609,6 @@ async function init() {
   LANG = ME.language || 'ru';
   renderHeader(); applyLang(); switchTab('main');
   initTonConnect();
+  setInterval(refreshBalance, 10000);
 }
 init();
