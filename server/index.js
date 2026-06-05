@@ -197,6 +197,52 @@ app.post('/api/withdraw', auth, async (req, res) => {
   res.json({ ok: true, balance_ton: newBal });
 });
 
+app.post('/api/pvp/history', auth, async (req, res) => {
+  const { data: games } = await supabase.from('games')
+    .select('round_no, pot_arc, winner_tg_id, winner_chance, commission_arc, finished_at')
+    .eq('status', 'done').not('winner_tg_id', 'is', null)
+    .order('finished_at', { ascending: false }).limit(30);
+  const winnerIds = [...new Set((games || []).map(g => g.winner_tg_id).filter(Boolean))];
+  let usernameMap = {};
+  if (winnerIds.length) {
+    const { data: us } = await supabase.from('users').select('tg_id, username').in('tg_id', winnerIds);
+    (us || []).forEach(u => { usernameMap[u.tg_id] = u.username; });
+  }
+  res.json((games || []).map(g => ({
+    round_no: g.round_no,
+    winner: usernameMap[g.winner_tg_id] || '...',
+    chance: Number(g.winner_chance).toFixed(1),
+    prize: (Number(g.pot_arc) - Number(g.commission_arc)).toFixed(0),
+    pot: Number(g.pot_arc),
+    time: g.finished_at,
+  })));
+});
+
+app.post('/api/leaderboard/pvp', auth, async (req, res) => {
+  const { data: txs } = await supabase.from('transactions')
+    .select('tg_id, amount').eq('type', 'pvp').eq('currency', 'ARC').lt('amount', 0);
+  const totals = {};
+  for (const t of txs || []) totals[t.tg_id] = (totals[t.tg_id] || 0) + Math.abs(Number(t.amount));
+  const sorted = Object.entries(totals).map(([id, total]) => ({ tg_id: Number(id), total }))
+    .sort((a, b) => b.total - a.total);
+  const top50Ids = sorted.slice(0, 50).map(x => x.tg_id);
+  let usernameMap = {};
+  if (top50Ids.length) {
+    const { data: us } = await supabase.from('users').select('tg_id, username').in('tg_id', top50Ids);
+    (us || []).forEach(u => { usernameMap[u.tg_id] = u.username; });
+  }
+  const top = sorted.slice(0, 50).map((x, i) => ({
+    rank: i + 1, username: usernameMap[x.tg_id] || '...', total: x.total,
+  }));
+  const myIdx = sorted.findIndex(x => x.tg_id === req.user.tg_id);
+  const myRank = myIdx >= 0 ? { rank: myIdx + 1, total: sorted[myIdx].total } : null;
+  res.json({ top, myRank });
+});
+
+app.post('/api/leaderboard/ads', auth, async (req, res) => {
+  res.json({ top: [], myRank: null });
+});
+
 app.post('/api/deposit/info', auth, async (req, res) => {
   res.json({
     wallet: process.env.PROJECT_WALLET,
