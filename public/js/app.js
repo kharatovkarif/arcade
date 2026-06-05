@@ -5,6 +5,7 @@ let LANG = 'ru';
 let ME = null;
 let pvpTimer = null;
 let tonConnectUI = null;
+let adsgramController = null;
 
 async function api(path, body = {}) {
   const res = await fetch('/api' + path, {
@@ -77,17 +78,29 @@ function renderCurrentTab() {
 
 document.querySelectorAll('.tab, .tab-center').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
 
-function renderMain() {
+async function renderMain() {
   const walletHtml = ME.wallet
     ? `<div class="hero-wallet">${ME.wallet.slice(0,4)}...${ME.wallet.slice(-4)}</div>` : '';
-  const ads = [1, 2, 3].map(n => `
-    <div class="row">
-      <div class="info">
-        <span class="title">${t('ad_reward')} ${n} — 5 ARC</span>
-        <span class="sub">${t('ad_unavailable')}</span>
-      </div>
-      <button class="btn btn-sm btn-dark" disabled>${t('ad_watch')}</button>
-    </div>`).join('');
+  const allTasks = await api('/tasks');
+  const adTasks = (allTasks || []).filter(tk => tk.type === 'ad');
+  const ads = adTasks.length
+    ? adTasks.map(tk => {
+        if (tk.completed) return `<div class="row">
+          <div class="info">
+            <span class="title">${t('ad_reward')} — 5 ARC</span>
+            <span class="sub">${LANG === 'ru' ? 'Просмотрено сегодня' : 'Watched today'}</span>
+          </div><span class="tag tag-done">✓</span></div>`;
+        const active = !!adsgramController;
+        return `<div class="row">
+          <div class="info">
+            <span class="title">${t('ad_reward')} — 5 ARC</span>
+            <span class="sub">${active ? (LANG === 'ru' ? 'Нажми и смотри' : 'Tap to watch') : t('ad_unavailable')}</span>
+          </div>
+          <button class="btn btn-sm ${active ? 'btn-blue' : 'btn-dark'}"
+            ${active ? `onclick="showAd(${tk.id},this)"` : 'disabled'}>${t('ad_watch')}</button>
+        </div>`;
+      }).join('')
+    : `<p class="muted">${t('ad_unavailable')}</p>`;
   document.getElementById('page-main').innerHTML = `
     <div class="hero-card">
       ${walletHtml}
@@ -123,7 +136,8 @@ async function renderTasks() {
     const cur = ci.day === d ? 'cur' : '';
     return `<div class="ci-day ${cur}"><span class="dn">Д${d}</span><span class="dx">×${mult[d]}</span></div>`;
   }).join('');
-  const tasks = await api('/tasks');
+  const allTasksData = await api('/tasks');
+  const tasks = (allTasksData || []).filter(tk => tk.type !== 'ad');
   let tasksHtml = !tasks.length ? `<p class="muted">${t('no_tasks')}</p>` :
     tasks.map(tk => {
       const progress = tk.type === 'referral_milestone'
@@ -195,6 +209,26 @@ window.checkTask = async (id, btn) => {
     if (r.error === 'not_subscribed') toast(t('task_check_fail'));
     else if (r.error === 'not_enough_referrals') toast(LANG==='ru' ? `Нужно ещё ${r.need - r.have} друзей` : `Need ${r.need - r.have} more friends`);
     else toast(t('error'));
+    btn.disabled = false;
+  }
+};
+
+window.showAd = async (taskId, btn) => {
+  if (!adsgramController) { toast(t('ad_unavailable')); return; }
+  btn.disabled = true;
+  try {
+    await adsgramController.show();
+    const r = await api('/tasks/check', { task_id: taskId });
+    if (r.ok) {
+      toast('+' + r.reward + ' ARC');
+      ME.balance_arc = r.balance_arc;
+      renderHeader();
+      renderMain();
+    } else {
+      toast(r.error === 'already_done' ? (LANG === 'ru' ? 'Уже просмотрено сегодня' : 'Already watched today') : t('error'));
+      btn.disabled = false;
+    }
+  } catch {
     btn.disabled = false;
   }
 };
@@ -816,5 +850,8 @@ async function init() {
   renderHeader(); applyLang(); switchTab('main');
   initTonConnect();
   setInterval(refreshBalance, 10000);
+  if (ME.adsgram_block_id && window.Adsgram) {
+    try { adsgramController = window.Adsgram.init({ blockId: ME.adsgram_block_id }); } catch {}
+  }
 }
 init();

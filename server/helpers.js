@@ -62,21 +62,17 @@ export function checkinMultiplier(day) {
 }
 
 export async function changeArc(tgId, amount, type, note = '') {
-  const { data: u } = await supabase.from('users').select('balance_arc').eq('tg_id', tgId).single();
-  const newBal = Number(u.balance_arc) + Number(amount);
-  await supabase.from('users').update({ balance_arc: newBal }).eq('tg_id', tgId);
-  await supabase.from('transactions').insert({
-    tg_id: tgId, type, currency: 'ARC', amount, note,
-  });
+  const { data, error } = await supabase.rpc('increment_arc', { p_tg_id: tgId, p_amount: Number(amount) });
+  if (error) throw new Error(error.message);
+  const newBal = Number(data);
+  await supabase.from('transactions').insert({ tg_id: tgId, type, currency: 'ARC', amount, note });
   return newBal;
 }
 
 export async function changeTon(tgId, amount, type, note = '', txHash = null) {
-  const { data: u } = await supabase.from('users').select('balance_ton').eq('tg_id', tgId).single();
-  const newBal = Number(u.balance_ton) + Number(amount);
-  await supabase.from('users').update({ balance_ton: newBal }).eq('tg_id', tgId);
-  await supabase.from('transactions').insert({
-    tg_id: tgId, type, currency: 'TON', amount, note, tx_hash: txHash,
-  });
+  const { data, error } = await supabase.rpc('increment_ton', { p_tg_id: tgId, p_amount: Number(amount) });
+  if (error) throw new Error(error.message);
+  const newBal = Number(data);
+  await supabase.from('transactions').insert({ tg_id: tgId, type, currency: 'TON', amount, note, tx_hash: txHash });
   return newBal;
 }

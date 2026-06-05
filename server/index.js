@@ -44,6 +44,7 @@ app.post('/api/me', auth, async (req, res) => {
     language: u.language, balance_arc: Number(u.balance_arc),
     balance_ton: Number(u.balance_ton), wallet: u.wallet,
     is_admin: u.is_admin, checkin_day: u.checkin_day,
+    adsgram_block_id: process.env.ADSGRAM_BLOCK_ID || '',
   });
 });
 
