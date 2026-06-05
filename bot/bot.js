@@ -8,6 +8,7 @@ const ADMIN_ID = Number(process.env.ADMIN_ID);
 const APP_URL = process.env.APP_URL;
 
 let bot = null;
+const pendingWithdrawals = new Map();
 
 export function startBot() {
   if (!TOKEN) { console.warn('BOT_TOKEN not set'); return; }
@@ -98,8 +99,9 @@ export function startBot() {
     const parts = d.split(':');
     const tgId = Number(parts[1]);
     const amount = Number(parts[2]);
-    const { data: user } = await supabase.from('users').select('wallet').eq('tg_id', tgId).single();
-    const wallet = user?.wallet;
+    const pending = pendingWithdrawals.get(tgId);
+    const wallet = pending?.wallet;
+    pendingWithdrawals.delete(tgId);
     try {
       await bot.editMessageText(
         q.message.text + '\n\n✅ ПОДТВЕРЖДЕНО',
@@ -109,9 +111,9 @@ export function startBot() {
     try { await bot.sendMessage(tgId, `✅ Ваш вывод ${amount} TON подтверждён!\n\nTON будет отправлен на ваш кошелёк в ближайшее время.`); } catch {}
     if (wallet) {
       const nanotons = Math.round(amount * 1e9);
-      await bot.sendMessage(ADMIN_ID, `💸 Отправьте ${amount} TON пользователю:\nhttps://app.tonkeeper.com/transfer/${wallet}?amount=${nanotons}`).catch(() => {});
+      await bot.sendMessage(ADMIN_ID, `💸 Отправьте ${amount} TON:\nhttps://app.tonkeeper.com/transfer/${wallet}?amount=${nanotons}`).catch(() => {});
     } else {
-      await bot.sendMessage(ADMIN_ID, `⚠️ Кошелёк пользователя (ID: ${tgId}) не найден в БД`).catch(() => {});
+      await bot.sendMessage(ADMIN_ID, `⚠️ Кошелёк для вывода не найден (ID: ${tgId})`).catch(() => {});
     }
   });
 }
@@ -133,6 +135,7 @@ export async function notifyAdmin(text) {
 
 export async function notifyAdminWithdraw(tgId, username, amount, wallet, newBal, datetime) {
   if (!bot || !ADMIN_ID) return;
+  pendingWithdrawals.set(tgId, { amount, wallet });
   try {
     await bot.sendMessage(ADMIN_ID,
       `💸 Новый вывод\n\n` +
