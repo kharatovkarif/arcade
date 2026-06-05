@@ -58,6 +58,8 @@ const PAGES = ['pvp', 'tasks', 'main', 'friends', 'profile'];
 
 function switchTab(tab) {
   currentTab = tab;
+  const ov = document.getElementById('winnerOverlay');
+  if (ov) ov.style.display = 'none';
   PAGES.forEach(p => document.getElementById('page-' + p).hidden = (p !== tab));
   document.querySelectorAll('.tab, .tab-center').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   if (pvpTimer) { clearInterval(pvpTimer); pvpTimer = null; }
@@ -298,7 +300,7 @@ function renderPvP() {
       </div>
       <div class="pvp-bank-side" style="text-align:right">
         <div class="pvp-bank-lbl">МОЙ БАЛАНС</div>
-        <div class="pvp-mybal-val">${fmt(ME?.balance_arc ?? 0, 0)} ARC</div>
+        <div class="pvp-mybal-val" id="pvpMyBal">${fmt(ME?.balance_arc ?? 0, 0)} ARC</div>
       </div>
     </div>
     <div class="wheel-wrap">
@@ -321,7 +323,14 @@ function renderPvP() {
       <span id="onlineLabel" style="color:var(--green)">0 онлайн</span>
     </div>
     <div id="playersList"></div>
-    <div class="hash" id="hashLine"></div>`;
+    <div class="hash" id="hashLine"></div>
+    <div id="winnerOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:1000;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:32px">
+      <div style="font-size:56px">🏆</div>
+      <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px">ПОБЕДИТЕЛЬ</div>
+      <div id="woUsername" style="font-size:28px;font-weight:900;color:#fff"></div>
+      <div id="woChance" style="font-size:14px;color:var(--muted2);margin-top:-4px"></div>
+      <div id="woPrize" style="font-size:40px;font-weight:900;color:#ffd60a;margin-top:4px"></div>
+    </div>`;
   document.getElementById('addBetBtn').onclick = doBet;
   loadPvP();
   pvpTimer = setInterval(loadPvP, 1500);
@@ -356,6 +365,9 @@ async function loadPvP() {
     else if (s.status === 'done' && s.winner) center.textContent = '🏆';
     else center.textContent = t('waiting');
   }
+  const myBalEl = document.getElementById('pvpMyBal');
+  if (myBalEl) myBalEl.textContent = fmt(ME.balance_arc, 0) + ' ARC';
+
   if (s.status === 'spinning') {
     if (!spinTriggered && s.winner?.roll != null) {
       spinTriggered = true;
@@ -363,11 +375,16 @@ async function loadPvP() {
     }
   } else if (s.status === 'done') {
     if (!spinTriggered) drawWheel(s.players);
-    // else keep wheel in spun position
+    if (s.winner && prevPvpStatus !== 'done' && !winnerShown) {
+      winnerShown = true;
+      showWinnerOverlay(s.winner);
+    }
   } else {
-    if (spinTriggered) spinTriggered = false;
+    spinTriggered = false;
+    winnerShown = false;
     drawWheel(s.players);
   }
+  prevPvpStatus = s.status;
   const pl = document.getElementById('playersList');
   if (pl) {
     pl.innerHTML = s.players.length
@@ -388,7 +405,7 @@ async function loadPvP() {
   }
 }
 
-const WHEEL_COLORS = ['#3b82f6','#ffd60a','#22c55e','#ef4444','#a855f7','#f97316'];
+const WHEEL_COLORS = ['#3b82f6','#ffd60a','#22c55e','#ef4444','#a855f7','#f97316','#06b6d4','#ec4899','#84cc16','#f43f5e'];
 const WHEEL_EMPTY = `conic-gradient(
   #1f1f1f 0deg 44deg,   #0d0d0d 44deg 46deg,
   #303030 46deg 89deg,  #0d0d0d 89deg 91deg,
@@ -400,6 +417,8 @@ const WHEEL_EMPTY = `conic-gradient(
   #303030 316deg 360deg)`;
 
 let spinTriggered = false;
+let winnerShown = false;
+let prevPvpStatus = null;
 
 function buildWheelGradient(players) {
   let acc = 0; const stops = [];
@@ -422,6 +441,16 @@ function drawWheel(players) {
   }
   wheel.classList.remove('idle');
   wheel.style.background = buildWheelGradient(players);
+}
+
+function showWinnerOverlay(winner) {
+  const ov = document.getElementById('winnerOverlay');
+  if (!ov) return;
+  document.getElementById('woUsername').textContent = '@' + (winner.username || '...');
+  document.getElementById('woChance').textContent = winner.chance + '% шанс победы';
+  document.getElementById('woPrize').textContent = '+' + parseFloat(winner.prize).toLocaleString() + ' ARC';
+  ov.style.display = 'flex';
+  setTimeout(() => { ov.style.display = 'none'; }, 3000);
 }
 
 function spinWheel(players, roll) {
