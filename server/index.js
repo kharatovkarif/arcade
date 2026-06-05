@@ -99,10 +99,17 @@ app.post('/api/tasks', auth, async (req, res) => {
   const { data: done } = await supabase.from('task_completions')
     .select('task_id').eq('tg_id', req.user.tg_id);
   const doneIds = new Set((done || []).map(d => d.task_id));
+  let refCount = null;
+  if ((tasks || []).some(t => t.type === 'referral_milestone')) {
+    const { count } = await supabase.from('users')
+      .select('*', { count: 'exact', head: true }).eq('referrer_id', req.user.tg_id);
+    refCount = count || 0;
+  }
   res.json((tasks || []).map(t => ({
     id: t.id, title_ru: t.title_ru, title_en: t.title_en,
     type: t.type, target: t.target, reward_arc: Number(t.reward_arc),
     completed: doneIds.has(t.id),
+    ...(t.type === 'referral_milestone' ? { progress: refCount, need: Number(t.target || 0) } : {}),
   })));
 });
 
@@ -111,17 +118,36 @@ app.post('/api/tasks/check', auth, async (req, res) => {
   const { data: task } = await supabase.from('tasks')
     .select('*').eq('id', taskId).eq('is_active', true).single();
   if (!task) return res.json({ ok: false, error: 'not_found' });
-  const { data: c } = await supabase.from('task_completions')
-    .select('id').eq('task_id', taskId).eq('tg_id', req.user.tg_id).single();
-  if (c) return res.json({ ok: false, error: 'already_done' });
+
+  // Daily tasks: allow once per MSK day
+  if (task.limit_mode === 'daily') {
+    const today = mskDate();
+    const { data: dc } = await supabase.from('task_completions')
+      .select('id').eq('task_id', taskId).eq('tg_id', req.user.tg_id)
+      .gte('created_at', today + 'T00:00:00').maybeSingle();
+    if (dc) return res.json({ ok: false, error: 'already_done' });
+  } else {
+    const { data: c } = await supabase.from('task_completions')
+      .select('id').eq('task_id', taskId).eq('tg_id', req.user.tg_id).maybeSingle();
+    if (c) return res.json({ ok: false, error: 'already_done' });
+  }
+
   if (task.limit_mode === 'count' && task.used_count >= task.limit_count)
     return res.json({ ok: false, error: 'limit_reached' });
   if (task.limit_mode === 'time' && task.expires_at && new Date(task.expires_at) < new Date())
     return res.json({ ok: false, error: 'expired' });
+
   if (task.type === 'subscribe' && task.target) {
     const ok = await botCheckMember(task.target, req.user.tg_id);
     if (!ok) return res.json({ ok: false, error: 'not_subscribed' });
   }
+  if (task.type === 'referral_milestone') {
+    const required = Number(task.target || 0);
+    const { count } = await supabase.from('users')
+      .select('*', { count: 'exact', head: true }).eq('referrer_id', req.user.tg_id);
+    if ((count || 0) < required) return res.json({ ok: false, error: 'not_enough_referrals', need: required, have: count || 0 });
+  }
+
   await supabase.from('task_completions').insert({ task_id: taskId, tg_id: req.user.tg_id });
   await supabase.from('tasks').update({ used_count: task.used_count + 1 }).eq('id', taskId);
   const newBal = await changeArc(req.user.tg_id, task.reward_arc, 'task', `task ${taskId}`);

@@ -92,6 +92,28 @@ export function startBot() {
     bot.sendMessage(msg.chat.id, `📊 Users: ${count}`).catch(()=>{});
   });
 
+  bot.onText(/\/promo_list/, async (msg) => {
+    if (msg.from.id !== ADMIN_ID) return;
+    const { data } = await supabase.from('promocodes').select('*').eq('is_active', true).order('created_at', { ascending: false });
+    if (!data?.length) return bot.sendMessage(msg.chat.id, 'Нет активных промокодов').catch(()=>{});
+    const text = data.map(p => {
+      const limit = p.limit_mode === 'count' ? ` | лимит: ${p.used_count}/${p.limit_count}` : p.limit_mode === 'time' ? ` | до: ${p.expires_at?.slice(0,10)}` : ' | глобальный';
+      return `🎟 ${p.code} — +${p.reward_arc} ARC${limit}`;
+    }).join('\n');
+    bot.sendMessage(msg.chat.id, `📋 Активные промокоды:\n\n${text}`).catch(()=>{});
+  });
+
+  bot.onText(/\/task_list/, async (msg) => {
+    if (msg.from.id !== ADMIN_ID) return;
+    const { data } = await supabase.from('tasks').select('*').eq('is_active', true).order('created_at', { ascending: false });
+    if (!data?.length) return bot.sendMessage(msg.chat.id, 'Нет активных заданий').catch(()=>{});
+    const text = data.map(t => {
+      const limit = t.limit_mode === 'count' ? ` | ${t.used_count}/${t.limit_count} исп.` : t.limit_mode === 'time' ? ` | до ${t.expires_at?.slice(0,10)}` : t.limit_mode === 'daily' ? ' | ежедневное' : '';
+      return `[${t.id}] ${t.type}${t.target ? ' ' + t.target : ''} — +${t.reward_arc} ARC${limit}\n  RU: ${t.title_ru} | EN: ${t.title_en}`;
+    }).join('\n\n');
+    bot.sendMessage(msg.chat.id, `📋 Активные задания:\n\n${text}`).catch(()=>{});
+  });
+
   bot.on('callback_query', async (q) => {
     const d = q.data || '';
     if (!d.startsWith('wd_ok:')) return;

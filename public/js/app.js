@@ -125,16 +125,22 @@ async function renderTasks() {
   }).join('');
   const tasks = await api('/tasks');
   let tasksHtml = !tasks.length ? `<p class="muted">${t('no_tasks')}</p>` :
-    tasks.map(tk => `
+    tasks.map(tk => {
+      const progress = tk.type === 'referral_milestone'
+        ? `<span class="sub" style="color:#aaa">${tk.progress||0}/${tk.need} ${LANG==='ru'?'друзей':'friends'}</span>`
+        : '';
+      return `
       <div class="row">
         <div class="info">
           <span class="title">${LANG === 'ru' ? tk.title_ru : tk.title_en}</span>
           <span class="sub">+${tk.reward_arc} ARC</span>
+          ${progress}
         </div>
         ${tk.completed
           ? `<span class="tag tag-done">✓</span>`
           : `<button class="btn btn-sm btn-green" onclick="checkTask(${tk.id}, this)">${t('check')}</button>`}
-      </div>`).join('');
+      </div>`;
+    }).join('');
   el.innerHTML = `
     <div class="ci-card">
       <div class="ci-hdr">${t('daily_checkin')}</div>
@@ -185,7 +191,12 @@ window.checkTask = async (id, btn) => {
   btn.disabled = true;
   const r = await api('/tasks/check', { task_id: id });
   if (r.ok) { toast('+' + r.reward + ' ARC'); ME.balance_arc = r.balance_arc; renderHeader(); renderTasks(); }
-  else { toast(r.error === 'not_subscribed' ? t('task_check_fail') : t('error')); btn.disabled = false; }
+  else {
+    if (r.error === 'not_subscribed') toast(t('task_check_fail'));
+    else if (r.error === 'not_enough_referrals') toast(LANG==='ru' ? `Нужно ещё ${r.need - r.have} друзей` : `Need ${r.need - r.have} more friends`);
+    else toast(t('error'));
+    btn.disabled = false;
+  }
 };
 
 async function renderFriends() {
@@ -343,11 +354,11 @@ function renderPvP() {
 
 window.openPvPHistory = async () => {
   const ov = document.createElement('div');
-  ov.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:500;display:flex;flex-direction:column;overflow:hidden';
+  ov.setAttribute('data-ov','1'); ov.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:500;display:flex;flex-direction:column;overflow:hidden';
   ov.innerHTML = `
     <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1a1a1a">
       <div style="font-size:18px;font-weight:900">📋 История PvP</div>
-      <button onclick="this.closest('[style]').remove()" style="background:#1a1a1a;border:none;color:#fff;border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer">✕</button>
+      <button onclick="this.closest('[data-ov]').remove()" style="background:#1a1a1a;border:none;color:#fff;border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer">✕</button>
     </div>
     <div id="pvpHistContent" style="flex:1;overflow-y:auto;padding:12px 16px">
       <div class="pvp-empty">Загрузка...</div>
@@ -525,11 +536,11 @@ function fmtDate(iso) {
 
 async function openTxHistory() {
   const ov = document.createElement('div');
-  ov.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:500;display:flex;flex-direction:column;overflow:hidden';
+  ov.setAttribute('data-ov','1'); ov.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:500;display:flex;flex-direction:column;overflow:hidden';
   ov.innerHTML = `
     <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1a1a1a">
       <div style="font-size:18px;font-weight:900">📋 История операций</div>
-      <button onclick="this.closest('[style]').remove()" style="background:#1a1a1a;border:none;color:#fff;border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer">✕</button>
+      <button onclick="this.closest('[data-ov]').remove()" style="background:#1a1a1a;border:none;color:#fff;border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer">✕</button>
     </div>
     <div style="display:flex;gap:6px;padding:10px 16px;overflow-x:auto">
       <button id="txTabDep" class="btn btn-blue" onclick="switchTx('deposit')" style="white-space:nowrap;flex-shrink:0">💎 Депозит</button>
@@ -575,7 +586,7 @@ function renderTxTab(type) {
 function openLeaderboard() {
   const ov = document.createElement('div');
   ov.id = 'lbOverlay';
-  ov.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:500;display:flex;flex-direction:column;overflow:hidden';
+  ov.setAttribute('data-ov','1'); ov.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:500;display:flex;flex-direction:column;overflow:hidden';
   ov.innerHTML = `
     <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1a1a1a">
       <div style="font-size:18px;font-weight:900">🏆 Лидерборд</div>
