@@ -78,29 +78,19 @@ function renderCurrentTab() {
 
 document.querySelectorAll('.tab, .tab-center').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
 
-async function renderMain() {
+function renderMain() {
   const walletHtml = ME.wallet
     ? `<div class="hero-wallet">${ME.wallet.slice(0,4)}...${ME.wallet.slice(-4)}</div>` : '';
-  const allTasks = await api('/tasks');
-  const adTasks = (allTasks || []).filter(tk => tk.type === 'ad');
-  const ads = adTasks.length
-    ? adTasks.map(tk => {
-        if (tk.completed) return `<div class="row">
-          <div class="info">
-            <span class="title">${t('ad_reward')} — 5 ARC</span>
-            <span class="sub">${LANG === 'ru' ? 'Просмотрено сегодня' : 'Watched today'}</span>
-          </div><span class="tag tag-done">✓</span></div>`;
-        const active = !!adsgramController;
-        return `<div class="row">
-          <div class="info">
-            <span class="title">${t('ad_reward')} — 5 ARC</span>
-            <span class="sub">${active ? (LANG === 'ru' ? 'Нажми и смотри' : 'Tap to watch') : t('ad_unavailable')}</span>
-          </div>
-          <button class="btn btn-sm ${active ? 'btn-blue' : 'btn-dark'}"
-            ${active ? `onclick="showAd(${tk.id},this)"` : 'disabled'}>${t('ad_watch')}</button>
-        </div>`;
-      }).join('')
-    : `<p class="muted">${t('ad_unavailable')}</p>`;
+  const active = !!adsgramController;
+  const adRows = [1,2,3].map(n => `
+    <div class="row">
+      <div class="info">
+        <span class="title">${t('ad_reward')} ${n}</span>
+        <span class="sub">${active ? (LANG==='ru'?'Нажми и смотри':'Tap to watch') : t('ad_unavailable')}</span>
+      </div>
+      <button class="btn btn-sm ${active ? 'btn-blue' : 'btn-dark'}"
+        ${active ? 'onclick="watchAd(this)"' : 'disabled'}>${t('ad_watch')}</button>
+    </div>`).join('');
   document.getElementById('page-main').innerHTML = `
     <div class="hero-card">
       ${walletHtml}
@@ -123,48 +113,89 @@ async function renderMain() {
     </div>
     <div class="block">
       <div class="block-hdr">${t('watch_ads')}</div>
-      ${ads}
+      ${adRows}
     </div>`;
 }
 
 async function renderTasks() {
   const el = document.getElementById('page-tasks');
   el.innerHTML = `<div class="block"><p class="muted">${t('loading')}</p></div>`;
-  const ci = await api('/checkin/status');
+  const [ci, allTasks] = await Promise.all([api('/checkin/status'), api('/tasks')]);
   const mult = {1:'1.0',2:'1.1',3:'1.2',4:'1.3',5:'1.4',6:'1.5'};
   const days = [1,2,3,4,5,6].map(d => {
     const cur = ci.day === d ? 'cur' : '';
     return `<div class="ci-day ${cur}"><span class="dn">Д${d}</span><span class="dx">×${mult[d]}</span></div>`;
   }).join('');
-  const allTasksData = await api('/tasks');
-  const tasks = (allTasksData || []).filter(tk => tk.type !== 'ad');
-  let tasksHtml = !tasks.length ? `<p class="muted">${t('no_tasks')}</p>` :
-    tasks.map(tk => {
-      const progress = tk.type === 'referral_milestone'
-        ? `<span class="sub" style="color:#aaa">${tk.progress||0}/${tk.need} ${LANG==='ru'?'друзей':'friends'}</span>`
-        : '';
-      return `
-      <div class="row">
+
+  const DAILY_TYPES = ['ad_milestone','pvp_milestone'];
+  const sorted = (allTasks || []).slice().sort((a,b) => a.completed - b.completed || Number(a.target) - Number(b.target));
+  const dailyTasks   = sorted.filter(tk => DAILY_TYPES.includes(tk.type));
+  const generalTasks = sorted.filter(tk => !DAILY_TYPES.includes(tk.type));
+
+  function pbar(prog, need) {
+    const pct = need > 0 ? Math.min(100, Math.round((prog||0)/need*100)) : 0;
+    return `<div style="height:3px;background:#2a2a2a;border-radius:3px;margin-top:4px"><div style="height:100%;width:${pct}%;background:var(--gold);border-radius:3px"></div></div>`;
+  }
+
+  function renderDaily(tk) {
+    const title = LANG==='ru' ? tk.title_ru : tk.title_en;
+    const prog = tk.progress||0, need = tk.need||Number(tk.target||0);
+    const unit = tk.type==='pvp_milestone' ? (LANG==='ru'?'игр':'games') : (LANG==='ru'?'реклам':'ads');
+    const canClaim = prog >= need;
+    const style = tk.completed ? ' style="opacity:.55"' : '';
+    return `<div class="row"${style}>
+      <div class="info">
+        <span class="title">${title}</span>
+        <span class="sub">+${tk.reward_arc} ARC · ${prog}/${need} ${unit}</span>
+        ${pbar(prog, need)}
+      </div>
+      ${tk.completed
+        ? `<span class="tag tag-done">✓</span>`
+        : `<button class="btn btn-sm ${canClaim?'btn-green':'btn-dark'}" ${canClaim?`onclick="checkTask(${tk.id},this)"`:'disabled'}>${t('get_reward')}</button>`}
+    </div>`;
+  }
+
+  function renderGeneral(tk) {
+    const title = LANG==='ru' ? tk.title_ru : tk.title_en;
+    const style = tk.completed ? ' style="opacity:.55"' : '';
+    if (tk.completed) return `<div class="row"${style}>
+      <div class="info"><span class="title">${title}</span><span class="sub">+${tk.reward_arc} ARC</span></div>
+      <span class="tag tag-done">✓</span></div>`;
+    if (tk.type==='subscribe' && tk.target) {
+      const url = 'https://t.me/'+tk.target.replace('@','');
+      return `<div class="row">
+        <div class="info"><span class="title">${title}</span><span class="sub">+${tk.reward_arc} ARC</span></div>
+        <div style="display:flex;gap:6px">
+          <a href="${url}" target="_blank" class="btn btn-sm btn-dark">${t('go')}</a>
+          <button class="btn btn-sm btn-green" onclick="checkTask(${tk.id},this)">${t('check')}</button>
+        </div></div>`;
+    }
+    if (tk.type==='referral_milestone') {
+      const prog = tk.progress||0, need = tk.need||Number(tk.target||0);
+      const canClaim = prog >= need;
+      return `<div class="row">
         <div class="info">
-          <span class="title">${LANG === 'ru' ? tk.title_ru : tk.title_en}</span>
-          <span class="sub">+${tk.reward_arc} ARC</span>
-          ${progress}
+          <span class="title">${title}</span>
+          <span class="sub">+${tk.reward_arc} ARC · ${prog}/${need} ${LANG==='ru'?'друзей':'friends'}</span>
         </div>
-        ${tk.completed
-          ? `<span class="tag tag-done">✓</span>`
-          : `<button class="btn btn-sm btn-green" onclick="checkTask(${tk.id}, this)">${t('check')}</button>`}
+        <button class="btn btn-sm ${canClaim?'btn-green':'btn-dark'}" ${canClaim?`onclick="checkTask(${tk.id},this)"`:'disabled'}>${t('get_reward')}</button>
       </div>`;
-    }).join('');
+    }
+    return `<div class="row">
+      <div class="info"><span class="title">${title}</span><span class="sub">+${tk.reward_arc} ARC</span></div>
+      <button class="btn btn-sm btn-green" onclick="checkTask(${tk.id},this)">${t('check')}</button></div>`;
+  }
+
   el.innerHTML = `
     <div class="ci-card">
       <div class="ci-hdr">${t('daily_checkin')}</div>
       <div class="ci-stats">
         <div class="ci-stat"><div class="cv">${ci.day}</div><div class="cl">${t('day')}</div></div>
-        <div class="ci-stat"><div class="cv">×${mult[ci.day] || '1.5'}</div><div class="cl">${t('multiplier')}</div></div>
+        <div class="ci-stat"><div class="cv">×${mult[ci.day]||'1.5'}</div><div class="cl">${t('multiplier')}</div></div>
       </div>
       <div class="ci-days">${days}</div>
       <div class="ci-hint">💡 ${t('checkin_hint')}</div>
-      <button class="btn btn-white" id="checkinBtn" ${ci.canClaim ? '' : 'disabled'}>
+      <button class="btn btn-white" id="checkinBtn" ${ci.canClaim?'':'disabled'}>
         ${ci.canClaim ? t('claim') : t('checkin_done')}
       </button>
     </div>
@@ -174,8 +205,12 @@ async function renderTasks() {
       <button class="btn btn-blue" id="promoBtn">${t('activate')}</button>
     </div>
     <div class="block">
-      <div class="block-hdr">${t('tasks_title')}</div>
-      ${tasksHtml}
+      <div class="block-hdr">${t('daily_tasks')}</div>
+      ${dailyTasks.length ? dailyTasks.map(renderDaily).join('') : `<p class="muted">${t('no_tasks')}</p>`}
+    </div>
+    <div class="block">
+      <div class="block-hdr">${t('general_tasks')}</div>
+      ${generalTasks.length ? generalTasks.map(renderGeneral).join('') : `<p class="muted">${t('no_tasks')}</p>`}
     </div>`;
   document.getElementById('checkinBtn').onclick = doCheckin;
   document.getElementById('promoBtn').onclick = doPromo;
@@ -207,30 +242,28 @@ window.checkTask = async (id, btn) => {
   if (r.ok) { toast('+' + r.reward + ' ARC'); ME.balance_arc = r.balance_arc; renderHeader(); renderTasks(); }
   else {
     if (r.error === 'not_subscribed') toast(t('task_check_fail'));
-    else if (r.error === 'not_enough_referrals') toast(LANG==='ru' ? `Нужно ещё ${r.need - r.have} друзей` : `Need ${r.need - r.have} more friends`);
+    else if (r.error === 'not_enough_referrals') toast(LANG==='ru' ? `Нужно ещё ${r.need-r.have} друзей` : `Need ${r.need-r.have} more friends`);
+    else if (r.error === 'not_enough_views') toast(LANG==='ru' ? `Нужно ещё ${r.need-r.have} реклам` : `Need ${r.need-r.have} more ads`);
+    else if (r.error === 'not_enough_pvp') toast(LANG==='ru' ? `Нужно ещё ${r.need-r.have} игр PvP` : `Need ${r.need-r.have} more PvP games`);
+    else if (r.error === 'already_done') toast(LANG==='ru' ? 'Уже получено сегодня' : 'Already claimed today');
     else toast(t('error'));
     btn.disabled = false;
   }
 };
 
-window.showAd = async (taskId, btn) => {
-  if (!adsgramController) { toast(t('ad_unavailable')); return; }
+window.watchAd = async (btn) => {
+  if (!adsgramController) return;
   btn.disabled = true;
   try {
     await adsgramController.show();
-    const r = await api('/tasks/check', { task_id: taskId });
+    const r = await api('/ads/watch');
     if (r.ok) {
-      toast('+' + r.reward + ' ARC');
-      ME.balance_arc = r.balance_arc;
-      renderHeader();
-      renderMain();
-    } else {
-      toast(r.error === 'already_done' ? (LANG === 'ru' ? 'Уже просмотрено сегодня' : 'Already watched today') : t('error'));
-      btn.disabled = false;
+      toast(LANG==='ru' ? `📺 Засчитано! ${r.daily_count}/30 реклам` : `📺 Counted! ${r.daily_count}/30 ads`);
+    } else if (r.error === 'daily_limit') {
+      toast(LANG==='ru' ? 'Дневной лимит 30 реклам исчерпан' : 'Daily limit of 30 ads reached');
     }
-  } catch {
     btn.disabled = false;
-  }
+  } catch { btn.disabled = false; }
 };
 
 async function renderFriends() {

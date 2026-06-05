@@ -7,6 +7,10 @@ export function verifyTelegramData(initData, botToken) {
     if (!hash) return null;
     params.delete('hash');
 
+    // Reject tokens older than 24 hours (replay attack prevention)
+    const authDate = Number(params.get('auth_date'));
+    if (!authDate || Date.now() / 1000 - authDate > 86400) return null;
+
     const dataCheckString = [...params.entries()]
       .map(([k, v]) => `${k}=${v}`)
       .sort()

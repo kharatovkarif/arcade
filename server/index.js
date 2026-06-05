@@ -95,23 +95,47 @@ app.post('/api/promo', auth, async (req, res) => {
 });
 
 app.post('/api/tasks', auth, async (req, res) => {
+  const today = mskDate();
+  const todayStart = today + 'T00:00:00+03:00';
   const { data: tasks } = await supabase.from('tasks')
-    .select('*').eq('is_active', true).order('created_at', { ascending: false });
+    .select('*').eq('is_active', true).order('id', { ascending: true });
   const { data: done } = await supabase.from('task_completions')
-    .select('task_id').eq('tg_id', req.user.tg_id);
-  const doneIds = new Set((done || []).map(d => d.task_id));
-  let refCount = null;
-  if ((tasks || []).some(t => t.type === 'referral_milestone')) {
-    const { count } = await supabase.from('users')
-      .select('*', { count: 'exact', head: true }).eq('referrer_id', req.user.tg_id);
-    refCount = count || 0;
-  }
-  res.json((tasks || []).map(t => ({
-    id: t.id, title_ru: t.title_ru, title_en: t.title_en,
-    type: t.type, target: t.target, reward_arc: Number(t.reward_arc),
-    completed: doneIds.has(t.id),
-    ...(t.type === 'referral_milestone' ? { progress: refCount, need: Number(t.target || 0) } : {}),
-  })));
+    .select('task_id, created_at').eq('tg_id', req.user.tg_id);
+  const doneAll = new Set((done || []).map(d => d.task_id));
+  const doneToday = new Set((done || []).filter(d => d.created_at >= todayStart).map(d => d.task_id));
+
+  // Gather progress counts in parallel
+  const needsRef = (tasks || []).some(t => t.type === 'referral_milestone');
+  const needsAd = (tasks || []).some(t => t.type === 'ad_milestone');
+  const needsPvp = (tasks || []).some(t => t.type === 'pvp_milestone');
+  const [refRes, adRes, pvpRes] = await Promise.all([
+    needsRef ? supabase.from('users').select('*', { count: 'exact', head: true }).eq('referrer_id', req.user.tg_id) : null,
+    needsAd ? supabase.from('transactions').select('*', { count: 'exact', head: true }).eq('tg_id', req.user.tg_id).eq('type', 'ad').gte('created_at', todayStart) : null,
+    needsPvp ? supabase.from('transactions').select('*', { count: 'exact', head: true }).eq('tg_id', req.user.tg_id).eq('type', 'pvp').eq('currency', 'ARC').lt('amount', 0).gte('created_at', todayStart) : null,
+  ]);
+  const refCount = refRes ? (refRes.count || 0) : null;
+  const adCount = adRes ? (adRes.count || 0) : null;
+  const pvpCount = pvpRes ? (pvpRes.count || 0) : null;
+
+  res.json((tasks || []).map(t => {
+    const isDaily = t.limit_mode === 'daily';
+    const completed = isDaily ? doneToday.has(t.id) : doneAll.has(t.id);
+    const base = { id: t.id, title_ru: t.title_ru, title_en: t.title_en, type: t.type, target: t.target, reward_arc: Number(t.reward_arc), completed };
+    if (t.type === 'referral_milestone') return { ...base, progress: refCount, need: Number(t.target || 0) };
+    if (t.type === 'ad_milestone') return { ...base, progress: adCount, need: Number(t.target || 0) };
+    if (t.type === 'pvp_milestone') return { ...base, progress: pvpCount, need: Number(t.target || 0) };
+    return base;
+  }));
+});
+
+app.post('/api/ads/watch', auth, async (req, res) => {
+  const todayStart = mskDate() + 'T00:00:00+03:00';
+  const { count } = await supabase.from('transactions').select('*', { count: 'exact', head: true })
+    .eq('tg_id', req.user.tg_id).eq('type', 'ad').gte('created_at', todayStart);
+  const current = count || 0;
+  if (current >= 30) return res.json({ ok: false, error: 'daily_limit', daily_count: 30 });
+  await supabase.from('transactions').insert({ tg_id: req.user.tg_id, type: 'ad', currency: 'ARC', amount: 0, note: 'ad watch' });
+  res.json({ ok: true, daily_count: current + 1 });
 });
 
 app.post('/api/tasks/check', auth, async (req, res) => {
@@ -120,12 +144,12 @@ app.post('/api/tasks/check', auth, async (req, res) => {
     .select('*').eq('id', taskId).eq('is_active', true).single();
   if (!task) return res.json({ ok: false, error: 'not_found' });
 
-  // Daily tasks: allow once per MSK day
+  const today = mskDate();
+  const todayStart = today + 'T00:00:00+03:00';
   if (task.limit_mode === 'daily') {
-    const today = mskDate();
     const { data: dc } = await supabase.from('task_completions')
       .select('id').eq('task_id', taskId).eq('tg_id', req.user.tg_id)
-      .gte('created_at', today + 'T00:00:00').maybeSingle();
+      .gte('created_at', todayStart).maybeSingle();
     if (dc) return res.json({ ok: false, error: 'already_done' });
   } else {
     const { data: c } = await supabase.from('task_completions')
@@ -144,9 +168,20 @@ app.post('/api/tasks/check', auth, async (req, res) => {
   }
   if (task.type === 'referral_milestone') {
     const required = Number(task.target || 0);
-    const { count } = await supabase.from('users')
-      .select('*', { count: 'exact', head: true }).eq('referrer_id', req.user.tg_id);
+    const { count } = await supabase.from('users').select('*', { count: 'exact', head: true }).eq('referrer_id', req.user.tg_id);
     if ((count || 0) < required) return res.json({ ok: false, error: 'not_enough_referrals', need: required, have: count || 0 });
+  }
+  if (task.type === 'ad_milestone') {
+    const required = Number(task.target || 0);
+    const { count } = await supabase.from('transactions').select('*', { count: 'exact', head: true })
+      .eq('tg_id', req.user.tg_id).eq('type', 'ad').gte('created_at', todayStart);
+    if ((count || 0) < required) return res.json({ ok: false, error: 'not_enough_views', need: required, have: count || 0 });
+  }
+  if (task.type === 'pvp_milestone') {
+    const required = Number(task.target || 0);
+    const { count } = await supabase.from('transactions').select('*', { count: 'exact', head: true })
+      .eq('tg_id', req.user.tg_id).eq('type', 'pvp').eq('currency', 'ARC').lt('amount', 0).gte('created_at', todayStart);
+    if ((count || 0) < required) return res.json({ ok: false, error: 'not_enough_pvp', need: required, have: count || 0 });
   }
 
   await supabase.from('task_completions').insert({ task_id: taskId, tg_id: req.user.tg_id });
