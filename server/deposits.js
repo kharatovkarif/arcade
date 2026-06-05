@@ -30,6 +30,9 @@ async function fetchEvents() {
 async function processEvent(ev) {
   const eventId = ev.event_id;
   if (!eventId) return;
+  // Пропускаем незавершённые события — иначе tonapi пришлёт его повторно
+  // с другим event_id и депозит зачислится дважды
+  if (ev.in_progress) return;
 
   for (const act of (ev.actions || [])) {
     if (act.type !== 'TonTransfer') continue;
@@ -50,7 +53,7 @@ async function processEvent(ev) {
     if (exists) continue;
 
     const { data: user } = await supabase
-      .from('users').select('tg_id, username').eq('tg_id', tgId).maybeSingle();
+      .from('users').select('tg_id, username, wallet').eq('tg_id', tgId).maybeSingle();
     if (!user) continue;
 
     const day = todayMsk();
@@ -67,13 +70,14 @@ async function processEvent(ev) {
     const senderAddr = ton.sender?.address || 'unknown';
     const newBal = await changeTon(tgId, amountTon, 'deposit', `deposit from ${senderAddr}`, txHash);
 
+    const walletShown = user.wallet || senderAddr;
     const now = new Date(Date.now() + 3 * 3600 * 1000);
     const datetime = now.toISOString().replace('T', ' ').slice(0, 19) + ' МСК';
     await notifyAdmin(
       `💰 Новый депозит\n\n` +
       `👤 @${user.username || 'нет'} (ID: ${tgId})\n` +
       `💎 Сумма: ${amountTon} TON\n` +
-      `💼 Кошелёк: ${senderAddr}\n` +
+      `💼 Кошелёк: ${walletShown}\n` +
       `📊 Баланс TON: ${newBal}\n` +
       `🕐 ${datetime}`
     );
