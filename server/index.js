@@ -329,7 +329,6 @@ app.post('/api/leaderboard/arc', auth, async (req, res) => {
   const myRank = myUser ? { rank: top.findIndex(u => u.username === myUser.username) + 1, arc: Number(myUser.balance_arc) } : null;
   res.json({ top, myRank });
 });
-});
 
 app.post('/api/deposit/info', auth, async (req, res) => {
   res.json({
