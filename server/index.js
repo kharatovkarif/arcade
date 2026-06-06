@@ -38,13 +38,19 @@ async function auth(req, res, next) {
 }
 
 app.post('/api/me', auth, async (req, res) => {
-  const { data: u } = await supabase.from('users').select('*').eq('tg_id', req.user.tg_id).single();
+  const todayStart = mskDate() + 'T00:00:00+03:00';
+  const [{ data: u }, { count: adCount }] = await Promise.all([
+    supabase.from('users').select('*').eq('tg_id', req.user.tg_id).single(),
+    supabase.from('transactions').select('*', { count: 'exact', head: true })
+      .eq('tg_id', req.user.tg_id).eq('type', 'ad').gte('created_at', todayStart),
+  ]);
   res.json({
     tg_id: u.tg_id, username: u.username, first_name: u.first_name,
     language: u.language, balance_arc: Number(u.balance_arc),
     balance_ton: Number(u.balance_ton), wallet: u.wallet,
     is_admin: u.is_admin, checkin_day: u.checkin_day,
     adsgram_block_id: process.env.ADSGRAM_BLOCK_ID || '',
+    ad_daily_count: adCount || 0,
   });
 });
 
@@ -134,8 +140,26 @@ app.post('/api/ads/watch', auth, async (req, res) => {
     .eq('tg_id', req.user.tg_id).eq('type', 'ad').gte('created_at', todayStart);
   const current = count || 0;
   if (current >= 30) return res.json({ ok: false, error: 'daily_limit', daily_count: 30 });
-  await supabase.from('transactions').insert({ tg_id: req.user.tg_id, type: 'ad', currency: 'ARC', amount: 0, note: 'ad watch' });
-  res.json({ ok: true, daily_count: current + 1 });
+
+  const { data: u } = await supabase.from('users')
+    .select('checkin_day, referrer_id').eq('tg_id', req.user.tg_id).single();
+  const reward = Math.round(5 * checkinMultiplier(u.checkin_day || 1));
+  const newBal = await changeArc(req.user.tg_id, reward, 'ad', 'ad watch');
+
+  if (u.referrer_id) {
+    const ref1Reward = Math.round(reward * 0.2);
+    if (ref1Reward > 0) {
+      await changeArc(u.referrer_id, ref1Reward, 'referral', `from ${req.user.tg_id}`);
+      const { data: ref1 } = await supabase.from('users')
+        .select('referrer_id').eq('tg_id', u.referrer_id).single();
+      if (ref1?.referrer_id) {
+        const ref2Reward = Math.round(reward * 0.1);
+        if (ref2Reward > 0) await changeArc(ref1.referrer_id, ref2Reward, 'referral', `from ${req.user.tg_id}`);
+      }
+    }
+  }
+
+  res.json({ ok: true, daily_count: current + 1, reward, balance_arc: newBal });
 });
 
 app.post('/api/tasks/check', auth, async (req, res) => {

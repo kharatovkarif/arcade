@@ -78,19 +78,40 @@ function renderCurrentTab() {
 
 document.querySelectorAll('.tab, .tab-center').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
 
+function adMult(day) {
+  const m = {1:1.0,2:1.1,3:1.2,4:1.3,5:1.4};
+  return day >= 6 ? 1.5 : (m[day] || 1.0);
+}
+
 function renderMain() {
   const walletHtml = ME.wallet
     ? `<div class="hero-wallet">${ME.wallet.slice(0,4)}...${ME.wallet.slice(-4)}</div>` : '';
   const active = !!adsgramController;
-  const adRows = [1,2,3].map(n => `
+  const dailyCount = ME.ad_daily_count || 0;
+  const reward = Math.round(5 * adMult(ME.checkin_day || 1));
+  const limitReached = dailyCount >= 30;
+
+  const ad1Btn = (active && !limitReached)
+    ? `<button onclick="watchAd(this)" style="width:44px;height:44px;border-radius:50%;background:var(--blue);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`
+    : `<button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`;
+
+  const adRows = `
     <div class="row">
       <div class="info">
-        <span class="title">${t('ad_reward')} ${n}</span>
-        <span class="sub">${active ? (LANG==='ru'?'Нажми и смотри':'Tap to watch') : t('ad_unavailable')}</span>
+        <span class="title">${t('ad_reward')} 1 &nbsp;<span style="color:var(--gold);font-size:13px">+${reward} ARC</span></span>
+        <span class="sub">${dailyCount}/30 ${LANG==='ru'?'сегодня':'today'}</span>
       </div>
-      <button class="btn btn-sm ${active ? 'btn-blue' : 'btn-dark'}"
-        ${active ? 'onclick="watchAd(this)"' : 'disabled'}>${t('ad_watch')}</button>
-    </div>`).join('');
+      ${ad1Btn}
+    </div>
+    <div class="row">
+      <div class="info"><span class="title">${t('ad_reward')} 2</span><span class="sub">${t('soon')}</span></div>
+      <button disabled class="btn btn-sm btn-dark">${t('soon')}</button>
+    </div>
+    <div class="row">
+      <div class="info"><span class="title">${t('ad_reward')} 3</span><span class="sub">${t('soon')}</span></div>
+      <button disabled class="btn btn-sm btn-dark">${t('soon')}</button>
+    </div>`;
+
   document.getElementById('page-main').innerHTML = `
     <div class="hero-card">
       ${walletHtml}
@@ -258,11 +279,18 @@ window.watchAd = async (btn) => {
     await adsgramController.show();
     const r = await api('/ads/watch');
     if (r.ok) {
-      toast(LANG==='ru' ? `📺 Засчитано! ${r.daily_count}/30 реклам` : `📺 Counted! ${r.daily_count}/30 ads`);
+      ME.ad_daily_count = r.daily_count;
+      ME.balance_arc = r.balance_arc;
+      renderHeader();
+      renderMain();
+      toast(`+${r.reward} ARC · ${r.daily_count}/30`);
     } else if (r.error === 'daily_limit') {
+      ME.ad_daily_count = 30;
+      renderMain();
       toast(LANG==='ru' ? 'Дневной лимит 30 реклам исчерпан' : 'Daily limit of 30 ads reached');
+    } else {
+      btn.disabled = false;
     }
-    btn.disabled = false;
   } catch { btn.disabled = false; }
 };
 
