@@ -897,7 +897,8 @@ async function init() {
     document.getElementById('content').innerHTML = `<div class="block"><p class="muted">Open this app from Telegram</p></div>`;
     return;
   }
-  LANG = ME.language || 'ru';
+  const tgLang = window.Telegram?.WebApp?.initDataUnsafe?.user?.language_code;
+  LANG = ME.language || (tgLang === 'ru' ? 'ru' : 'en');
   renderHeader(); applyLang(); switchTab('main');
   initTonConnect();
   setInterval(refreshBalance, 10000);
