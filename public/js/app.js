@@ -681,49 +681,39 @@ function renderTxTab(type) {
 function openLeaderboard() {
   const ov = document.createElement('div');
   ov.id = 'lbOverlay';
-  ov.setAttribute('data-ov','1'); ov.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:500;display:flex;flex-direction:column;overflow:hidden';
+  ov.setAttribute('data-ov','1');
+  ov.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:500;display:flex;flex-direction:column;overflow:hidden';
   ov.innerHTML = `
     <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1a1a1a">
       <div style="font-size:18px;font-weight:900">🏆 Лидерборд</div>
       <button onclick="document.getElementById('lbOverlay').remove()" style="background:#1a1a1a;border:none;color:#fff;border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer">✕</button>
     </div>
-    <div style="display:flex;gap:8px;padding:12px 16px">
-      <button id="lbTabAds" class="btn btn-blue" onclick="switchLb('ads')" style="flex:1">📣 Реклама</button>
-      <button id="lbTabPvp" class="btn btn-dark" onclick="switchLb('pvp')" style="flex:1">⚔️ PvP</button>
-    </div>
-    <div id="lbContent" style="flex:1;overflow-y:auto;padding:0 16px 24px"></div>`;
+    <div id="lbContent" style="flex:1;overflow-y:auto;padding:12px 16px 24px">
+      <div class="pvp-empty" style="padding:20px">Загрузка...</div>
+    </div>`;
   document.body.appendChild(ov);
-  switchLb('ads');
+
+  api('/leaderboard/arc').then(data => {
+    const content = document.getElementById('lbContent');
+    if (!content) return;
+    const medals = ['🥇','🥈','🥉'];
+    const rows = (data.top || []).map(p => `
+      <div class="player-card" style="justify-content:space-between;margin-bottom:6px${p.username === ME.username ? ';border:1px solid var(--gold)' : ''}">
+        <span style="font-size:18px;min-width:32px">${medals[p.rank-1] || `<span style='color:var(--muted2);font-weight:700'>#${p.rank}</span>`}</span>
+        <span class="pname" style="flex:1">@${p.username}</span>
+        <span style="color:var(--gold);font-weight:700">${fmt(p.arc, 0)} ARC</span>
+      </div>`).join('') || '<div class="pvp-empty" style="padding:10px">Пока пусто</div>';
+    const myRow = data.myRank && data.myRank.rank > 3 ? `
+      <div style="margin-top:12px;padding:8px 0;border-top:1px solid #2a2a2a;color:var(--muted2);font-size:12px;text-align:center">Твоё место</div>
+      <div class="player-card" style="justify-content:space-between;border:1px solid var(--gold)">
+        <span style="color:var(--gold);font-weight:700;min-width:32px">#${data.myRank.rank}</span>
+        <span class="pname" style="flex:1">@${ME.username || '...'}</span>
+        <span style="color:var(--gold);font-weight:700">${fmt(data.myRank.arc, 0)} ARC</span>
+      </div>` : '';
+    content.innerHTML = rows + myRow;
+  });
 }
 
-window.switchLb = async (tab) => {
-  const btns = { ads: document.getElementById('lbTabAds'), pvp: document.getElementById('lbTabPvp') };
-  if (!btns.ads) return;
-  btns.ads.className = tab === 'ads' ? 'btn btn-blue' : 'btn btn-dark';
-  btns.pvp.className = tab === 'pvp' ? 'btn btn-blue' : 'btn btn-dark';
-  const content = document.getElementById('lbContent');
-  content.innerHTML = `<div class="pvp-empty" style="padding:20px">Загрузка...</div>`;
-  const data = await api('/leaderboard/' + tab);
-  if (!document.getElementById('lbContent')) return;
-  if (tab === 'ads' && (!data.top || !data.top.length)) {
-    content.innerHTML = `<div style="text-align:center;padding:40px 16px;color:var(--muted2)">📣<br><br>Реклама появится скоро.<br>Топ будет здесь.</div>`;
-    return;
-  }
-  const rows = (data.top || []).map(p => `
-    <div class="player-card" style="justify-content:space-between">
-      <span style="color:var(--muted2);font-weight:700;min-width:28px">#${p.rank}</span>
-      <span class="pname" style="flex:1">@${p.username || '...'}</span>
-      <span style="color:#ffd60a;font-weight:700">${tab === 'pvp' ? fmt(p.total, 0) + ' ARC' : p.count + ' раз'}</span>
-    </div>`).join('') || '<div class="pvp-empty" style="padding:10px">Пока пусто</div>';
-  const myRow = data.myRank ? `
-    <div style="margin-top:12px;padding:8px 0;border-top:1px solid #2a2a2a;color:var(--muted2);font-size:12px;text-align:center">Твоё место</div>
-    <div class="player-card" style="justify-content:space-between;border:1px solid var(--blue)">
-      <span style="color:var(--blue);font-weight:700;min-width:28px">#${data.myRank.rank}</span>
-      <span class="pname" style="flex:1">@${ME.username || '...'}</span>
-      <span style="color:#ffd60a;font-weight:700">${tab === 'pvp' ? fmt(data.myRank.total, 0) + ' ARC' : data.myRank.count + ' раз'}</span>
-    </div>` : '';
-  content.innerHTML = rows + myRow;
-};
 
 async function openWithdraw() {
   if (!ME.wallet) { toast('Сначала подключите кошелёк'); return; }

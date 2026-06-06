@@ -314,46 +314,21 @@ app.post('/api/pvp/history', auth, async (req, res) => {
   })));
 });
 
-app.post('/api/leaderboard/pvp', auth, async (req, res) => {
-  const { data: txs } = await supabase.from('transactions')
-    .select('tg_id, amount').eq('type', 'pvp').eq('currency', 'ARC').lt('amount', 0);
-  const totals = {};
-  for (const t of txs || []) totals[t.tg_id] = (totals[t.tg_id] || 0) + Math.abs(Number(t.amount));
-  const sorted = Object.entries(totals).map(([id, total]) => ({ tg_id: Number(id), total }))
-    .sort((a, b) => b.total - a.total);
-  const top50Ids = sorted.slice(0, 50).map(x => x.tg_id);
-  let usernameMap = {};
-  if (top50Ids.length) {
-    const { data: us } = await supabase.from('users').select('tg_id, username').in('tg_id', top50Ids);
-    (us || []).forEach(u => { usernameMap[u.tg_id] = u.username; });
-  }
-  const top = sorted.slice(0, 50).map((x, i) => ({
-    rank: i + 1, username: usernameMap[x.tg_id] || '...', total: x.total,
+app.post('/api/leaderboard/arc', auth, async (req, res) => {
+  const { data: users } = await supabase.from('users')
+    .select('tg_id, username, balance_arc')
+    .order('balance_arc', { ascending: false })
+    .limit(50);
+  const top = (users || []).map((u, i) => ({
+    rank: i + 1,
+    username: u.username || '...',
+    arc: Number(u.balance_arc),
   }));
-  const myIdx = sorted.findIndex(x => x.tg_id === req.user.tg_id);
-  const myRank = myIdx >= 0 ? { rank: myIdx + 1, total: sorted[myIdx].total } : null;
+  const myIdx = top.findIndex(u => u.username === (users?.[0] ? (users.find(x => x.tg_id === req.user.tg_id)?.username) : null));
+  const myUser = (users || []).find(u => u.tg_id === req.user.tg_id);
+  const myRank = myUser ? { rank: top.findIndex(u => u.username === myUser.username) + 1, arc: Number(myUser.balance_arc) } : null;
   res.json({ top, myRank });
 });
-
-app.post('/api/leaderboard/ads', auth, async (req, res) => {
-  const { data: txs } = await supabase.from('transactions')
-    .select('tg_id').eq('type', 'ad');
-  const counts = {};
-  for (const t of txs || []) counts[t.tg_id] = (counts[t.tg_id] || 0) + 1;
-  const sorted = Object.entries(counts).map(([id, count]) => ({ tg_id: Number(id), count }))
-    .sort((a, b) => b.count - a.count);
-  const top50Ids = sorted.slice(0, 50).map(x => x.tg_id);
-  let usernameMap = {};
-  if (top50Ids.length) {
-    const { data: us } = await supabase.from('users').select('tg_id, username').in('tg_id', top50Ids);
-    (us || []).forEach(u => { usernameMap[u.tg_id] = u.username; });
-  }
-  const top = sorted.slice(0, 50).map((x, i) => ({
-    rank: i + 1, username: usernameMap[x.tg_id] || '...', count: x.count,
-  }));
-  const myIdx = sorted.findIndex(x => x.tg_id === req.user.tg_id);
-  const myRank = myIdx >= 0 ? { rank: myIdx + 1, count: sorted[myIdx].count } : null;
-  res.json({ top, myRank });
 });
 
 app.post('/api/deposit/info', auth, async (req, res) => {
