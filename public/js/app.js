@@ -98,7 +98,7 @@ function renderMain() {
   const adRows = `
     <div class="row">
       <div class="info">
-        <span class="title">${t('ad_reward')} 1 &nbsp;<span style="color:var(--gold);font-size:13px">+${reward} ARC</span></span>
+        <span class="title">${t('ad_reward')} 1 &nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + чек-ин</span></span>
         <span class="sub">${dailyCount}/30 ${LANG==='ru'?'сегодня':'today'}</span>
       </div>
       ${ad1Btn}

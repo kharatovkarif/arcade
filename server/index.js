@@ -143,7 +143,7 @@ app.post('/api/ads/watch', auth, async (req, res) => {
 
   const { data: u } = await supabase.from('users')
     .select('checkin_day, referrer_id').eq('tg_id', req.user.tg_id).single();
-  const reward = Math.round(5 * checkinMultiplier(u.checkin_day || 1));
+  const reward = 5 * checkinMultiplier(u.checkin_day || 1);
   const newBal = await changeArc(req.user.tg_id, reward, 'ad', 'ad watch');
 
   if (u.referrer_id) {
@@ -336,7 +336,24 @@ app.post('/api/leaderboard/pvp', auth, async (req, res) => {
 });
 
 app.post('/api/leaderboard/ads', auth, async (req, res) => {
-  res.json({ top: [], myRank: null });
+  const { data: txs } = await supabase.from('transactions')
+    .select('tg_id').eq('type', 'ad');
+  const counts = {};
+  for (const t of txs || []) counts[t.tg_id] = (counts[t.tg_id] || 0) + 1;
+  const sorted = Object.entries(counts).map(([id, count]) => ({ tg_id: Number(id), count }))
+    .sort((a, b) => b.count - a.count);
+  const top50Ids = sorted.slice(0, 50).map(x => x.tg_id);
+  let usernameMap = {};
+  if (top50Ids.length) {
+    const { data: us } = await supabase.from('users').select('tg_id, username').in('tg_id', top50Ids);
+    (us || []).forEach(u => { usernameMap[u.tg_id] = u.username; });
+  }
+  const top = sorted.slice(0, 50).map((x, i) => ({
+    rank: i + 1, username: usernameMap[x.tg_id] || '...', count: x.count,
+  }));
+  const myIdx = sorted.findIndex(x => x.tg_id === req.user.tg_id);
+  const myRank = myIdx >= 0 ? { rank: myIdx + 1, count: sorted[myIdx].count } : null;
+  res.json({ top, myRank });
 });
 
 app.post('/api/deposit/info', auth, async (req, res) => {
