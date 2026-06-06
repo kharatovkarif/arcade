@@ -145,8 +145,26 @@ export async function getGameState() {
   return stateView();
 }
 
+async function refundPendingGames() {
+  const { data: games } = await supabase.from('games')
+    .select('id, round_no').in('status', ['waiting', 'counting']);
+  if (!games?.length) return;
+  for (const game of games) {
+    const { data: bets } = await supabase.from('game_bets')
+      .select('tg_id, amount_arc').eq('game_id', game.id);
+    if (bets?.length) {
+      const totals = {};
+      for (const b of bets) totals[b.tg_id] = (totals[b.tg_id] || 0) + Number(b.amount_arc);
+      for (const [tgId, amount] of Object.entries(totals)) {
+        await changeArc(Number(tgId), amount, 'pvp_refund', `refund round ${game.round_no}`);
+      }
+    }
+    await supabase.from('games').update({ status: 'done' }).eq('id', game.id);
+  }
+}
+
 export function initGameLoop() {
-  newRound();
+  refundPendingGames().then(() => newRound());
   loopTimer = setInterval(async () => {
     if (!current) return;
     if (current.status === 'counting' && Date.now() >= current.countdownEnd) {
