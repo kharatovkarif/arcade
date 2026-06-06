@@ -264,6 +264,7 @@ input.field:focus { border-color: rgba(255,214,10,.4); }
 .tabbar {
   position: fixed;
   bottom: 0; left: 0; right: 0;
+  z-index: 10;
   background: rgba(8,8,8,.95);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
