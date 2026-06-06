@@ -201,60 +201,107 @@ input.field:focus{border-color:var(--blue)}
   </div>
 
   <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
-  <script src="/js/i18n.js?v=13"></script>
-  <script src="/js/app.js?v=13"></script>
+  <script src="/js/i18n.js?v=14"></script>
+  <script src="/js/app.js?v=14"></script>
 <script>
 (function(){
   const canvas = document.getElementById('bgCanvas');
   const ctx = canvas.getContext('2d');
-  const COLORS = ['rgba(255,214,10,', 'rgba(255,255,255,', 'rgba(59,130,246,'];
-  let W, H, particles = [];
+  let W, H, rotX = 0, rotY = 0;
+  const LAT = 10, LON = 14, R = 140;
 
   function resize() {
     W = canvas.width = window.innerWidth;
     H = canvas.height = window.innerHeight;
   }
 
-  function rand(min, max) { return Math.random() * (max - min) + min; }
-
-  function createParticle() {
-    const color = COLORS[Math.floor(Math.random() * COLORS.length)];
-    return {
-      x: rand(0, W),
-      y: rand(0, H),
-      r: rand(0.8, 2.2),
-      speed: rand(0.15, 0.5),
-      opacity: rand(0.05, 0.25),
-      opacityDir: rand(0.001, 0.004),
-      drift: rand(-0.15, 0.15),
-      color,
-    };
+  function genSphere() {
+    const verts = [], edges = [];
+    const cols = LON + 1;
+    for (let i = 0; i <= LAT; i++) {
+      const theta = (i * Math.PI) / LAT;
+      for (let j = 0; j <= LON; j++) {
+        const phi = (j * 2 * Math.PI) / LON;
+        verts.push([
+          R * Math.sin(theta) * Math.cos(phi),
+          R * Math.cos(theta),
+          R * Math.sin(theta) * Math.sin(phi),
+        ]);
+      }
+    }
+    for (let i = 0; i < LAT; i++) {
+      for (let j = 0; j < LON; j++) {
+        const a = i * cols + j, b = i * cols + j + 1, c = (i+1) * cols + j;
+        edges.push([a, b]); edges.push([a, c]);
+      }
+    }
+    return { verts, edges };
   }
 
-  function init() {
-    resize();
-    particles = Array.from({length: 70}, createParticle);
+  const sphere = genSphere();
+
+  function rotatePoint([x, y, z]) {
+    let x1 = x * Math.cos(rotY) - z * Math.sin(rotY);
+    let z1 = x * Math.sin(rotY) + z * Math.cos(rotY);
+    let y1 = y * Math.cos(rotX) - z1 * Math.sin(rotX);
+    let z2 = y * Math.sin(rotX) + z1 * Math.cos(rotX);
+    return [x1, y1, z2];
+  }
+
+  function project([x, y, z]) {
+    const fov = 350, cx = W / 2, cy = H / 2 - 40;
+    const s = fov / (fov + z);
+    return [cx + x * s, cy + y * s, z];
+  }
+
+  function drawGrid() {
+    const size = 34;
+    ctx.strokeStyle = 'rgba(255,255,255,0.028)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < W; x += size) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+    for (let y = 0; y < H; y += size) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+  }
+
+  function drawBlob() {
+    const cx = W / 2, cy = H / 2 - 40;
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.3);
+    g.addColorStop(0, 'rgba(30,0,0,0.55)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, R * 1.4, R * 1.1, 0, 0, Math.PI * 2);
+    ctx.fill();
   }
 
   function draw() {
     ctx.clearRect(0, 0, W, H);
-    for (const p of particles) {
-      p.y -= p.speed;
-      p.x += p.drift;
-      p.opacity += p.opacityDir;
-      if (p.opacity > 0.25 || p.opacity < 0.03) p.opacityDir *= -1;
-      if (p.y < -4) { p.y = H + 4; p.x = rand(0, W); }
-      if (p.x < -4 || p.x > W + 4) p.x = rand(0, W);
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      ctx.fillStyle = p.color + p.opacity + ')';
-      ctx.fill();
+    drawGrid();
+    drawBlob();
+
+    rotY += 0.004;
+    rotX += 0.0015;
+
+    const projected = sphere.verts.map(v => project(rotatePoint(v)));
+
+    for (const [a, b] of sphere.edges) {
+      const [ax, ay, az] = projected[a];
+      const [bx, by, bz] = projected[b];
+      const depth = (az + bz) / 2;
+      const alpha = depth < 0 ? 0.06 : 0.18;
+      ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+      ctx.lineWidth = 0.7;
+      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
     }
+
     requestAnimationFrame(draw);
   }
 
   window.addEventListener('resize', resize);
-  init();
+  resize();
   draw();
 })();
 </script>
