@@ -898,7 +898,8 @@ async function init() {
     return;
   }
   const tgLang = window.Telegram?.WebApp?.initDataUnsafe?.user?.language_code;
-  LANG = ME.language || (tgLang === 'ru' ? 'ru' : 'en');
+  const ruLangs = ['ru', 'tg', 'ky', 'uz', 'kk'];
+  LANG = ME.language || (ruLangs.includes(tgLang) ? 'ru' : 'en');
   renderHeader(); applyLang(); switchTab('main');
   initTonConnect();
   setInterval(refreshBalance, 10000);
