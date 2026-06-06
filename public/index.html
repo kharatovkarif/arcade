@@ -201,14 +201,17 @@ input.field:focus{border-color:var(--blue)}
   </div>
 
   <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
-  <script src="/js/i18n.js?v=15"></script>
-  <script src="/js/app.js?v=15"></script>
+  <script src="/js/i18n.js?v=16"></script>
+  <script src="/js/app.js?v=16"></script>
 <script>
 (function(){
   const canvas = document.getElementById('bgCanvas');
   const ctx = canvas.getContext('2d');
-  let W, H, rotX = 0, rotY = 0;
-  const LAT = 14, LON = 20, R = 150;
+  let W, H;
+  let rotX = 0, rotY = 0, rotZ = 0;
+  let vX = 0.001, vY = 0.004, vZ = 0.0005;
+  let time = 0;
+  const LAT = 20, LON = 28, R = 155;
 
   function resize() {
     W = canvas.width = window.innerWidth;
@@ -242,15 +245,20 @@ input.field:focus{border-color:var(--blue)}
   const sphere = genSphere();
 
   function rotatePoint([x, y, z]) {
+    // Y axis
     let x1 = x * Math.cos(rotY) - z * Math.sin(rotY);
     let z1 = x * Math.sin(rotY) + z * Math.cos(rotY);
-    let y1 = y * Math.cos(rotX) - z1 * Math.sin(rotX);
+    // X axis
+    let y2 = y * Math.cos(rotX) - z1 * Math.sin(rotX);
     let z2 = y * Math.sin(rotX) + z1 * Math.cos(rotX);
-    return [x1, y1, z2];
+    // Z axis (tumble)
+    let x3 = x1 * Math.cos(rotZ) - y2 * Math.sin(rotZ);
+    let y3 = x1 * Math.sin(rotZ) + y2 * Math.cos(rotZ);
+    return [x3, y3, z2];
   }
 
   function project([x, y, z]) {
-    const fov = 420, cx = W / 2, cy = H / 2 - 20;
+    const fov = 460, cx = W / 2, cy = H / 2;
     const s = fov / (fov + z);
     return [cx + x * s, cy + y * s, z];
   }
@@ -324,14 +332,14 @@ input.field:focus{border-color:var(--blue)}
 
   /* ---- BLOB ---- */
   function drawBlob() {
-    const cx = W / 2, cy = H / 2 - 20;
-    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.5);
-    g.addColorStop(0, 'rgba(40,10,0,0.6)');
+    const cx = W / 2, cy = H / 2;
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.6);
+    g.addColorStop(0, 'rgba(50,15,0,0.65)');
     g.addColorStop(0.5, 'rgba(20,5,0,0.3)');
     g.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = g;
     ctx.beginPath();
-    ctx.ellipse(cx, cy, R * 1.6, R * 1.2, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx, cy, R * 1.7, R * 1.3, 0, 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -342,21 +350,38 @@ input.field:focus{border-color:var(--blue)}
     drawBlob();
     drawCoins();
 
-    rotY += 0.0035;
-    rotX += 0.001;
+    // Organic tumbling rotation — direction changes over time
+    time++;
+    vY = 0.0045 * Math.cos(time * 0.0018) + 0.003;
+    vX = 0.0035 * Math.sin(time * 0.0013) + 0.0008;
+    vZ = 0.002  * Math.sin(time * 0.0009);
+    rotX += vX; rotY += vY; rotZ += vZ;
 
     const projected = sphere.verts.map(v => project(rotatePoint(v)));
 
+    // Draw edges
     for (const [a, b] of sphere.edges) {
       const [ax, ay, az] = projected[a];
       const [bx, by, bz] = projected[b];
       const depth = (az + bz) / 2;
-      const t = (depth + R) / (2 * R);
-      const alpha = 0.05 + t * 0.22;
-      const r = Math.round(180 + t * 75), g2 = Math.round(100 + t * 114), bl = Math.round(t * 10);
-      ctx.strokeStyle = `rgba(${r},${g2},${bl},${alpha})`;
-      ctx.lineWidth = 0.6 + t * 0.5;
+      const t = Math.max(0, Math.min(1, (depth + R) / (2 * R)));
+      const alpha = 0.04 + t * 0.28;
+      const rv = Math.round(160 + t * 95);
+      const gv = Math.round(80  + t * 134);
+      const bv = Math.round(t * 15);
+      ctx.strokeStyle = `rgba(${rv},${gv},${bv},${alpha})`;
+      ctx.lineWidth = 0.5 + t * 0.7;
       ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+    }
+
+    // Glow dots at front vertices
+    for (const [px, py, pz] of projected) {
+      if (pz < R * 0.3) continue;
+      const t = Math.max(0, (pz - R * 0.3) / (R * 0.7));
+      ctx.beginPath();
+      ctx.arc(px, py, 1.0 + t * 0.8, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,200,40,${t * 0.45})`;
+      ctx.fill();
     }
 
     requestAnimationFrame(draw);
