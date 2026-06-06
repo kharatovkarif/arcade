@@ -10,6 +10,7 @@ const MIN_BET = 10, MAX_BET = 1000;
 
 let current = null;
 let loopTimer = null;
+let waitingStartedAt = null;
 
 async function newRound() {
   const roundNo = Number(await getSetting('round_counter')) || 1;
@@ -51,6 +52,7 @@ export async function placeBet(tgId, username, amount) {
   if (existing) existing.amount += amount;
   else current.bets.push({ tg_id: tgId, username, amount });
   current.pot += amount;
+  if (current.status === 'waiting' && current.bets.length === 1) waitingStartedAt = Date.now();
 
   await supabase.from('game_bets').insert({
     game_id: current.gameId, tg_id: tgId, amount_arc: amount,
@@ -167,6 +169,18 @@ export function initGameLoop() {
   refundPendingGames().then(() => newRound());
   loopTimer = setInterval(async () => {
     if (!current) return;
+
+    // Refund lone player after 1 minute of waiting
+    if (current.status === 'waiting' && current.bets.length === 1 &&
+        waitingStartedAt && Date.now() - waitingStartedAt >= 60000) {
+      const bet = current.bets[0];
+      await changeArc(bet.tg_id, bet.amount, 'pvp_refund', `refund round ${current.roundNo}`);
+      await supabase.from('games').update({ status: 'done' }).eq('id', current.gameId);
+      waitingStartedAt = null;
+      await newRound();
+      return;
+    }
+
     if (current.status === 'counting' && Date.now() >= current.countdownEnd) {
       await finishRound();
     }
