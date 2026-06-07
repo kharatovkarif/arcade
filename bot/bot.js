@@ -92,6 +92,37 @@ export function startBot() {
     bot.sendMessage(msg.chat.id, `📊 Users: ${count}`).catch(()=>{});
   });
 
+  bot.onText(/\/broadcast (.+)/, async (msg, m) => {
+    if (msg.from.id !== ADMIN_ID) return;
+    const text = m[1].replace(/\\n/g, '\n');
+    const { data: users } = await supabase.from('users').select('tg_id');
+    if (!users?.length) return bot.sendMessage(msg.chat.id, '❌ No users').catch(()=>{});
+    let ok = 0, fail = 0;
+    for (const u of users) {
+      try {
+        await bot.sendMessage(u.tg_id, text, {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '▶️ Играть в ARCADE', web_app: { url: APP_URL } }],
+              [{ text: '📢 Канал', url: 'https://t.me/arcare_ton' }],
+            ],
+          },
+        });
+        ok++;
+      } catch { fail++; }
+      await new Promise(r => setTimeout(r, 50));
+    }
+    bot.sendMessage(msg.chat.id, `✅ Отправлено: ${ok}\n❌ Ошибок: ${fail}`).catch(()=>{});
+  });
+
+  bot.onText(/\/broadcast$/, (msg) => {
+    if (msg.from.id !== ADMIN_ID) return;
+    bot.sendMessage(msg.chat.id,
+      'Используй: /broadcast текст\n\nПеренос строки: \\n\n\nПример:\n/broadcast 👀 @D1r2u1g уже набрал 303 ARC...\\n\\nДо победного приза — 0.5 TON — осталось всего 197 ARC.'
+    ).catch(()=>{});
+  });
+
   bot.onText(/\/promo_list/, async (msg) => {
     if (msg.from.id !== ADMIN_ID) return;
     const { data } = await supabase.from('promocodes').select('*').eq('is_active', true).order('created_at', { ascending: false });
