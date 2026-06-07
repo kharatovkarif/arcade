@@ -11,6 +11,7 @@ import {
 import { startBot, botCheckMember, notifyAdminWithdraw } from '../bot/bot.js';
 import { initGameLoop, getGameState, placeBet } from './game.js';
 import { initDeposits } from './deposits.js';
+import { initInactivityLoop } from './inactivity.js';
 
 dotenv.config();
 
@@ -44,6 +45,7 @@ app.post('/api/me', auth, async (req, res) => {
     supabase.from('transactions').select('*', { count: 'exact', head: true })
       .eq('tg_id', req.user.tg_id).eq('type', 'ad').gte('created_at', todayStart),
   ]);
+  await supabase.from('users').update({ last_active_at: new Date().toISOString() }).eq('tg_id', req.user.tg_id);
   res.json({
     tg_id: u.tg_id, username: u.username, first_name: u.first_name,
     language: u.language, balance_arc: Number(u.balance_arc),
@@ -410,4 +412,5 @@ app.listen(PORT, '0.0.0.0', () => {
   initGameLoop();
   initDeposits();
   initSettings();
+  initInactivityLoop();
 });
