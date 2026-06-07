@@ -116,14 +116,18 @@ input.field:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(255,180,40,
 .wallet-addr{font-weight:700;font-size:14px}
 .wallet-status{font-size:12px;color:var(--green);margin-top:2px;display:flex;align-items:center;gap:4px}
 
-/* ---- OPERATIONS GRID ---- */
-.ops-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
-.op-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;background:var(--card2);border:1px solid var(--line);border-radius:15px;padding:16px 8px;cursor:pointer;transition:all .18s;font-family:inherit;position:relative;overflow:hidden}
-.op-card::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 0%,rgba(255,180,40,.12),transparent 70%);opacity:0;transition:opacity .2s}
-.op-card:active{transform:scale(.96)}
-.op-card:active::before{opacity:1}
-.op-ic{font-size:26px;filter:drop-shadow(0 2px 8px rgba(255,160,20,.35))}
-.op-lbl{font-size:13px;font-weight:800;color:#fff}
+/* ---- OPERATIONS LIST ---- */
+.op-row{display:flex;align-items:center;gap:13px;width:100%;background:var(--card2);border:1px solid var(--line);border-radius:15px;padding:14px 15px;margin-bottom:9px;cursor:pointer;transition:all .18s;font-family:inherit;text-align:left;position:relative;overflow:hidden}
+.op-row::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(180deg,var(--gold),var(--gold2));opacity:0;transition:opacity .2s}
+.op-row:active{transform:scale(.985);background:var(--card3)}
+.op-row:active::before{opacity:1}
+.op-row-ic{width:46px;height:46px;border-radius:13px;background:radial-gradient(circle at 50% 35%,rgba(255,180,40,.22),rgba(255,140,0,.06));border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:23px;flex-shrink:0;filter:drop-shadow(0 2px 8px rgba(255,160,20,.3))}
+.op-row-txt{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.op-row-t{font-size:15px;font-weight:800;color:#fff}
+.op-row-s{font-size:12px;color:var(--muted2)}
+.op-row-arrow{font-size:24px;color:var(--gold);font-weight:400;opacity:.7;flex-shrink:0}
+.op-row-soon{opacity:.55;cursor:default}
+.op-row-soon:active{transform:none;background:var(--card2)}
 
 /* ---- PvP ---- */
 .pvp-top{display:flex;justify-content:space-between;align-items:center;padding:2px 0 14px}
@@ -239,8 +243,8 @@ input.field:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(255,180,40,
   </div>
 
   <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
-  <script src="/js/i18n.js?v=18"></script>
-  <script src="/js/app.js?v=18"></script>
+  <script src="/js/i18n.js?v=19"></script>
+  <script src="/js/app.js?v=19"></script>
 <script>
 /* ============ GOLDEN BLACK HOLE BACKGROUND ============ */
 (function(){

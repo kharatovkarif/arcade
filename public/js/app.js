@@ -397,14 +397,37 @@ function renderProfile() {
     ${walletBlock}
     <div class="block">
       <div class="block-hdr">${LANG==='ru'?'Операции':'Operations'}</div>
-      <div class="ops-grid">
-        <button class="op-card" id="depBtn"><span class="op-ic">💎</span><span class="op-lbl">${t('deposit')}</span></button>
-        <button class="op-card" id="wdBtn"><span class="op-ic">💸</span><span class="op-lbl">${t('withdraw')}</span></button>
-        <button class="op-card" id="exBtn"><span class="op-ic">🔄</span><span class="op-lbl">${LANG==='ru'?'Обмен':'Exchange'}</span></button>
-        <button class="op-card" id="lbBtn"><span class="op-ic">🏆</span><span class="op-lbl">${LANG==='ru'?'Топ':'Top'}</span></button>
+      <button class="op-row" id="depBtn">
+        <span class="op-row-ic">💎</span>
+        <span class="op-row-txt"><span class="op-row-t">${t('deposit')}</span><span class="op-row-s">${LANG==='ru'?'Пополнить баланс TON':'Top up TON balance'}</span></span>
+        <span class="op-row-arrow">›</span>
+      </button>
+      <button class="op-row" id="wdBtn">
+        <span class="op-row-ic">💸</span>
+        <span class="op-row-txt"><span class="op-row-t">${t('withdraw')}</span><span class="op-row-s">${LANG==='ru'?'Вывести TON на кошелёк':'Withdraw TON to wallet'}</span></span>
+        <span class="op-row-arrow">›</span>
+      </button>
+      <button class="op-row" id="exBtn">
+        <span class="op-row-ic">🔄</span>
+        <span class="op-row-txt"><span class="op-row-t">${LANG==='ru'?'Обмен TON → ARC':'Exchange TON → ARC'}</span><span class="op-row-s">${LANG==='ru'?'Обменять TON на ARC':'Swap TON to ARC'}</span></span>
+        <span class="op-row-arrow">›</span>
+      </button>
+      <div class="op-row op-row-soon">
+        <span class="op-row-ic">🔁</span>
+        <span class="op-row-txt"><span class="op-row-t">${LANG==='ru'?'Обмен ARC → TON':'Exchange ARC → TON'}</span><span class="op-row-s">${LANG==='ru'?'Обменять ARC обратно в TON':'Swap ARC back to TON'}</span></span>
+        <span class="tag tag-soon">${t('soon')}</span>
       </div>
     </div>
-    <button class="btn btn-dark" id="histBtn" style="margin-top:6px;font-size:15px">📋 ${LANG==='ru'?'История операций':'History'}</button>`;
+    <button class="op-row" id="lbBtn">
+      <span class="op-row-ic">🏆</span>
+      <span class="op-row-txt"><span class="op-row-t">${LANG==='ru'?'Лидерборд':'Leaderboard'}</span><span class="op-row-s">${LANG==='ru'?'Топ игроков по ARC':'Top players by ARC'}</span></span>
+      <span class="op-row-arrow">›</span>
+    </button>
+    <button class="op-row" id="histBtn">
+      <span class="op-row-ic">📋</span>
+      <span class="op-row-txt"><span class="op-row-t">${LANG==='ru'?'История операций':'History'}</span><span class="op-row-s">${LANG==='ru'?'Депозиты, выводы, обмены':'Deposits, withdrawals, swaps'}</span></span>
+      <span class="op-row-arrow">›</span>
+    </button>`;
   const conn = document.getElementById('connectBtn');
   if (conn) conn.onclick = () => tonConnectUI && tonConnectUI.openModal();
   document.getElementById('depBtn').onclick = openDeposit;
