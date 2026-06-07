@@ -58,13 +58,37 @@ let currentTab = 'main';
 const PAGES = ['pvp', 'tasks', 'main', 'friends', 'profile'];
 
 function switchTab(tab) {
-  currentTab = tab;
   const ov = document.getElementById('winnerOverlay');
   if (ov) ov.style.display = 'none';
-  PAGES.forEach(p => document.getElementById('page-' + p).hidden = (p !== tab));
-  document.querySelectorAll('.tab, .tab-center').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   if (pvpTimer) { clearInterval(pvpTimer); pvpTimer = null; }
-  renderCurrentTab();
+
+  const prevTab = currentTab;
+  currentTab = tab;
+  document.querySelectorAll('.tab, .tab-center').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+
+  const nextEl = document.getElementById('page-' + tab);
+  const prevEl = prevTab ? document.getElementById('page-' + prevTab) : null;
+
+  function showNext() {
+    PAGES.forEach(p => { if (p !== tab) document.getElementById('page-' + p).hidden = true; });
+    nextEl.hidden = false;
+    nextEl.classList.remove('page-enter');
+    void nextEl.offsetWidth; // restart animation
+    nextEl.classList.add('page-enter');
+    renderCurrentTab();
+  }
+
+  // cinematic out -> in transition when actually changing tab
+  if (prevEl && prevEl !== nextEl && !prevEl.hidden) {
+    prevEl.classList.add('page-exit');
+    setTimeout(() => {
+      prevEl.classList.remove('page-exit');
+      prevEl.hidden = true;
+      showNext();
+    }, 220);
+  } else {
+    showNext();
+  }
 }
 
 function renderCurrentTab() {
@@ -372,18 +396,15 @@ function renderProfile() {
     </div>
     ${walletBlock}
     <div class="block">
-      <div class="block-hdr">Операции</div>
-      <div style="display:flex;gap:8px;margin-bottom:8px">
-        <button class="btn btn-blue" id="depBtn">${t('deposit')}</button>
-        <button class="btn btn-dark" id="wdBtn">${t('withdraw')}</button>
-      </div>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-white" id="exBtn">${t('exchange_ton_arc')}</button>
-        <button class="btn btn-dark" disabled>${t('exchange_arc_ton')} <span class="tag tag-soon">${t('soon')}</span></button>
+      <div class="block-hdr">${LANG==='ru'?'Операции':'Operations'}</div>
+      <div class="ops-grid">
+        <button class="op-card" id="depBtn"><span class="op-ic">💎</span><span class="op-lbl">${t('deposit')}</span></button>
+        <button class="op-card" id="wdBtn"><span class="op-ic">💸</span><span class="op-lbl">${t('withdraw')}</span></button>
+        <button class="op-card" id="exBtn"><span class="op-ic">🔄</span><span class="op-lbl">${LANG==='ru'?'Обмен':'Exchange'}</span></button>
+        <button class="op-card" id="lbBtn"><span class="op-ic">🏆</span><span class="op-lbl">${LANG==='ru'?'Топ':'Top'}</span></button>
       </div>
     </div>
-    <button class="btn btn-dark" id="lbBtn" style="margin-top:6px;font-size:15px">🏆 Лидерборд</button>
-    <button class="btn btn-dark" id="histBtn" style="margin-top:6px;font-size:15px">📋 История операций</button>`;
+    <button class="btn btn-dark" id="histBtn" style="margin-top:6px;font-size:15px">📋 ${LANG==='ru'?'История операций':'History'}</button>`;
   const conn = document.getElementById('connectBtn');
   if (conn) conn.onclick = () => tonConnectUI && tonConnectUI.openModal();
   document.getElementById('depBtn').onclick = openDeposit;
