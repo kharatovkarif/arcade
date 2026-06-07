@@ -243,156 +243,187 @@ input.field:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(255,255,255
   </div>
 
   <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
-  <script src="/js/i18n.js?v=20"></script>
-  <script src="/js/app.js?v=20"></script>
+  <script src="/js/i18n.js?v=21"></script>
+  <script src="/js/app.js?v=21"></script>
 <script>
-/* ============ GOLDEN BLACK HOLE BACKGROUND ============ */
+/* ============ CINEMATIC BLACK HOLE ENGINE ============ */
 (function(){
   const canvas = document.getElementById('bgCanvas');
-  const ctx = canvas.getContext('2d');
-  let W, H, R, cx, cy;
-  let diskRot = 0;
-  let stars = [], coins = [];
+  const ctx = canvas.getContext('2d', { alpha: true });
+  let W, H, R, cx, cy, DPR;
+  let t = 0;
+  let stars = [], disk = [], dust = [];
+  let glow;
+
+  /* soft bloom sprite (cool-white) reused for everything */
+  function makeGlow(size){
+    const c = document.createElement('canvas');
+    c.width = c.height = size;
+    const x = c.getContext('2d');
+    const g = x.createRadialGradient(size/2,size/2,0,size/2,size/2,size/2);
+    g.addColorStop(0,   'rgba(255,255,255,1)');
+    g.addColorStop(0.22,'rgba(244,248,255,0.6)');
+    g.addColorStop(0.5, 'rgba(214,226,255,0.2)');
+    g.addColorStop(1,   'rgba(255,255,255,0)');
+    x.fillStyle = g;
+    x.fillRect(0,0,size,size);
+    return c;
+  }
+
+  function init(){
+    glow = makeGlow(64);
+    // starfield with depth/parallax
+    stars = [];
+    const sn = Math.round(W * H / 11000);
+    for (let i=0;i<sn;i++) stars.push({
+      x:Math.random()*W, y:Math.random()*H,
+      z:Math.random(), ph:Math.random()*6.283, sp:0.5+Math.random()*1.7,
+    });
+    // accretion disk particles (concentrated near the inner edge)
+    disk = [];
+    const dn = 340;
+    for (let i=0;i<dn;i++){
+      const r = R * (1.16 + Math.pow(Math.random(),1.8) * 1.75);
+      disk.push({
+        a:Math.random()*6.283, r,
+        w:(0.30+0.55*Math.random())/Math.pow(r/R,1.5),
+        s:0.55+Math.random()*1.1,
+      });
+    }
+    // drifting cosmic dust
+    dust = [];
+    for (let i=0;i<44;i++) dust.push({
+      x:Math.random()*W, y:Math.random()*H, r:0.4+Math.random()*1.3,
+      vx:(Math.random()-0.5)*0.1, vy:(Math.random()-0.5)*0.1, o:0.05+Math.random()*0.16,
+    });
+  }
 
   function resize(){
-    W = canvas.width = window.innerWidth;
-    H = canvas.height = window.innerHeight;
-    R = Math.min(W, H) * 0.15;
-    cx = W / 2;
-    cy = H * 0.30;
-    initStars();
-    initCoins();
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    R = Math.min(W, H) * 0.155;
+    cx = W / 2; cy = H * 0.32;
+    init();
   }
 
-  function initStars(){
-    stars = Array.from({ length: 90 }, () => ({
-      x: Math.random() * W, y: Math.random() * H,
-      r: Math.random() * 1.2 + 0.2,
-      tw: Math.random() * Math.PI * 2,
-      sp: 0.01 + Math.random() * 0.03,
-    }));
-  }
+  const TILT = 0.33;
 
-  function initCoins(){
-    coins = Array.from({ length: 14 }, () => ({
-      x: Math.random() * W, y: Math.random() * H,
-      r: 4 + Math.random() * 7,
-      rot: Math.random() * Math.PI * 2,
-      rotSpeed: 0.02 + Math.random() * 0.025,
-      speed: 0.18 + Math.random() * 0.32,
-      opacity: 0.06 + Math.random() * 0.12,
-      drift: (Math.random() - 0.5) * 0.25,
-    }));
-  }
+  function frame(){
+    t++;
+    ctx.setTransform(DPR,0,0,DPR,0,0);
 
-  function drawStars(){
-    for (const s of stars){
-      s.tw += s.sp;
-      const a = 0.25 + 0.55 * (0.5 + 0.5 * Math.sin(s.tw));
-      ctx.beginPath();
-      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255,255,255,${a * 0.5})`;
-      ctx.fill();
-    }
-  }
-
-  /* one half of the accretion disk (top = lensed back arc, bottom = front) */
-  function diskHalf(top){
-    const rx = R * 2.7, ry = R * 0.6;
-    const a0 = top ? Math.PI : 0;
-    const a1 = top ? Math.PI * 2 : Math.PI;
-    for (let k = 0; k < 24; k++){
-      const f = k / 24;
-      const RX = rx * (0.4 + 0.6 * f);
-      const RY = ry * (0.4 + 0.6 * f);
-      const bright = 0.5 + 0.5 * Math.sin(diskRot * 3 + k * 0.7);
-      const alpha = (top ? 0.09 : 0.17) * (0.35 + 0.65 * bright) * (1 - f * 0.25);
-      const sh = Math.round(200 + 55 * (1 - f));
-      ctx.beginPath();
-      ctx.ellipse(cx, cy, RX, RY, 0, a0, a1);
-      ctx.strokeStyle = `rgba(${sh},${sh},${sh},${alpha})`;
-      ctx.lineWidth = 1 + (1 - f) * 1.6;
-      ctx.stroke();
-    }
-  }
-
-  function drawHole(){
-    // ambient glow
-    const glow = ctx.createRadialGradient(cx, cy, R * 0.5, cx, cy, R * 5);
-    glow.addColorStop(0, 'rgba(255,255,255,0.13)');
-    glow.addColorStop(0.35, 'rgba(255,255,255,0.05)');
-    glow.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = glow;
-    ctx.fillRect(0, 0, W, H);
-
-    diskRot += 0.004;
-
-    diskHalf(true); // lensed back arc (above the hole)
-
-    // event horizon
-    ctx.beginPath();
-    ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    /* deep-space base + faint neutral nebula */
+    ctx.globalCompositeOperation = 'source-over';
     ctx.fillStyle = '#000';
-    ctx.fill();
+    ctx.fillRect(0,0,W,H);
+    const neb = ctx.createRadialGradient(cx,cy,R*0.4,cx,cy,Math.max(W,H)*0.85);
+    neb.addColorStop(0,'rgba(48,52,64,0.20)');
+    neb.addColorStop(0.45,'rgba(22,24,30,0.10)');
+    neb.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle = neb;
+    ctx.fillRect(0,0,W,H);
 
-    // photon ring
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(cx, cy, R * 1.015, 0, Math.PI * 2);
-    ctx.lineWidth = 2.5;
-    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
-    ctx.shadowColor = 'rgba(255,255,255,0.9)';
-    ctx.shadowBlur = 22;
-    ctx.stroke();
-    ctx.restore();
-
-    diskHalf(false); // front of disk (below the hole)
-  }
-
-  function drawCoins(){
-    for (const c of coins){
-      c.rot += c.rotSpeed;
-      c.y -= c.speed;
-      c.x += c.drift;
-      if (c.y < -20){ c.y = H + 20; c.x = Math.random() * W; }
-      if (c.x < -20 || c.x > W + 20) c.x = Math.random() * W;
-
-      const sx = Math.abs(Math.cos(c.rot));
-      ctx.save();
-      ctx.translate(c.x, c.y);
-      const grad = ctx.createRadialGradient(-c.r * sx * 0.3, -c.r * 0.3, 0, 0, 0, c.r);
-      grad.addColorStop(0, `rgba(255,255,255,${c.opacity * 1.7})`);
-      grad.addColorStop(1, `rgba(210,210,210,${c.opacity})`);
-      ctx.beginPath();
-      ctx.ellipse(0, 0, Math.max(0.5, c.r * sx), c.r, 0, 0, Math.PI * 2);
-      ctx.fillStyle = grad;
-      ctx.fill();
-      ctx.strokeStyle = `rgba(255,255,255,${c.opacity * 1.2})`;
-      ctx.lineWidth = 0.8;
-      ctx.stroke();
-      if (c.r > 9 && sx > 0.4){
-        ctx.fillStyle = `rgba(255,255,255,${c.opacity * 2})`;
-        ctx.font = `bold ${Math.round(c.r * 0.55)}px Inter,sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.scale(sx, 1);
-        ctx.fillText('ARC', 0, 0);
-      }
-      ctx.restore();
+    /* stars */
+    ctx.globalCompositeOperation = 'lighter';
+    for (const s of stars){
+      const tw = 0.35 + 0.65*(0.5+0.5*Math.sin(t*0.02*s.sp + s.ph));
+      const sz = 0.6 + s.z*1.7;
+      ctx.globalAlpha = tw*(0.22 + s.z*0.5);
+      ctx.drawImage(glow, s.x-sz*3, s.y-sz*3, sz*6, sz*6);
     }
-  }
+    ctx.globalAlpha = 1;
 
-  function draw(){
-    ctx.clearRect(0, 0, W, H);
-    drawStars();
-    drawHole();
-    drawCoins();
-    requestAnimationFrame(draw);
+    /* project disk, split front/back for correct occlusion */
+    const back = [], front = [];
+    for (const p of disk){
+      p.a += p.w * 0.02;
+      const ca = Math.cos(p.a), sa = Math.sin(p.a);
+      const o = { px:cx+p.r*ca, py:cy+p.r*sa*TILT, depth:sa, r:p.r, s:p.s };
+      (sa < 0 ? back : front).push(o);
+    }
+    function part(o){
+      const heat = Math.max(0, Math.min(1,(R*2.9 - o.r)/(R*1.75)));
+      const fr = (o.depth+1)/2;
+      const a = (0.07 + 0.5*heat)*(0.38 + 0.62*fr)*o.s;
+      const sz = (2 + heat*5.5)*(0.7 + 0.5*fr)*o.s;
+      ctx.globalAlpha = Math.min(1, a);
+      ctx.drawImage(glow, o.px-sz*2, o.py-sz*2, sz*4, sz*4);
+    }
+
+    /* back half (rendered behind the event horizon) */
+    ctx.globalCompositeOperation = 'lighter';
+    for (const o of back) part(o);
+    ctx.globalAlpha = 1;
+
+    /* event horizon */
+    ctx.globalCompositeOperation = 'source-over';
+    const hg = ctx.createRadialGradient(cx,cy,R*0.55,cx,cy,R*1.3);
+    hg.addColorStop(0,'#000'); hg.addColorStop(0.8,'#000'); hg.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle = hg;
+    ctx.beginPath(); ctx.arc(cx,cy,R*1.3,0,6.2832); ctx.fill();
+    ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.arc(cx,cy,R,0,6.2832); ctx.fill();
+
+    /* photon / Einstein ring + halo bloom */
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i=0;i<3;i++){
+      ctx.beginPath();
+      ctx.arc(cx,cy,R*(1.018+i*0.012),0,6.2832);
+      ctx.strokeStyle = `rgba(255,255,255,${0.55-i*0.15})`;
+      ctx.lineWidth = 2.3 - i*0.65;
+      ctx.stroke();
+    }
+    for (let k=0;k<80;k++){
+      const ang = k/80*6.2832;
+      const rr = R*1.045;
+      ctx.globalAlpha = 0.09;
+      ctx.drawImage(glow, cx+Math.cos(ang)*rr-11, cy+Math.sin(ang)*rr-11, 22, 22);
+    }
+    ctx.globalAlpha = 1;
+
+    /* front half (over the event horizon) */
+    for (const o of front) part(o);
+    ctx.globalAlpha = 1;
+
+    /* gravitationally-lensed arc bending over the top */
+    for (let k=0;k<64;k++){
+      const u = k/63;
+      const ang = Math.PI + u*Math.PI;
+      const rr = R*1.95;
+      const ax = cx + Math.cos(ang)*rr;
+      const ay = cy + Math.sin(ang)*rr*0.40;
+      const sh = 0.5 + 0.5*Math.sin(t*0.05 + u*9);
+      ctx.globalAlpha = 0.11*sh;
+      ctx.drawImage(glow, ax-15, ay-15, 30, 30);
+    }
+    ctx.globalAlpha = 1;
+
+    /* dust */
+    for (const d of dust){
+      d.x += d.vx; d.y += d.vy;
+      if (d.x<0) d.x=W; else if (d.x>W) d.x=0;
+      if (d.y<0) d.y=H; else if (d.y>H) d.y=0;
+      ctx.globalAlpha = d.o;
+      ctx.drawImage(glow, d.x-d.r*3, d.y-d.r*3, d.r*6, d.r*6);
+    }
+    ctx.globalAlpha = 1;
+
+    /* cinematic vignette */
+    ctx.globalCompositeOperation = 'source-over';
+    const vg = ctx.createRadialGradient(cx,H*0.5,R,cx,H*0.5,Math.max(W,H)*0.78);
+    vg.addColorStop(0,'rgba(0,0,0,0)');
+    vg.addColorStop(1,'rgba(0,0,0,0.58)');
+    ctx.fillStyle = vg;
+    ctx.fillRect(0,0,W,H);
+
+    requestAnimationFrame(frame);
   }
 
   window.addEventListener('resize', resize);
   resize();
-  draw();
+  frame();
 })();
 </script>
 </body>
