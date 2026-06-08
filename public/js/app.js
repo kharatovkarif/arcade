@@ -1021,6 +1021,12 @@ async function init() {
   renderHeader(); applyLang(); switchTab('main');
   initTonConnect();
   setInterval(refreshBalance, 10000);
+  // Heartbeat: keep online counter accurate on all tabs
+  setInterval(async () => {
+    const r = await api('/online');
+    const el = document.getElementById('onlineLabel');
+    if (el && r?.count != null) el.textContent = r.count + ' ' + t('online');
+  }, 5000);
   if (ME.adsgram_block_id && window.Adsgram) {
     try { adsgramController = window.Adsgram.init({ blockId: ME.adsgram_block_id }); } catch {}
   }

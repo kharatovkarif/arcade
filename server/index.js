@@ -29,7 +29,7 @@ app.use(express.static(path.join(__dirname, '../public'), {
 const onlineUsers = new Map(); // tgId → timestamp of last request
 
 function getOnlineCount() {
-  const threshold = Date.now() - 60_000;
+  const threshold = Date.now() - 15_000;
   let count = 0;
   for (const ts of onlineUsers.values()) { if (ts > threshold) count++; }
   return count;
@@ -287,6 +287,10 @@ async function referralEarnings(tgId) {
   });
   return map;
 }
+
+app.post('/api/online', auth, (req, res) => {
+  res.json({ count: getOnlineCount() });
+});
 
 app.post('/api/pvp/state', auth, async (req, res) => {
   const state = await getGameState();
