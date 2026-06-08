@@ -26,6 +26,15 @@ app.use(express.static(path.join(__dirname, '../public'), {
   },
 }));
 
+const onlineUsers = new Map(); // tgId → timestamp of last request
+
+function getOnlineCount() {
+  const threshold = Date.now() - 60_000;
+  let count = 0;
+  for (const ts of onlineUsers.values()) { if (ts > threshold) count++; }
+  return count;
+}
+
 async function auth(req, res, next) {
   const initData = req.headers['x-init-data'] || req.body?.initData;
   if (!initData) return res.status(401).json({ error: 'no_init_data' });
@@ -33,6 +42,7 @@ async function auth(req, res, next) {
   if (!tgUser) return res.status(401).json({ error: 'bad_init_data' });
   const user = await getOrCreateUser(tgUser, tgUser.start_param);
   if (user.is_banned) return res.status(403).json({ error: 'banned' });
+  onlineUsers.set(tgUser.id, Date.now());
   req.tgUser = tgUser;
   req.user = user;
   next();
@@ -279,7 +289,9 @@ async function referralEarnings(tgId) {
 }
 
 app.post('/api/pvp/state', auth, async (req, res) => {
-  res.json(await getGameState());
+  const state = await getGameState();
+  state.onlineCount = getOnlineCount();
+  res.json(state);
 });
 
 app.post('/api/pvp/bet', auth, async (req, res) => {
@@ -288,7 +300,7 @@ app.post('/api/pvp/bet', auth, async (req, res) => {
   const { data: u } = await supabase.from('users')
     .select('balance_arc').eq('tg_id', req.user.tg_id).single();
   if (Number(u.balance_arc) < amount) return res.json({ ok: false, error: 'not_enough' });
-  const result = await placeBet(req.user.tg_id, req.user.username, amount);
+  const result = await placeBet(req.user.tg_id, req.user.username, req.user.first_name, amount);
   res.json(result);
 });
 

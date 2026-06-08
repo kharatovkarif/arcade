@@ -37,7 +37,7 @@ async function newRound() {
   };
 }
 
-export async function placeBet(tgId, username, amount) {
+export async function placeBet(tgId, username, firstName, amount) {
   if (!current) await newRound();
   if (current.status === 'spinning' || current.status === 'done')
     return { ok: false, error: 'round_closed' };
@@ -50,7 +50,7 @@ export async function placeBet(tgId, username, amount) {
 
   const existing = current.bets.find(b => b.tg_id === tgId);
   if (existing) existing.amount += amount;
-  else current.bets.push({ tg_id: tgId, username, amount });
+  else current.bets.push({ tg_id: tgId, username, first_name: firstName, amount });
   current.pot += amount;
   if (current.status === 'waiting' && current.bets.length === 1) waitingStartedAt = Date.now();
 
@@ -122,6 +122,7 @@ function stateView() {
   const players = current.bets.map(b => ({
     tg_id: b.tg_id,
     username: b.username,
+    first_name: b.first_name,
     amount: b.amount,
     chance: current.pot ? ((b.amount / current.pot) * 100).toFixed(2) : '0',
   }));

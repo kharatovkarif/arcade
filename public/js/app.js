@@ -571,7 +571,7 @@ async function loadPvP() {
   const potEl = document.getElementById('potVal');
   if (potEl) potEl.textContent = fmt(s.pot, 0);
   const onlineEl = document.getElementById('onlineLabel');
-  if (onlineEl) onlineEl.textContent = s.players.length + ' ' + t('online');
+  if (onlineEl) onlineEl.textContent = (s.onlineCount ?? s.players.length) + ' ' + t('online');
   const center = document.getElementById('wheelCenter');
   if (center) {
     if (s.status === 'counting' && s.secondsLeft != null) center.textContent = '00:' + String(s.secondsLeft).padStart(2, '0');
@@ -604,7 +604,7 @@ async function loadPvP() {
     pl.innerHTML = s.players.length
       ? s.players.map(p => {
           const g = AVATAR_GRADIENTS[Math.abs(Number(p.tg_id || 0)) % AVATAR_GRADIENTS.length];
-          const letter = (p.username || '?')[0].toUpperCase();
+          const letter = (p.first_name || p.username || '?')[0].toUpperCase();
           return `<div class="player-card">
             <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,${g[0]},${g[1]});color:#fff;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;position:relative;margin-right:10px">
               <span>${letter}</span>
@@ -665,7 +665,7 @@ function drawWheelAvatars(players, rotDeg) {
     const x = Math.round(cx + r * Math.sin(mid_rad));
     const y = Math.round(cy - r * Math.cos(mid_rad));
     const g = AVATAR_GRADIENTS[Math.abs(Number(p.tg_id || 0)) % AVATAR_GRADIENTS.length];
-    const letter = (p.username || '?')[0].toUpperCase();
+    const letter = (p.first_name || p.username || '?')[0].toUpperCase();
     return `<div style="position:absolute;left:${x - sz/2}px;top:${y - sz/2}px;width:${sz}px;height:${sz}px;border-radius:50%;background:linear-gradient(135deg,${g[0]},${g[1]});color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;overflow:hidden;border:2px solid rgba(0,0,0,.45);box-shadow:0 2px 6px rgba(0,0,0,.5)">
       <span>${letter}</span>
       <img src="/api/avatar/${p.tg_id}" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">
