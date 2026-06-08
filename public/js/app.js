@@ -67,8 +67,8 @@ function avatarInfo() {
   // Prefer our server proxy (works for everyone via the bot); fall back to the
   // launch-data photo_url if the backend somehow has nothing.
   const photo = ME?.tg_id ? `/api/avatar/${ME.tg_id}` : (TG_USER?.photo_url || null);
-  // Letter from the real first name first (like other Mini Apps), then username
-  const src = (ME?.first_name || ME?.username || TG_USER?.first_name || 'P').trim();
+  // Prefer live Telegram first_name (always fresh from initData), then DB, then username
+  const src = (TG_USER?.first_name || ME?.first_name || ME?.username || 'P').trim();
   const letter = (src[0] || 'P').toUpperCase();
   const id = Number(ME?.tg_id || TG_USER?.id || 0);
   const g = AVATAR_GRADIENTS[Math.abs(id) % AVATAR_GRADIENTS.length];
@@ -494,6 +494,7 @@ function renderPvP() {
     <div class="wheel-wrap">
       <div class="wheel-pointer"></div>
       <div class="wheel" id="wheel"></div>
+      <div id="wheelAvatars" style="position:absolute;inset:0;pointer-events:none;z-index:3;"></div>
       <div class="wheel-center" id="wheelCenter">${t('waiting')}</div>
     </div>
     <div class="pvp-input-row">
@@ -601,11 +602,18 @@ async function loadPvP() {
   const pl = document.getElementById('playersList');
   if (pl) {
     pl.innerHTML = s.players.length
-      ? s.players.map(p => `
-          <div class="player-card">
-            <span class="pname">@${p.username || '...'}</span>
+      ? s.players.map(p => {
+          const g = AVATAR_GRADIENTS[Math.abs(Number(p.tg_id || 0)) % AVATAR_GRADIENTS.length];
+          const letter = (p.username || '?')[0].toUpperCase();
+          return `<div class="player-card">
+            <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,${g[0]},${g[1]});color:#fff;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;position:relative;margin-right:10px">
+              <span>${letter}</span>
+              <img src="/api/avatar/${p.tg_id}" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">
+            </div>
+            <span class="pname" style="flex:1">@${p.username || '...'}</span>
             <span class="pchance">${p.chance}% · ${fmt(p.amount,0)} ARC</span>
-          </div>`).join('')
+          </div>`;
+        }).join('')
       : `<div class="pvp-empty">Будь первым — сделай ставку!</div>`;
   }
   const hl = document.getElementById('hashLine');
@@ -642,6 +650,31 @@ function buildWheelGradient(players) {
   return `conic-gradient(${stops.join(',')})`;
 }
 
+function drawWheelAvatars(players, rotDeg) {
+  const el = document.getElementById('wheelAvatars');
+  if (!el) return;
+  if (!players.length) { el.innerHTML = ''; el.style.transform = ''; return; }
+  const cx = 140, cy = 140, r = 90, sz = 36;
+  let acc = 0;
+  el.innerHTML = players.map(p => {
+    const start = acc;
+    const chunk = Number(p.chance);
+    acc += chunk;
+    const mid_deg = (start + chunk / 2) * 3.6;
+    const mid_rad = mid_deg * Math.PI / 180;
+    const x = Math.round(cx + r * Math.sin(mid_rad));
+    const y = Math.round(cy - r * Math.cos(mid_rad));
+    const g = AVATAR_GRADIENTS[Math.abs(Number(p.tg_id || 0)) % AVATAR_GRADIENTS.length];
+    const letter = (p.username || '?')[0].toUpperCase();
+    return `<div style="position:absolute;left:${x - sz/2}px;top:${y - sz/2}px;width:${sz}px;height:${sz}px;border-radius:50%;background:linear-gradient(135deg,${g[0]},${g[1]});color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;overflow:hidden;border:2px solid rgba(0,0,0,.45);box-shadow:0 2px 6px rgba(0,0,0,.5)">
+      <span>${letter}</span>
+      <img src="/api/avatar/${p.tg_id}" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">
+    </div>`;
+  }).join('');
+  el.style.transition = 'none';
+  el.style.transform = rotDeg != null ? `rotate(${rotDeg}deg)` : '';
+}
+
 function drawWheel(players) {
   const wheel = document.getElementById('wheel');
   if (!wheel) return;
@@ -650,10 +683,12 @@ function drawWheel(players) {
   if (!players.length) {
     wheel.style.background = WHEEL_EMPTY;
     wheel.classList.add('idle');
+    drawWheelAvatars([]);
     return;
   }
   wheel.classList.remove('idle');
   wheel.style.background = buildWheelGradient(players);
+  drawWheelAvatars(players);
 }
 
 function showWinnerOverlay(winner) {
@@ -668,17 +703,22 @@ function showWinnerOverlay(winner) {
 
 function spinWheel(players, roll) {
   const wheel = document.getElementById('wheel');
+  const ava = document.getElementById('wheelAvatars');
   if (!wheel) return;
   wheel.classList.remove('idle');
   wheel.style.background = buildWheelGradient(players);
-  // Reset to 0 instantly, then animate to target
+  drawWheelAvatars(players);
   wheel.style.transition = 'none';
   wheel.style.transform = 'rotate(0deg)';
-  wheel.getBoundingClientRect(); // force reflow
-  // 7 full rotations, land on roll position at top (pointer)
+  if (ava) { ava.style.transition = 'none'; ava.style.transform = 'rotate(0deg)'; }
+  wheel.getBoundingClientRect();
   const finalAngle = 360 * (7 - roll);
-  wheel.style.transition = '';   // restore CSS transition from stylesheet
+  wheel.style.transition = '';
   wheel.style.transform = `rotate(${finalAngle}deg)`;
+  if (ava) {
+    ava.style.transition = 'transform 4s cubic-bezier(.17,.67,.2,1)';
+    ava.style.transform = `rotate(${finalAngle}deg)`;
+  }
 }
 
 document.getElementById('langBtn').onclick = async () => {
