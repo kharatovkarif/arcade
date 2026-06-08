@@ -46,12 +46,44 @@ function renderHeader() {
   const name = ME.username ? '@' + ME.username : (ME.first_name || 'Player');
   document.getElementById('topUsername').textContent = name;
   document.getElementById('topSubBal').textContent = fmt(ME.balance_ton, 2) + ' TON · ' + fmt(ME.balance_arc, 0) + ' ARC';
-  const av = document.getElementById('topAvatar');
-  if (av) av.textContent = (ME.username || ME.first_name || 'P')[0].toUpperCase();
+  applyAvatar(document.getElementById('topAvatar'));
 }
 
 function fmt(n, d = 2) {
   return Number(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: d });
+}
+
+// Telegram user from launch data — gives us the real profile photo when available
+const TG_USER = tg?.initDataUnsafe?.user || null;
+
+// Telegram-style placeholder gradients, picked by user id (red/orange/purple/green/cyan/blue/pink)
+const AVATAR_GRADIENTS = [
+  ['#ff845e', '#fd5c64'], ['#ffb14e', '#fda14e'], ['#b694f9', '#9787f7'],
+  ['#8ee36a', '#6cc44a'], ['#7edadc', '#5fc4c6'], ['#74b3f0', '#5a9be0'],
+  ['#f88bba', '#ed6ba6'],
+];
+
+function avatarInfo() {
+  const photo = TG_USER?.photo_url || null;
+  // Letter from the real first name first (like other Mini Apps), then username
+  const src = (ME?.first_name || ME?.username || TG_USER?.first_name || 'P').trim();
+  const letter = (src[0] || 'P').toUpperCase();
+  const id = Number(ME?.tg_id || TG_USER?.id || 0);
+  const g = AVATAR_GRADIENTS[Math.abs(id) % AVATAR_GRADIENTS.length];
+  return { photo, letter, grad: `linear-gradient(135deg, ${g[0]}, ${g[1]})` };
+}
+
+// Renders gradient+letter always; overlays the photo if it loads, falls back to the
+// letter automatically if the photo is missing or fails — never an empty/broken avatar.
+function applyAvatar(el) {
+  if (!el) return;
+  const { photo, letter, grad } = avatarInfo();
+  el.style.background = grad;
+  el.style.color = '#fff';
+  el.style.position = 'relative';
+  el.style.overflow = 'hidden';
+  el.innerHTML = `<span>${letter}</span>` +
+    (photo ? `<img src="${photo}" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">` : '');
 }
 
 let currentTab = 'main';
@@ -373,7 +405,6 @@ window.disconnectWallet = async () => {
 
 function renderProfile() {
   const el = document.getElementById('page-profile');
-  const letter = (ME.username || ME.first_name || 'P')[0].toUpperCase();
   const walletBlock = ME.wallet
     ? `<div class="wallet-row">
         <div class="wallet-icon">💼</div>
@@ -386,7 +417,7 @@ function renderProfile() {
     : `<button class="btn btn-blue" style="margin-bottom:10px" id="connectBtn">${t('connect_wallet')}</button>`;
   el.innerHTML = `
     <div class="profile-card">
-      <div class="profile-avatar">${letter}</div>
+      <div class="profile-avatar" id="profileAvatar"></div>
       <div class="profile-name">${ME.username ? '@' + ME.username : ME.first_name}</div>
       <div class="profile-stats">
         <div class="profile-stat"><div class="pv">${fmt(ME.balance_ton, 2)}</div><div class="pl">TON</div></div>
@@ -428,6 +459,7 @@ function renderProfile() {
       <span class="op-row-txt"><span class="op-row-t">${LANG==='ru'?'История операций':'History'}</span><span class="op-row-s">${LANG==='ru'?'Депозиты, выводы, обмены':'Deposits, withdrawals, swaps'}</span></span>
       <span class="op-row-arrow">›</span>
     </button>`;
+  applyAvatar(document.getElementById('profileAvatar'));
   const conn = document.getElementById('connectBtn');
   if (conn) conn.onclick = () => tonConnectUI && tonConnectUI.openModal();
   document.getElementById('depBtn').onclick = openDeposit;
