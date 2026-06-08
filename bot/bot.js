@@ -92,6 +92,21 @@ export function startBot() {
     bot.sendMessage(msg.chat.id, `📊 Users: ${count}`).catch(()=>{});
   });
 
+  bot.onText(/\/msg (\d+) (.+)/s, async (msg, m) => {
+    if (msg.from.id !== ADMIN_ID) return;
+    const tgId = Number(m[1]);
+    const text = m[2].replace(/\\n/g, '\n');
+    try {
+      await bot.sendMessage(tgId, text, {
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: [[{ text: '▶️ Открыть ARCADE', web_app: { url: APP_URL } }]] }
+      });
+      bot.sendMessage(msg.chat.id, `✅ Сообщение отправлено`).catch(()=>{});
+    } catch(e) {
+      bot.sendMessage(msg.chat.id, `❌ Ошибка: ${e.message}`).catch(()=>{});
+    }
+  });
+
   bot.onText(/\/broadcast (.+)/s, async (msg, m) => {
     if (msg.from.id !== ADMIN_ID) return;
     const raw = m[1];
