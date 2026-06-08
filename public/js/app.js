@@ -64,7 +64,9 @@ const AVATAR_GRADIENTS = [
 ];
 
 function avatarInfo() {
-  const photo = TG_USER?.photo_url || null;
+  // Prefer our server proxy (works for everyone via the bot); fall back to the
+  // launch-data photo_url if the backend somehow has nothing.
+  const photo = ME?.tg_id ? `/api/avatar/${ME.tg_id}` : (TG_USER?.photo_url || null);
   // Letter from the real first name first (like other Mini Apps), then username
   const src = (ME?.first_name || ME?.username || TG_USER?.first_name || 'P').trim();
   const letter = (src[0] || 'P').toUpperCase();

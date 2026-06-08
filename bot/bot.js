@@ -189,6 +189,25 @@ export function startBot() {
   });
 }
 
+// Fetches the user's current Telegram profile photo as raw bytes via the bot.
+// This works for every launch context (unlike WebApp initData photo_url, which is
+// usually empty). Returns the largest available size, or null if the user has none.
+export async function getUserPhotoBuffer(tgId) {
+  if (!bot) return null;
+  try {
+    const photos = await bot.getUserProfilePhotos(tgId, { limit: 1 });
+    if (!photos?.total_count) return null;
+    const sizes = photos.photos[0];
+    const fileId = sizes[sizes.length - 1].file_id; // last = highest resolution
+    const link = await bot.getFileLink(fileId);     // contains bot token — keep server-side
+    const res = await fetch(link);
+    if (!res.ok) return null;
+    return Buffer.from(await res.arrayBuffer());
+  } catch {
+    return null;
+  }
+}
+
 export async function botCheckMember(channel, tgId) {
   if (!bot) return false;
   try {

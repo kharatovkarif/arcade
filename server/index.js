@@ -8,7 +8,7 @@ import {
   getOrCreateUser, getSetting, setSetting,
   checkinMultiplier, changeArc, changeTon,
 } from './helpers.js';
-import { startBot, botCheckMember, notifyAdminWithdraw } from '../bot/bot.js';
+import { startBot, botCheckMember, notifyAdminWithdraw, getUserPhotoBuffer } from '../bot/bot.js';
 import { initGameLoop, getGameState, placeBet } from './game.js';
 import { initDeposits } from './deposits.js';
 import { initInactivityLoop } from './inactivity.js';
@@ -37,6 +37,28 @@ async function auth(req, res, next) {
   req.user = user;
   next();
 }
+
+// Serves a user's Telegram profile photo, proxied through the bot so the bot token
+// (embedded in Telegram's file link) is never exposed to the client. Cached in memory
+// for an hour. Profile photos are public in Telegram, so no auth is required here.
+const avatarCache = new Map(); // tgId -> { buf, exp }
+app.get('/api/avatar/:tgId', async (req, res) => {
+  const tgId = Number(req.params.tgId);
+  if (!tgId) return res.status(404).end();
+  const cached = avatarCache.get(tgId);
+  if (cached && cached.exp > Date.now()) {
+    if (!cached.buf) return res.status(404).end();
+    res.set('Content-Type', 'image/jpeg');
+    res.set('Cache-Control', 'public, max-age=3600');
+    return res.end(cached.buf);
+  }
+  const buf = await getUserPhotoBuffer(tgId);
+  avatarCache.set(tgId, { buf, exp: Date.now() + 3600 * 1000 });
+  if (!buf) return res.status(404).end();
+  res.set('Content-Type', 'image/jpeg');
+  res.set('Cache-Control', 'public, max-age=3600');
+  res.end(buf);
+});
 
 app.post('/api/me', auth, async (req, res) => {
   const todayStart = mskDate() + 'T00:00:00+03:00';
