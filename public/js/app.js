@@ -6,6 +6,7 @@ let ME = null;
 let pvpTimer = null;
 let tonConnectUI = null;
 let adsgramController = null;
+let adsgramControllerShort = null;
 
 async function api(path, body = {}) {
   const res = await fetch('/api' + path, {
@@ -145,29 +146,41 @@ function renderMain() {
   const walletHtml = ME.wallet
     ? `<div class="hero-wallet">${ME.wallet.slice(0,4)}...${ME.wallet.slice(-4)}</div>` : '';
   const active = !!adsgramController;
+  const activeShort = !!adsgramControllerShort;
   const dailyCount = ME.ad_daily_count || 0;
-  const reward = Math.round(5 * adMult(ME.checkin_day || 1));
+  const dailyShortCount = ME.ad_short_daily_count || 0;
+  const reward = Math.round(10 * adMult(ME.checkin_day || 1));
   const limitReached = dailyCount >= 30;
+  const limitShortReached = dailyShortCount >= 30;
 
   const ad1Btn = (active && !limitReached)
     ? `<button onclick="watchAd(this)" style="width:44px;height:44px;border-radius:50%;background:var(--blue);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`
     : `<button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`;
 
+  const ad2Btn = activeShort
+    ? (limitShortReached
+        ? `<button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`
+        : `<button onclick="watchAdShort(this)" style="width:44px;height:44px;border-radius:50%;background:var(--blue);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`)
+    : `<button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`;
+
   const adRows = `
     <div class="row">
       <div class="info">
-        <span class="title">${t('ad_reward')} 1 &nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + чек-ин</span></span>
+        <span class="title">${t('ad_reward')} 1 &nbsp;<span style="color:var(--gold);font-size:13px">+10 ARC + чек-ин</span></span>
         <span class="sub">${dailyCount}/30 ${LANG==='ru'?'сегодня':'today'}</span>
       </div>
       ${ad1Btn}
     </div>
     <div class="row">
-      <div class="info"><span class="title">${t('ad_reward')} 2</span><span class="sub">${t('soon')}</span></div>
-      <button disabled class="btn btn-sm btn-dark">${t('soon')}</button>
+      <div class="info">
+        <span class="title">${t('ad_reward')} 2 &nbsp;<span style="color:var(--gold);font-size:13px">+3 ARC</span></span>
+        <span class="sub">${activeShort ? dailyShortCount+'/30 '+(LANG==='ru'?'сегодня':'today') : t('soon')}</span>
+      </div>
+      ${ad2Btn}
     </div>
     <div class="row">
       <div class="info"><span class="title">${t('ad_reward')} 3</span><span class="sub">${t('soon')}</span></div>
-      <button disabled class="btn btn-sm btn-dark">${t('soon')}</button>
+      <button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>
     </div>`;
 
   document.getElementById('page-main').innerHTML = `
@@ -344,6 +357,28 @@ window.watchAd = async (btn) => {
       toast(`+${r.reward} ARC · ${r.daily_count}/30`);
     } else if (r.error === 'daily_limit') {
       ME.ad_daily_count = 30;
+      renderMain();
+      toast(LANG==='ru' ? 'Дневной лимит 30 реклам исчерпан' : 'Daily limit of 30 ads reached');
+    } else {
+      btn.disabled = false;
+    }
+  } catch { btn.disabled = false; }
+};
+
+window.watchAdShort = async (btn) => {
+  if (!adsgramControllerShort) return;
+  btn.disabled = true;
+  try {
+    await adsgramControllerShort.show();
+    const r = await api('/ads/watch-short');
+    if (r.ok) {
+      ME.ad_short_daily_count = r.daily_count;
+      ME.balance_arc = r.balance_arc;
+      renderHeader();
+      renderMain();
+      toast(`+${r.reward} ARC · ${r.daily_count}/30`);
+    } else if (r.error === 'daily_limit') {
+      ME.ad_short_daily_count = 30;
       renderMain();
       toast(LANG==='ru' ? 'Дневной лимит 30 реклам исчерпан' : 'Daily limit of 30 ads reached');
     } else {
@@ -1029,6 +1064,9 @@ async function init() {
   }, 5000);
   if (ME.adsgram_block_id && window.Adsgram) {
     try { adsgramController = window.Adsgram.init({ blockId: ME.adsgram_block_id }); } catch {}
+  }
+  if (ME.adsgram_block_id_short && window.Adsgram) {
+    try { adsgramControllerShort = window.Adsgram.init({ blockId: ME.adsgram_block_id_short }); } catch {}
   }
 }
 init();
