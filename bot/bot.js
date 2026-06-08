@@ -92,9 +92,12 @@ export function startBot() {
     bot.sendMessage(msg.chat.id, `📊 Users: ${count}`).catch(()=>{});
   });
 
-  bot.onText(/\/broadcast (.+)/, async (msg, m) => {
+  bot.onText(/\/broadcast (.+)/s, async (msg, m) => {
     if (msg.from.id !== ADMIN_ID) return;
-    const text = m[1].replace(/\\n/g, '\n');
+    const raw = m[1];
+    const sepIdx = raw.indexOf('|||');
+    const text = (sepIdx !== -1 ? raw.slice(0, sepIdx) : raw).replace(/\\n/g, '\n').trim();
+    const postUrl = sepIdx !== -1 ? raw.slice(sepIdx + 3).trim() : 'https://t.me/arcare_ton';
     const { data: users } = await supabase.from('users').select('tg_id');
     if (!users?.length) return bot.sendMessage(msg.chat.id, '❌ No users').catch(()=>{});
     let ok = 0, fail = 0;
@@ -105,7 +108,7 @@ export function startBot() {
           reply_markup: {
             inline_keyboard: [
               [{ text: '▶️ Играть в ARCADE', web_app: { url: APP_URL } }],
-              [{ text: '📢 Канал', url: 'https://t.me/arcare_ton' }],
+              [{ text: '📢 Смотреть пост', url: postUrl }],
             ],
           },
         });
