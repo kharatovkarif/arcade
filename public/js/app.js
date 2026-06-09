@@ -838,34 +838,77 @@ function openLeaderboard() {
   ov.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:500;display:flex;flex-direction:column;overflow:hidden';
   ov.innerHTML = `
     <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1a1a1a">
-      <div style="font-size:18px;font-weight:900">🏆 Лидерборд</div>
+      <div style="font-size:18px;font-weight:900">🏆 ${LANG==='ru'?'Лидерборд':'Leaderboard'}</div>
       <button onclick="document.getElementById('lbOverlay').remove()" style="background:#1a1a1a;border:none;color:#fff;border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer">✕</button>
     </div>
+    <div style="display:flex;gap:8px;padding:12px 16px 0">
+      <button id="lbTabArc" onclick="lbShowTab('arc')" style="flex:1;padding:8px;border-radius:10px;border:none;background:var(--gold);color:#000;font-weight:800;cursor:pointer;font-size:13px">💰 ARC</button>
+      <button id="lbTabRefs" onclick="lbShowTab('refs')" style="flex:1;padding:8px;border-radius:10px;border:none;background:#1a1a1a;color:#fff;font-weight:700;cursor:pointer;font-size:13px">👥 ${LANG==='ru'?'Рефералы':'Referrals'}</button>
+    </div>
     <div id="lbContent" style="flex:1;overflow-y:auto;padding:12px 16px 24px">
-      <div class="pvp-empty" style="padding:20px">Загрузка...</div>
+      <div class="pvp-empty" style="padding:20px">${LANG==='ru'?'Загрузка...':'Loading...'}</div>
     </div>`;
   document.body.appendChild(ov);
-
-  api('/leaderboard/arc').then(data => {
-    const content = document.getElementById('lbContent');
-    if (!content) return;
-    const medals = ['🥇','🥈','🥉'];
-    const rows = (data.top || []).map(p => `
-      <div class="player-card" style="justify-content:space-between;margin-bottom:6px${p.username === ME.username ? ';border:1px solid var(--gold)' : ''}">
-        <span style="font-size:18px;min-width:32px">${medals[p.rank-1] || `<span style='color:var(--muted2);font-weight:700'>#${p.rank}</span>`}</span>
-        <span class="pname" style="flex:1">@${p.username}</span>
-        <span style="color:var(--gold);font-weight:700">${fmt(p.arc, 0)} ARC</span>
-      </div>`).join('') || '<div class="pvp-empty" style="padding:10px">Пока пусто</div>';
-    const myRow = data.myRank && data.myRank.rank > 3 ? `
-      <div style="margin-top:12px;padding:8px 0;border-top:1px solid #2a2a2a;color:var(--muted2);font-size:12px;text-align:center">Твоё место</div>
-      <div class="player-card" style="justify-content:space-between;border:1px solid var(--gold)">
-        <span style="color:var(--gold);font-weight:700;min-width:32px">#${data.myRank.rank}</span>
-        <span class="pname" style="flex:1">@${ME.username || '...'}</span>
-        <span style="color:var(--gold);font-weight:700">${fmt(data.myRank.arc, 0)} ARC</span>
-      </div>` : '';
-    content.innerHTML = rows + myRow;
-  });
+  lbShowTab('arc');
 }
+
+window.lbShowTab = function(tab) {
+  const arcBtn = document.getElementById('lbTabArc');
+  const refsBtn = document.getElementById('lbTabRefs');
+  const content = document.getElementById('lbContent');
+  if (!content) return;
+  if (arcBtn) { arcBtn.style.background = tab==='arc' ? 'var(--gold)' : '#1a1a1a'; arcBtn.style.color = tab==='arc' ? '#000' : '#fff'; }
+  if (refsBtn) { refsBtn.style.background = tab==='refs' ? 'var(--gold)' : '#1a1a1a'; refsBtn.style.color = tab==='refs' ? '#000' : '#fff'; }
+  content.innerHTML = `<div class="pvp-empty" style="padding:20px">${LANG==='ru'?'Загрузка...':'Loading...'}</div>`;
+
+  const medals = ['🥇','🥈','🥉'];
+  if (tab === 'arc') {
+    api('/leaderboard/arc').then(data => {
+      if (!document.getElementById('lbContent')) return;
+      const rows = (data.top || []).map(p => `
+        <div class="player-card" style="justify-content:space-between;margin-bottom:6px${p.username === ME.username ? ';border:1px solid var(--gold)' : ''}">
+          <span style="font-size:18px;min-width:32px">${medals[p.rank-1] || `<span style='color:var(--muted2);font-weight:700'>#${p.rank}</span>`}</span>
+          <span class="pname" style="flex:1">@${p.username}</span>
+          <span style="color:var(--gold);font-weight:700">${fmt(p.arc, 0)} ARC</span>
+        </div>`).join('') || `<div class="pvp-empty" style="padding:10px">${LANG==='ru'?'Пока пусто':'Empty'}</div>`;
+      const myRow = data.myRank && data.myRank.rank > 3 ? `
+        <div style="margin-top:12px;padding:8px 0;border-top:1px solid #2a2a2a;color:var(--muted2);font-size:12px;text-align:center">${LANG==='ru'?'Твоё место':'Your rank'}</div>
+        <div class="player-card" style="justify-content:space-between;border:1px solid var(--gold)">
+          <span style="color:var(--gold);font-weight:700;min-width:32px">#${data.myRank.rank}</span>
+          <span class="pname" style="flex:1">@${ME.username || '...'}</span>
+          <span style="color:var(--gold);font-weight:700">${fmt(data.myRank.arc, 0)} ARC</span>
+        </div>` : '';
+      document.getElementById('lbContent').innerHTML = rows + myRow;
+    });
+  } else {
+    api('/leaderboard/refs').then(data => {
+      if (!document.getElementById('lbContent')) return;
+      const prizes = ['1 TON','0.5 TON','0.3 TON','0.2 TON','0.2 TON','0.1 TON','0.1 TON','0.1 TON','0.1 TON','0.1 TON'];
+      const header = `
+        <div style="background:#111;border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--muted)">
+          🏆 ${LANG==='ru'?'Конкурс рефералов · до 23 июня':'Referral contest · until Jun 23'}<br>
+          <span style="color:var(--gold);font-size:11px">${LANG==='ru'?'Мин. 2 активных друга · Призы: 2.7 TON':'Min 2 active friends · Prizes: 2.7 TON'}</span>
+        </div>`;
+      const rows = (data.top || []).map(p => {
+        const prize = prizes[p.rank-1] ? `<span style="color:#4af;font-size:11px;font-weight:700">${prizes[p.rank-1]}</span>` : '';
+        return `
+        <div class="player-card" style="justify-content:space-between;margin-bottom:6px${p.tg_id === ME.tg_id ? ';border:1px solid var(--gold)' : ''}">
+          <span style="font-size:18px;min-width:32px">${medals[p.rank-1] || `<span style='color:var(--muted2);font-weight:700'>#${p.rank}</span>`}</span>
+          <span class="pname" style="flex:1">@${p.username}</span>
+          <div style="text-align:right">${prize}<div style="color:var(--gold);font-weight:700">${p.refs} ${LANG==='ru'?'друзей':'friends'}</div></div>
+        </div>`;
+      }).join('') || `<div class="pvp-empty" style="padding:10px">${LANG==='ru'?'Пока никто не пригласил активных друзей':'No active referrals yet'}</div>`;
+      const myRow = data.myRank && data.myRank.rank > 3 ? `
+        <div style="margin-top:12px;padding:8px 0;border-top:1px solid #2a2a2a;color:var(--muted2);font-size:12px;text-align:center">${LANG==='ru'?'Твоё место':'Your rank'}</div>
+        <div class="player-card" style="justify-content:space-between;border:1px solid var(--gold)">
+          <span style="color:var(--gold);font-weight:700;min-width:32px">#${data.myRank.rank}</span>
+          <span class="pname" style="flex:1">@${ME.username || '...'}</span>
+          <span style="color:var(--gold);font-weight:700">${data.myRank.refs} ${LANG==='ru'?'друзей':'friends'}</span>
+        </div>` : '';
+      document.getElementById('lbContent').innerHTML = header + rows + myRow;
+    });
+  }
+};
 
 
 async function openWithdraw() {

@@ -411,6 +411,56 @@ app.post('/api/leaderboard/arc', auth, async (req, res) => {
   res.json({ top, myRank });
 });
 
+app.post('/api/leaderboard/refs', auth, async (req, res) => {
+  const CONTEST_START = '2026-06-09T00:00:00+03:00';
+  // Get new users since contest start
+  const { data: newUsers } = await supabase.from('users')
+    .select('tg_id, referrer_id, wallet').gte('created_at', CONTEST_START);
+  if (!newUsers?.length) return res.json({ top: [], myRank: null, contestEnd: '2026-06-23' });
+
+  // Check activity for each new user: 3+ ads OR wallet connected OR any PvP bet
+  const newIds = newUsers.map(u => u.tg_id);
+  const { data: adCounts } = await supabase.from('transactions')
+    .select('tg_id').eq('type', 'ad').in('tg_id', newIds);
+  const { data: pvpPlays } = await supabase.from('transactions')
+    .select('tg_id').eq('type', 'pvp').lt('amount', 0).in('tg_id', newIds);
+
+  const adMap = {};
+  (adCounts || []).forEach(r => { adMap[r.tg_id] = (adMap[r.tg_id] || 0) + 1; });
+  const pvpSet = new Set((pvpPlays || []).map(r => r.tg_id));
+
+  const activeNewUserIds = new Set(
+    newUsers.filter(u =>
+      (adMap[u.tg_id] || 0) >= 3 || u.wallet || pvpSet.has(u.tg_id)
+    ).map(u => u.tg_id)
+  );
+
+  // Count active refs per referrer
+  const refCount = {};
+  newUsers.forEach(u => {
+    if (u.referrer_id && activeNewUserIds.has(u.tg_id)) {
+      refCount[u.referrer_id] = (refCount[u.referrer_id] || 0) + 1;
+    }
+  });
+
+  // Get usernames for referrers
+  const referrerIds = Object.keys(refCount).map(Number);
+  if (!referrerIds.length) return res.json({ top: [], myRank: null, contestEnd: '2026-06-23' });
+
+  const { data: referrers } = await supabase.from('users')
+    .select('tg_id, username').in('tg_id', referrerIds);
+
+  const top = (referrers || [])
+    .map(u => ({ tg_id: u.tg_id, username: u.username || '...', refs: refCount[u.tg_id] || 0 }))
+    .sort((a, b) => b.refs - a.refs)
+    .map((u, i) => ({ ...u, rank: i + 1 }))
+    .slice(0, 50);
+
+  const myEntry = top.find(u => u.tg_id === req.user.tg_id);
+  const myRank = myEntry || null;
+  res.json({ top, myRank, contestEnd: '2026-06-23' });
+});
+
 app.post('/api/deposit/info', auth, async (req, res) => {
   res.json({
     wallet: process.env.PROJECT_WALLET,
