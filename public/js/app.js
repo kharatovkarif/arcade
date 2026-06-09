@@ -544,7 +544,6 @@ function renderPvP() {
     </div>
     <div class="pvp-section-lbl">
       <span>УЧАСТНИКИ</span>
-      <span id="onlineLabel" style="color:var(--green)">0 онлайн</span>
     </div>
     <div id="playersList"></div>
     <div class="hash" id="hashLine"></div>
@@ -605,8 +604,6 @@ async function loadPvP() {
   if (roundEl) roundEl.textContent = `ИГРА #${s.roundNo}`;
   const potEl = document.getElementById('potVal');
   if (potEl) potEl.textContent = fmt(s.pot, 0);
-  const onlineEl = document.getElementById('onlineLabel');
-  if (onlineEl) onlineEl.textContent = (s.onlineCount ?? s.players.length) + ' ' + t('online');
   const center = document.getElementById('wheelCenter');
   if (center) {
     if (s.status === 'counting' && s.secondsLeft != null) center.textContent = '00:' + String(s.secondsLeft).padStart(2, '0');
@@ -1100,11 +1097,6 @@ async function init() {
   initTonConnect();
   setInterval(refreshBalance, 10000);
   // Heartbeat: keep online counter accurate on all tabs
-  setInterval(async () => {
-    const r = await api('/online');
-    const el = document.getElementById('onlineLabel');
-    if (el && r?.count != null) el.textContent = r.count + ' ' + t('online');
-  }, 5000);
   if (ME.adsgram_block_id && window.Adsgram) {
     try { adsgramController = window.Adsgram.init({ blockId: ME.adsgram_block_id }); } catch {}
   }
