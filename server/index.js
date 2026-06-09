@@ -207,10 +207,10 @@ app.post('/api/ads/watch-short', auth, async (req, res) => {
   const current = count || 0;
   if (current >= 30) return res.json({ ok: false, error: 'daily_limit', daily_count: 30 });
 
-  const reward = 3;
+  const { data: u } = await supabase.from('users').select('checkin_day, referrer_id').eq('tg_id', req.user.tg_id).single();
+  const reward = Math.round(5 * checkinMultiplier(u?.checkin_day || 1));
   const newBal = await changeArc(req.user.tg_id, reward, 'ad_short', 'ad short watch');
 
-  const { data: u } = await supabase.from('users').select('referrer_id').eq('tg_id', req.user.tg_id).single();
   if (u?.referrer_id) {
     const ref1Reward = Math.round(reward * 0.2);
     if (ref1Reward > 0) {

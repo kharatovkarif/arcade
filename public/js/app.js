@@ -173,7 +173,7 @@ function renderMain() {
     </div>
     <div class="row">
       <div class="info">
-        <span class="title">${t('ad_reward')} 2 &nbsp;<span style="color:var(--gold);font-size:13px">+3 ARC</span></span>
+        <span class="title">${t('ad_reward')} 2 &nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + чек-ин</span></span>
         <span class="sub">${activeShort ? dailyShortCount+'/30 '+(LANG==='ru'?'сегодня':'today') : t('soon')}</span>
       </div>
       ${ad2Btn}
@@ -242,7 +242,7 @@ async function renderTasks() {
         ${pbar(prog, need)}
       </div>
       ${tk.completed
-        ? `<span class="tag tag-done">✓</span>`
+        ? `<div style="text-align:center;flex-shrink:0"><div style="color:var(--green);font-size:12px;font-weight:700">${LANG==='ru'?'Выполнено':'Done'}</div><div style="color:var(--muted);font-size:11px">${LANG==='ru'?'сегодня':'today'}</div></div>`
         : `<button class="btn btn-sm ${canClaim?'btn-green':'btn-dark'}" ${canClaim?`onclick="checkTask(${tk.id},this)"`:'disabled'}>${t('get_reward')}</button>`}
     </div>`;
   }
@@ -252,7 +252,7 @@ async function renderTasks() {
     const style = tk.completed ? ' style="opacity:.55"' : '';
     if (tk.completed) return `<div class="row"${style}>
       <div class="info"><span class="title">${title}</span><span class="sub">+${tk.reward_arc} ARC</span></div>
-      <span class="tag tag-done">✓</span></div>`;
+      <div style="text-align:center;flex-shrink:0"><div style="color:var(--green);font-size:12px;font-weight:700">${LANG==='ru'?'Выполнено':'Done'}</div><div style="color:var(--muted);font-size:11px">${LANG==='ru'?'сегодня':'today'}</div></div></div>`;
     if (tk.type==='subscribe' && tk.target) {
       const url = 'https://t.me/'+tk.target.replace('@','');
       return `<div class="row">
