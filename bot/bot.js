@@ -141,6 +141,39 @@ export function startBot() {
     ).catch(()=>{});
   });
 
+  // Photo broadcast: admin sends a photo with caption starting with /photocast
+  bot.on('message', async (msg) => {
+    if (msg.from.id !== ADMIN_ID) return;
+    if (!msg.photo) return;
+    const caption = msg.caption || '';
+    if (!caption.startsWith('/photocast')) return;
+    const raw = caption.slice('/photocast'.length).trim();
+    const sepIdx = raw.indexOf('|||');
+    const text = (sepIdx !== -1 ? raw.slice(0, sepIdx) : raw).replace(/\\n/g, '\n').trim();
+    const postUrl = sepIdx !== -1 ? raw.slice(sepIdx + 3).trim() : 'https://t.me/arcare_ton';
+    const fileId = msg.photo[msg.photo.length - 1].file_id;
+    const { data: users } = await supabase.from('users').select('tg_id');
+    if (!users?.length) return bot.sendMessage(msg.chat.id, '❌ No users').catch(() => {});
+    let ok = 0, fail = 0;
+    for (const u of users) {
+      try {
+        await bot.sendPhoto(u.tg_id, fileId, {
+          caption: text,
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '▶️ Играть в ARCADE', web_app: { url: APP_URL } }],
+              [{ text: '📢 Смотреть канал', url: postUrl }],
+            ],
+          },
+        });
+        ok++;
+      } catch { fail++; }
+      await new Promise(r => setTimeout(r, 50));
+    }
+    bot.sendMessage(msg.chat.id, `✅ Отправлено: ${ok}\n❌ Ошибок: ${fail}`).catch(() => {});
+  });
+
   bot.onText(/\/promo_list/, async (msg) => {
     if (msg.from.id !== ADMIN_ID) return;
     const { data } = await supabase.from('promocodes').select('*').eq('is_active', true).order('created_at', { ascending: false });
