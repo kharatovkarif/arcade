@@ -16,6 +16,37 @@ export function startBot() {
   bot.on('polling_error', (e) => console.log('polling_error:', e.message));
   console.log('Bot started');
 
+  // ONE-TIME broadcast: ARCADE chat announcement — remove after deploy
+  setTimeout(async () => {
+    const { data: users } = await supabase.from('users').select('tg_id');
+    if (!users?.length) return;
+    const text =
+      '💬 *Теперь у нас есть чат!*\n\n' +
+      'Общайся с другими игроками, обсуждай стратегии и следи за новостями ARCADE.\n\n' +
+      '💰 Зарабатывай *ARC* каждый день:\n' +
+      '📺 Смотри рекламу\n' +
+      '✅ Выполняй задания\n' +
+      '⚔️ Играй в PvP рулетку';
+    let ok = 0, fail = 0;
+    for (const u of users) {
+      try {
+        await bot.sendMessage(u.tg_id, text, {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '▶️ Запустить ARCADE', web_app: { url: APP_URL } }],
+              [{ text: '💬 Чат', url: 'https://t.me/arcadeton_chat' }],
+            ],
+          },
+        });
+        ok++;
+      } catch { fail++; }
+      await new Promise(r => setTimeout(r, 50));
+    }
+    console.log(`Broadcast done: ✅${ok} ❌${fail}`);
+  }, 5000);
+  // END ONE-TIME broadcast
+
   bot.onText(/\/start/, (msg) => {
     const text =
       '🎮 *Welcome to ARCADE*\n\n' +
