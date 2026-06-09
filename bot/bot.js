@@ -68,6 +68,18 @@ export function startBot() {
     bot.sendMessage(msg.chat.id, `🗑 Promo ${m[1].trim()} disabled`).catch(()=>{});
   });
 
+  bot.onText(/\/promo_keep (.+)/, async (msg, m) => {
+    if (msg.from.id !== ADMIN_ID) return;
+    const keep = m[1].trim().toUpperCase();
+    const { data } = await supabase.from('promocodes').select('code').eq('is_active', true);
+    if (!data?.length) return bot.sendMessage(msg.chat.id, 'Нет активных промокодов').catch(()=>{});
+    const toDelete = data.filter(p => p.code.toUpperCase() !== keep);
+    for (const p of toDelete) {
+      await supabase.from('promocodes').update({ is_active: false }).eq('code', p.code);
+    }
+    bot.sendMessage(msg.chat.id, `✅ Оставлен только ${keep}\n🗑 Удалено: ${toDelete.length} промокодов`).catch(()=>{});
+  });
+
   bot.onText(/\/task_add (.+)/, async (msg, m) => {
     if (msg.from.id !== ADMIN_ID) return;
     const [head, ru, en] = m[1].split('|').map(s => s.trim());
