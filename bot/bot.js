@@ -16,6 +16,37 @@ export function startBot() {
   bot.on('polling_error', (e) => console.log('polling_error:', e.message));
   console.log('Bot started');
 
+  // ONE-TIME broadcast: promo ARNI — remove after deploy
+  setTimeout(async () => {
+    const { data: users } = await supabase.from('users').select('tg_id');
+    if (!users?.length) return;
+    const text =
+      '🎁 *Промокод для тебя!*\n\n' +
+      'Введи промокод *ARNI* в приложении и получи *+50 ARC* на баланс прямо сейчас!\n\n' +
+      '⚔️ Играй в PvP рулетку\n' +
+      '📺 Смотри рекламу\n' +
+      '✅ Выполняй задания\n\n' +
+      '💬 Присоединяйся к нашему чату — общайся с игроками и следи за новостями!';
+    let ok = 0, fail = 0;
+    for (const u of users) {
+      try {
+        await bot.sendMessage(u.tg_id, text, {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '▶️ Запустить ARCADE', web_app: { url: APP_URL } }],
+              [{ text: '💬 Чат', url: 'https://t.me/arcadeton_chat' }],
+            ],
+          },
+        });
+        ok++;
+      } catch { fail++; }
+      await new Promise(r => setTimeout(r, 50));
+    }
+    console.log(`Broadcast done: ✅${ok} ❌${fail}`);
+  }, 5000);
+  // END ONE-TIME broadcast
+
 
   bot.onText(/\/start/, (msg) => {
     const text =
