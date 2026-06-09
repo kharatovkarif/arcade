@@ -143,10 +143,12 @@ app.post('/api/tasks', auth, async (req, res) => {
   const todayStart = today + 'T00:00:00+03:00';
   const { data: tasks } = await supabase.from('tasks')
     .select('*').eq('is_active', true).order('id', { ascending: true });
-  const { data: done } = await supabase.from('task_completions')
-    .select('task_id, created_at').eq('tg_id', req.user.tg_id);
-  const doneAll = new Set((done || []).map(d => d.task_id));
-  const doneToday = new Set((done || []).filter(d => d.created_at >= todayStart).map(d => d.task_id));
+  const [{ data: doneAllData }, { data: doneTodayData }] = await Promise.all([
+    supabase.from('task_completions').select('task_id').eq('tg_id', req.user.tg_id),
+    supabase.from('task_completions').select('task_id').eq('tg_id', req.user.tg_id).gte('created_at', todayStart),
+  ]);
+  const doneAll = new Set((doneAllData || []).map(d => d.task_id));
+  const doneToday = new Set((doneTodayData || []).map(d => d.task_id));
 
   // Gather progress counts in parallel
   const needsRef = (tasks || []).some(t => t.type === 'referral_milestone');
@@ -272,17 +274,18 @@ app.post('/api/tasks/check', auth, async (req, res) => {
     if ((count || 0) < required) return res.json({ ok: false, error: 'not_enough_pvp', need: required, have: count || 0 });
   }
 
-  // Atomic guard against race conditions: the UNIQUE(task_id, tg_id) index is the
-  // single source of truth. Only the request that actually inserts the completion row
-  // gets to grant the reward — concurrent duplicates hit the unique violation and bail
-  // out here, BEFORE changeArc runs. This closes the TOCTOU window the pre-insert
-  // check above can't cover.
-  const { error: insErr } = await supabase
-    .from('task_completions')
-    .insert({ task_id: taskId, tg_id: req.user.tg_id });
-  if (insErr) {
-    // 23505 = unique_violation → someone already claimed it (or won the race)
-    return res.json({ ok: false, error: 'already_done' });
+  // For daily tasks: upsert so the unique constraint doesn't block re-completion the next day.
+  // The pre-check above (gte todayStart) is the guard against same-day duplicates.
+  // For non-daily tasks: plain insert — the unique constraint is the atomic race guard.
+  if (task.limit_mode === 'daily') {
+    await supabase.from('task_completions')
+      .upsert({ task_id: taskId, tg_id: req.user.tg_id, created_at: new Date().toISOString() },
+               { onConflict: 'task_id,tg_id' });
+  } else {
+    const { error: insErr } = await supabase
+      .from('task_completions')
+      .insert({ task_id: taskId, tg_id: req.user.tg_id });
+    if (insErr) return res.json({ ok: false, error: 'already_done' });
   }
   await supabase.from('tasks').update({ used_count: task.used_count + 1 }).eq('id', taskId);
   const newBal = await changeArc(req.user.tg_id, task.reward_arc, 'task', `task ${taskId}`);
