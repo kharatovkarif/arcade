@@ -16,6 +16,41 @@ export function startBot() {
   bot.on('polling_error', (e) => console.log('polling_error:', e.message));
   console.log('Bot started');
 
+  // ONE-TIME broadcast: referral contest announcement — remove after deploy
+  setTimeout(async () => {
+    const { data: users } = await supabase.from('users').select('tg_id');
+    if (!users?.length) return;
+    const text =
+      '🏆 *Конкурс рефералов ARCADE*\n\n' +
+      'Приглашай друзей — забирай *TON*\\!\n\n' +
+      '🥇 1 место — *1 TON*\n' +
+      '🥈 2 место — *0\\.5 TON*\n' +
+      '🥉 3 место — *0\\.3 TON*\n' +
+      '4–5 место — *0\\.2 TON*\n' +
+      '6–10 место — *0\\.1 TON*\n\n' +
+      '✅ Реферал активный: 3\\+ рекламы / кошелёк / PvP\n' +
+      '📊 Следи за местом в лидерборде прямо в приложении\n\n' +
+      '⏰ Конкурс до *23 июня*';
+    let ok = 0, fail = 0;
+    for (const u of users) {
+      try {
+        await bot.sendMessage(u.tg_id, text, {
+          parse_mode: 'MarkdownV2',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '▶️ Запустить ARCADE', web_app: { url: APP_URL } }],
+              [{ text: '📢 Канал', url: 'https://t.me/arcare_ton' }],
+            ],
+          },
+        });
+        ok++;
+      } catch { fail++; }
+      await new Promise(r => setTimeout(r, 50));
+    }
+    console.log(`Broadcast done: ✅${ok} ❌${fail}`);
+  }, 5000);
+  // END ONE-TIME broadcast
+
 
 
   bot.onText(/\/start/, (msg) => {
