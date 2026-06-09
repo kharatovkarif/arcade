@@ -331,9 +331,6 @@ app.post('/api/pvp/state', auth, async (req, res) => {
 app.post('/api/pvp/bet', auth, async (req, res) => {
   const amount = Number(req.body.amount);
   if (!(amount >= 10 && amount <= 1000)) return res.json({ ok: false, error: 'bad_amount' });
-  const { data: u } = await supabase.from('users')
-    .select('balance_arc').eq('tg_id', req.user.tg_id).single();
-  if (Number(u.balance_arc) < amount) return res.json({ ok: false, error: 'not_enough' });
   const result = await placeBet(req.user.tg_id, req.user.username, req.user.first_name, amount);
   res.json(result);
 });

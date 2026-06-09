@@ -44,9 +44,14 @@ export async function placeBet(tgId, username, firstName, amount) {
   if (amount < MIN_BET || amount > MAX_BET)
     return { ok: false, error: 'bad_amount' };
 
-  const { data: u } = await supabase.from('users').select('balance_arc').eq('tg_id', tgId).single();
-  if (Number(u.balance_arc) < amount) return { ok: false, error: 'not_enough' };
-  await changeArc(tgId, -amount, 'pvp', `bet round ${current.roundNo}`);
+  const { data: newBal, error: decErr } = await supabase.rpc('try_decrement_arc', {
+    p_tg_id: tgId, p_amount: amount,
+  });
+  if (decErr || newBal === null) return { ok: false, error: 'not_enough' };
+  await supabase.from('transactions').insert({
+    tg_id: tgId, type: 'pvp', currency: 'ARC', amount: -amount,
+    note: `bet round ${current.roundNo}`,
+  });
 
   const existing = current.bets.find(b => b.tg_id === tgId);
   if (existing) existing.amount += amount;
