@@ -244,19 +244,9 @@ app.get('/api/adsgram/task-reward', async (req, res) => {
   res.status(200).send('ok');
 });
 
-// Adsgram Short Ad — client-triggered but with 5-minute cooldown per user to prevent spam
+// Adsgram Short Ad — client-triggered, daily limit only (Interstitial has no S2S callback)
 app.post('/api/ads/watch-short', auth, async (req, res) => {
   const todayStart = mskDate() + 'T00:00:00+03:00';
-  const cooldownMs = 5 * 60 * 1000; // 5 minutes between rewards
-
-  const { data: recent } = await supabase.from('transactions')
-    .select('created_at').eq('tg_id', req.user.tg_id).eq('type', 'ad_short')
-    .order('created_at', { ascending: false }).limit(1).maybeSingle();
-
-  if (recent && (Date.now() - new Date(recent.created_at).getTime()) < cooldownMs) {
-    const waitSec = Math.ceil((cooldownMs - (Date.now() - new Date(recent.created_at).getTime())) / 1000);
-    return res.json({ ok: false, error: 'cooldown', wait_sec: waitSec });
-  }
 
   const { count } = await supabase.from('transactions').select('*', { count: 'exact', head: true })
     .eq('tg_id', req.user.tg_id).eq('type', 'ad_short').gte('created_at', todayStart);

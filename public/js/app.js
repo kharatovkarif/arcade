@@ -430,10 +430,6 @@ window.watchAdShort = async (btn) => {
       ME.ad_short_daily_count = 10;
       renderMain();
       toast(LANG === 'ru' ? 'Дневной лимит исчерпан' : 'Daily limit reached');
-    } else if (r.error === 'cooldown') {
-      const min = Math.ceil(r.wait_sec / 60);
-      toast(LANG === 'ru' ? `Следующий просмотр через ${min} мин` : `Next ad in ${min} min`);
-      btn.disabled = false;
     } else {
       btn.disabled = false;
     }
