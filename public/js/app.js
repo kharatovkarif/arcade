@@ -629,7 +629,15 @@ window.openRoundDetails = async (roundNo) => {
       <div><span style="color:var(--muted2)">${LANG==='ru'?'Дата':'Date'}:</span> <b>${dateStr} ${timeStr} МСК</b></div>
     </div>
     <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">${LANG==='ru'?'Участники':'Players'} (${r.players.length})</div>
-    ${rows}`;
+    ${rows}
+    <div style="margin-top:14px;background:#0a0a0a;border-radius:12px;padding:10px 12px">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Provably Fair</div>
+      <div style="font-size:11px;color:var(--muted2);word-break:break-all;line-height:1.6">
+        <span style="color:var(--muted)">Hash:</span> ${r.seed_hash || '—'}<br>
+        <span style="color:var(--muted)">Seed:</span> ${r.server_seed || '—'}<br>
+        <span style="color:var(--muted)">Roll:</span> ${r.result_roll ? Number(r.result_roll).toFixed(10) : '—'}
+      </div>
+    </div>`;
 };
 
 window.setBet = (v) => {

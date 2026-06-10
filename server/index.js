@@ -435,6 +435,8 @@ app.post('/api/pvp/round', auth, async (req, res) => {
     prize: pot - Number(game.commission_arc),
     winner_chance: Number(game.winner_chance).toFixed(2),
     result_roll: game.result_roll,
+    seed_hash: game.server_seed_hash,
+    server_seed: game.server_seed,
     finished_at: game.finished_at,
     players,
   });
