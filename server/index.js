@@ -395,6 +395,51 @@ app.post('/api/pvp/history', auth, async (req, res) => {
   })));
 });
 
+app.post('/api/pvp/round', auth, async (req, res) => {
+  const roundNo = Number(req.body.round_no);
+  if (!roundNo) return res.json({ ok: false, error: 'bad_round' });
+  const { data: game } = await supabase.from('games')
+    .select('id, round_no, pot_arc, winner_tg_id, winner_chance, commission_arc, result_roll, finished_at, server_seed, server_seed_hash')
+    .eq('round_no', roundNo).eq('status', 'done').not('winner_tg_id', 'is', null)
+    .order('finished_at', { ascending: false }).limit(1).single();
+  if (!game) return res.json({ ok: false, error: 'not_found' });
+
+  const { data: bets } = await supabase.from('game_bets')
+    .select('tg_id, amount_arc').eq('game_id', game.id);
+  // Aggregate multiple bets from the same player into one entry
+  const totals = {};
+  (bets || []).forEach(b => { totals[b.tg_id] = (totals[b.tg_id] || 0) + Number(b.amount_arc); });
+
+  const ids = Object.keys(totals).map(Number);
+  let userMap = {};
+  if (ids.length) {
+    const { data: us } = await supabase.from('users').select('tg_id, username, first_name').in('tg_id', ids);
+    (us || []).forEach(u => { userMap[u.tg_id] = u; });
+  }
+
+  const pot = Number(game.pot_arc);
+  const players = ids.map(id => ({
+    tg_id: id,
+    username: userMap[id]?.username || null,
+    first_name: userMap[id]?.first_name || null,
+    amount: totals[id],
+    chance: pot ? ((totals[id] / pot) * 100).toFixed(2) : '0',
+    is_winner: id === game.winner_tg_id,
+  })).sort((a, b) => b.amount - a.amount);
+
+  res.json({
+    ok: true,
+    round_no: game.round_no,
+    pot,
+    commission: Number(game.commission_arc),
+    prize: pot - Number(game.commission_arc),
+    winner_chance: Number(game.winner_chance).toFixed(2),
+    result_roll: game.result_roll,
+    finished_at: game.finished_at,
+    players,
+  });
+});
+
 app.post('/api/leaderboard/arc', auth, async (req, res) => {
   const { data: users } = await supabase.from('users')
     .select('tg_id, username, balance_arc')

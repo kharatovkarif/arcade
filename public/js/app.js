@@ -576,12 +576,60 @@ window.openPvPHistory = async () => {
   const el = ov.querySelector('#pvpHistContent');
   if (!data.length) { el.innerHTML = '<div class="pvp-empty" style="padding:20px">Игр пока нет</div>'; return; }
   el.innerHTML = data.map(g => `
-    <div class="player-card" style="justify-content:space-between;margin-bottom:6px">
+    <div class="player-card" style="justify-content:space-between;margin-bottom:6px;cursor:pointer" onclick="openRoundDetails(${g.round_no})">
       <span style="color:var(--muted2);font-size:12px;min-width:36px">#${g.round_no}</span>
       <span class="pname" style="flex:1">@${g.winner}</span>
       <span style="color:var(--muted2);font-size:12px;margin-right:8px">${g.chance}%</span>
       <span style="color:#ffd60a;font-weight:700">+${fmt(Number(g.prize),0)} ARC</span>
+      <span style="color:var(--muted2);font-size:14px;margin-left:6px">›</span>
     </div>`).join('');
+};
+
+window.openRoundDetails = async (roundNo) => {
+  const ov = document.createElement('div');
+  ov.setAttribute('data-ov','1');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:600;display:flex;align-items:flex-end;justify-content:center';
+  ov.onclick = (e) => { if (e.target === ov) ov.remove(); };
+  ov.innerHTML = `
+    <div style="background:#111;border-radius:20px 20px 0 0;width:100%;max-width:520px;max-height:80vh;overflow-y:auto;padding:20px 16px 28px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div style="font-size:17px;font-weight:900">🎰 ${LANG==='ru'?'Раунд':'Round'} #${roundNo}</div>
+        <button onclick="this.closest('[data-ov]').remove()" style="background:#1a1a1a;border:none;color:#fff;border-radius:50%;width:30px;height:30px;font-size:16px;cursor:pointer">✕</button>
+      </div>
+      <div id="rdContent"><div class="pvp-empty" style="padding:16px">${LANG==='ru'?'Загрузка...':'Loading...'}</div></div>
+    </div>`;
+  document.body.appendChild(ov);
+
+  const r = await api('/pvp/round', { round_no: roundNo });
+  const el = ov.querySelector('#rdContent');
+  if (!el) return;
+  if (!r.ok) { el.innerHTML = `<div class="pvp-empty" style="padding:16px">${LANG==='ru'?'Раунд не найден':'Round not found'}</div>`; return; }
+
+  // MSK time = UTC+3
+  const d = new Date(new Date(r.finished_at).getTime() + 3 * 3600 * 1000);
+  const dateStr = d.toISOString().slice(0, 10).split('-').reverse().join('.');
+  const timeStr = d.toISOString().slice(11, 16);
+
+  const rows = r.players.map(p => {
+    const name = p.username ? '@' + p.username : (p.first_name || '...');
+    return `
+    <div class="player-card" style="justify-content:space-between;margin-bottom:6px${p.is_winner ? ';border:1px solid #ffd60a' : ''}">
+      <span style="font-size:15px;min-width:26px">${p.is_winner ? '🏆' : '·'}</span>
+      <span class="pname" style="flex:1">${name}</span>
+      <span style="color:var(--muted2);font-size:12px;margin-right:8px">${p.chance}%</span>
+      <span style="color:${p.is_winner ? '#ffd60a' : 'var(--muted2)'};font-weight:700">${fmt(p.amount,0)} ARC</span>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div style="background:#0a0a0a;border-radius:14px;padding:12px 14px;margin-bottom:12px;display:flex;flex-wrap:wrap;gap:10px 18px;font-size:13px">
+      <div><span style="color:var(--muted2)">${LANG==='ru'?'Банк':'Pot'}:</span> <b style="color:#ffd60a">${fmt(r.pot,0)} ARC</b></div>
+      <div><span style="color:var(--muted2)">${LANG==='ru'?'Приз':'Prize'}:</span> <b style="color:#ffd60a">${fmt(r.prize,0)} ARC</b></div>
+      <div><span style="color:var(--muted2)">${LANG==='ru'?'Комиссия':'Fee'}:</span> <b>${fmt(r.commission,0)} ARC</b></div>
+      <div><span style="color:var(--muted2)">${LANG==='ru'?'Дата':'Date'}:</span> <b>${dateStr} ${timeStr} МСК</b></div>
+    </div>
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">${LANG==='ru'?'Участники':'Players'} (${r.players.length})</div>
+    ${rows}`;
 };
 
 window.setBet = (v) => {
