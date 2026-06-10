@@ -180,8 +180,13 @@ function renderMain() {
       ${ad2Btn}
     </div>
     <div class="row">
-      <div class="info"><span class="title">${t('ad_reward')} 3</span><span class="sub">${t('soon')}</span></div>
-      <button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>
+      <div class="info">
+        <span class="title">${t('ad_reward')} 3 &nbsp;<span style="color:var(--gold);font-size:13px">+10 ARC</span></span>
+        <span class="sub">${adsgramTaskController ? (ME.ad_task_daily_count > 0 ? (LANG==='ru'?'Выполнено':'Done')+' · '+ME.ad_task_daily_count+'/1' : '0/1 '+t('today')) : t('soon')}</span>
+      </div>
+      ${adsgramTaskController && ME.ad_task_daily_count < 1
+        ? `<button onclick="watchAdTask(this)" style="width:44px;height:44px;border-radius:50%;background:var(--blue);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`
+        : `<button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`}
     </div>`;
 
   document.getElementById('page-main').innerHTML = `
@@ -302,18 +307,6 @@ async function renderTasks() {
       ${dailyTasks.length ? dailyTasks.map(renderDaily).join('') : `<p class="muted">${t('no_tasks')}</p>`}
     </div>
     <div class="block">
-      <div class="block-hdr">${LANG==='ru'?'Реклама':'Ads'}</div>
-      <div class="row">
-        <div class="info">
-          <span class="title">${LANG==='ru'?'Рекламное задание':'Ad Task'} &nbsp;<span style="color:var(--gold);font-size:13px">+10 ARC</span></span>
-          <span class="sub">${ME.ad_task_daily_count > 0 ? (LANG==='ru'?'Выполнено сегодня':'Done today') : (LANG==='ru'?'1 раз в день':'1 per day')}</span>
-        </div>
-        ${adsgramTaskController && ME.ad_task_daily_count < 1
-          ? `<button onclick="watchAdTask(this)" style="width:44px;height:44px;border-radius:50%;background:var(--blue);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`
-          : `<button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`}
-      </div>
-    </div>
-    <div class="block">
       <div class="block-hdr">${t('general_tasks')}</div>
       ${generalTasks.length ? generalTasks.map(renderGeneral).join('') : `<p class="muted">${t('no_tasks')}</p>`}
     </div>`;
@@ -388,8 +381,8 @@ window.watchAdTask = async (btn) => {
     ME.balance_arc = me.balance_arc;
     ME.ad_task_daily_count = me.ad_task_daily_count;
     renderHeader();
-    renderTasks();
-    toast(LANG==='ru' ? 'Задание выполнено! +10 ARC' : 'Task done! +10 ARC');
+    renderMain();
+    toast(LANG==='ru' ? '+10 ARC' : '+10 ARC');
   } catch { btn.disabled = false; }
 };
 
