@@ -276,32 +276,31 @@ app.post('/api/ads/watch-short', auth, async (req, res) => {
   res.json({ ok: true, daily_count: current + 1, reward, balance_arc: newBal });
 });
 
-// Ad 4 — Rewarded video block (SDK resolves show() only after full view)
-app.post('/api/ads/watch-4', auth, async (req, res) => {
+// Ad 4 — Rewarded block, server-to-server callback from Adsgram (Reward URL).
+// Adsgram calls this only after a confirmed full view, so it can't be spoofed by clients.
+app.get('/api/adsgram/reward4', async (req, res) => {
+  const userId = Number(req.query.userId);
+  if (!userId) return res.status(400).send('bad_request');
   const todayStart = mskDate() + 'T00:00:00+03:00';
-
   const { count } = await supabase.from('transactions').select('*', { count: 'exact', head: true })
-    .eq('tg_id', req.user.tg_id).eq('type', 'ad4').gte('created_at', todayStart);
-  const current = count || 0;
-  if (current >= 30) return res.json({ ok: false, error: 'daily_limit', daily_count: 30 });
-
-  const { data: u } = await supabase.from('users').select('checkin_day, referrer_id').eq('tg_id', req.user.tg_id).single();
-  const reward = Math.round(5 * checkinMultiplier(u?.checkin_day || 1));
-  const newBal = await changeArc(req.user.tg_id, reward, 'ad4', 'ad 4 watch');
-
-  if (u?.referrer_id) {
+    .eq('tg_id', userId).eq('type', 'ad4').gte('created_at', todayStart);
+  if ((count || 0) >= 30) return res.status(200).send('daily_limit');
+  const { data: u } = await supabase.from('users').select('checkin_day, referrer_id').eq('tg_id', userId).single();
+  if (!u) return res.status(404).send('user_not_found');
+  const reward = Math.round(5 * checkinMultiplier(u.checkin_day || 1));
+  await changeArc(userId, reward, 'ad4', 'adsgram reward4');
+  if (u.referrer_id) {
     const ref1Reward = Math.round(reward * 0.2);
     if (ref1Reward > 0) {
-      await changeArc(u.referrer_id, ref1Reward, 'referral', `from ${req.user.tg_id}`);
+      await changeArc(u.referrer_id, ref1Reward, 'referral', `from ${userId}`);
       const { data: ref1 } = await supabase.from('users').select('referrer_id').eq('tg_id', u.referrer_id).single();
       if (ref1?.referrer_id) {
         const ref2Reward = Math.round(reward * 0.1);
-        if (ref2Reward > 0) await changeArc(ref1.referrer_id, ref2Reward, 'referral', `from ${req.user.tg_id}`);
+        if (ref2Reward > 0) await changeArc(ref1.referrer_id, ref2Reward, 'referral', `from ${userId}`);
       }
     }
   }
-
-  res.json({ ok: true, daily_count: current + 1, reward, balance_arc: newBal });
+  res.status(200).send('ok');
 });
 
 app.post('/api/tasks/check', auth, async (req, res) => {
