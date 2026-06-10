@@ -840,46 +840,27 @@ async function openTxHistory() {
   ov.setAttribute('data-ov','1'); ov.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:500;display:flex;flex-direction:column;overflow:hidden';
   ov.innerHTML = `
     <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1a1a1a">
-      <div style="font-size:18px;font-weight:900">📋 История операций</div>
+      <div style="font-size:18px;font-weight:900">📋 ${LANG==='ru'?'История операций':'History'}</div>
       <button onclick="this.closest('[data-ov]').remove()" style="background:#1a1a1a;border:none;color:#fff;border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer">✕</button>
     </div>
-    <div style="display:flex;gap:6px;padding:10px 16px;overflow-x:auto">
-      <button id="txTabDep" class="btn btn-blue" onclick="switchTx('deposit')" style="white-space:nowrap;flex-shrink:0">💎 Депозит</button>
-      <button id="txTabWd" class="btn btn-dark" onclick="switchTx('withdraw')" style="white-space:nowrap;flex-shrink:0">💸 Вывод</button>
-      <button id="txTabEx" class="btn btn-dark" onclick="switchTx('exchange')" style="white-space:nowrap;flex-shrink:0">🔄 Обмен</button>
-    </div>
-    <div id="txContent" style="flex:1;overflow-y:auto;padding:0 16px 24px"><div class="pvp-empty">Загрузка...</div></div>`;
+    <div id="txContent" style="flex:1;overflow-y:auto;padding:12px 16px 24px"><div class="pvp-empty">Загрузка...</div></div>`;
   document.body.appendChild(ov);
-  const raw = await api('/transactions/history');
-  ov._txData = raw;
-  window._txRaw = raw;
-  renderTxTab('deposit');
-}
-
-window.switchTx = (type) => {
-  ['deposit','withdraw','exchange'].forEach(t => {
-    const ids = { deposit:'txTabDep', withdraw:'txTabWd', exchange:'txTabEx' };
-    const btn = document.getElementById(ids[t]);
-    if (btn) btn.className = t === type ? 'btn btn-blue' : 'btn btn-dark';
-  });
-  renderTxTab(type);
-};
-
-function renderTxTab(type) {
+  const all = await api('/transactions/history');
   const content = document.getElementById('txContent');
   if (!content) return;
-  const all = window._txRaw || [];
-  const rows = all.filter(t => t.type === type);
-  if (!rows.length) { content.innerHTML = '<div class="pvp-empty" style="padding:20px">Операций пока нет</div>'; return; }
-  const colors = { deposit: '#22c55e', withdraw: '#ef4444', exchange: '#3b82f6' };
-  content.innerHTML = rows.map(t => {
-    const sign = Number(t.amount) >= 0 ? '+' : '';
-    const color = Number(t.amount) >= 0 ? colors[type] : '#ef4444';
+  if (!all.length) { content.innerHTML = `<div class="pvp-empty" style="padding:20px">${LANG==='ru'?'Операций пока нет':'No transactions yet'}</div>`; return; }
+  const typeIcon = { deposit: '💎', withdraw: '💸', exchange: '🔄' };
+  const typeLabel = { deposit: LANG==='ru'?'Депозит':'Deposit', withdraw: LANG==='ru'?'Вывод':'Withdraw', exchange: LANG==='ru'?'Обмен':'Exchange' };
+  content.innerHTML = all.map(tx => {
+    const pos = Number(tx.amount) >= 0;
+    const color = pos ? '#22c55e' : '#ef4444';
+    const sign = pos ? '+' : '';
     return `<div class="player-card" style="flex-direction:column;align-items:flex-start;gap:2px;margin-bottom:6px">
       <div style="display:flex;justify-content:space-between;width:100%">
-        <span style="color:${color};font-weight:700;font-size:15px">${sign}${fmt(Math.abs(Number(t.amount)),4)} ${t.currency}</span>
-        <span style="color:var(--muted2);font-size:12px">${fmtDate(t.created_at)}</span>
+        <span style="color:${color};font-weight:700;font-size:15px">${sign}${fmt(Math.abs(Number(tx.amount)),4)} ${tx.currency}</span>
+        <span style="color:var(--muted2);font-size:12px">${fmtDate(tx.created_at)}</span>
       </div>
+      <span style="color:var(--muted2);font-size:12px">${typeIcon[tx.type]||''} ${typeLabel[tx.type]||tx.type}</span>
     </div>`;
   }).join('');
 }
