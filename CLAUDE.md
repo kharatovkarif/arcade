@@ -15,7 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Бот:** @arc_tonbot
 **Канал:** https://t.me/arcare_ton
 **Поддержка:** https://t.me/Ventlp
-**Хостинг:** Railway (`https://arcade-production-f79b.up.railway.app`)
+**Хостинг:** Railway (`https://arcade-production-40a8.up.railway.app`)
 **БД:** Supabase (PostgreSQL)
 
 ---
