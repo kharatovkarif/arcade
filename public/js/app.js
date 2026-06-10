@@ -419,19 +419,24 @@ window.watchAdShort = async (btn) => {
   btn.disabled = true;
   try {
     await adsgramControllerShort.show();
-    // Reward is now given server-to-server by Adsgram callback (/api/adsgram/short-reward)
-    // Refresh balance after a short delay to reflect the S2S reward
-    setTimeout(async () => {
-      const me = await api('/me');
-      if (me?.balance_arc !== undefined) {
-        ME.balance_arc = me.balance_arc;
-        ME.ad_short_daily_count = me.ad_short_daily_count || 0;
-        renderHeader();
-        renderMain();
-        toast(LANG === 'ru' ? 'Реклама просмотрена! +ARC начислено' : 'Ad watched! +ARC credited');
-      }
+    const r = await api('/ads/watch-short');
+    if (r.ok) {
+      ME.ad_short_daily_count = r.daily_count;
+      ME.balance_arc = r.balance_arc;
+      renderHeader();
+      renderMain();
+      toast(`+${r.reward} ARC · ${r.daily_count}/10`);
+    } else if (r.error === 'daily_limit') {
+      ME.ad_short_daily_count = 10;
+      renderMain();
+      toast(LANG === 'ru' ? 'Дневной лимит исчерпан' : 'Daily limit reached');
+    } else if (r.error === 'cooldown') {
+      const min = Math.ceil(r.wait_sec / 60);
+      toast(LANG === 'ru' ? `Следующий просмотр через ${min} мин` : `Next ad in ${min} min`);
       btn.disabled = false;
-    }, 3000);
+    } else {
+      btn.disabled = false;
+    }
   } catch { btn.disabled = false; }
 };
 

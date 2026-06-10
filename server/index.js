@@ -244,30 +244,42 @@ app.get('/api/adsgram/task-reward', async (req, res) => {
   res.status(200).send('ok');
 });
 
-// Adsgram Short Ad (server-to-server GET callback) — reward only after Adsgram confirms view
-app.get('/api/adsgram/short-reward', async (req, res) => {
-  const userId = Number(req.query.userId);
-  if (!userId) return res.status(400).send('bad_request');
+// Adsgram Short Ad — client-triggered but with 5-minute cooldown per user to prevent spam
+app.post('/api/ads/watch-short', auth, async (req, res) => {
   const todayStart = mskDate() + 'T00:00:00+03:00';
+  const cooldownMs = 5 * 60 * 1000; // 5 minutes between rewards
+
+  const { data: recent } = await supabase.from('transactions')
+    .select('created_at').eq('tg_id', req.user.tg_id).eq('type', 'ad_short')
+    .order('created_at', { ascending: false }).limit(1).maybeSingle();
+
+  if (recent && (Date.now() - new Date(recent.created_at).getTime()) < cooldownMs) {
+    const waitSec = Math.ceil((cooldownMs - (Date.now() - new Date(recent.created_at).getTime())) / 1000);
+    return res.json({ ok: false, error: 'cooldown', wait_sec: waitSec });
+  }
+
   const { count } = await supabase.from('transactions').select('*', { count: 'exact', head: true })
-    .eq('tg_id', userId).eq('type', 'ad_short').gte('created_at', todayStart);
-  if ((count || 0) >= 30) return res.status(200).send('already_rewarded');
-  const { data: u } = await supabase.from('users').select('checkin_day, referrer_id').eq('tg_id', userId).single();
-  if (!u) return res.status(404).send('user_not_found');
-  const reward = Math.round(5 * checkinMultiplier(u.checkin_day || 1));
-  await changeArc(userId, reward, 'ad_short', 'adsgram short');
-  if (u.referrer_id) {
+    .eq('tg_id', req.user.tg_id).eq('type', 'ad_short').gte('created_at', todayStart);
+  const current = count || 0;
+  if (current >= 10) return res.json({ ok: false, error: 'daily_limit', daily_count: 10 });
+
+  const { data: u } = await supabase.from('users').select('checkin_day, referrer_id').eq('tg_id', req.user.tg_id).single();
+  const reward = Math.round(5 * checkinMultiplier(u?.checkin_day || 1));
+  const newBal = await changeArc(req.user.tg_id, reward, 'ad_short', 'ad short watch');
+
+  if (u?.referrer_id) {
     const ref1Reward = Math.round(reward * 0.2);
     if (ref1Reward > 0) {
-      await changeArc(u.referrer_id, ref1Reward, 'referral', `from ${userId}`);
+      await changeArc(u.referrer_id, ref1Reward, 'referral', `from ${req.user.tg_id}`);
       const { data: ref1 } = await supabase.from('users').select('referrer_id').eq('tg_id', u.referrer_id).single();
       if (ref1?.referrer_id) {
         const ref2Reward = Math.round(reward * 0.1);
-        if (ref2Reward > 0) await changeArc(ref1.referrer_id, ref2Reward, 'referral', `from ${userId}`);
+        if (ref2Reward > 0) await changeArc(ref1.referrer_id, ref2Reward, 'referral', `from ${req.user.tg_id}`);
       }
     }
   }
-  res.status(200).send('ok');
+
+  res.json({ ok: true, daily_count: current + 1, reward, balance_arc: newBal });
 });
 
 app.post('/api/tasks/check', auth, async (req, res) => {
