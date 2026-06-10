@@ -157,11 +157,23 @@ app.post('/api/tasks', auth, async (req, res) => {
   const [refRes, adRes, pvpRes] = await Promise.all([
     needsRef ? supabase.from('users').select('*', { count: 'exact', head: true }).eq('referrer_id', req.user.tg_id) : null,
     needsAd ? supabase.from('transactions').select('*', { count: 'exact', head: true }).eq('tg_id', req.user.tg_id).eq('type', 'ad').gte('created_at', todayStart) : null,
-    needsPvp ? supabase.from('transactions').select('*', { count: 'exact', head: true }).eq('tg_id', req.user.tg_id).eq('type', 'pvp').eq('currency', 'ARC').lt('amount', 0).gte('created_at', todayStart) : null,
+    null,
   ]);
   const refCount = refRes ? (refRes.count || 0) : null;
   const adCount = adRes ? (adRes.count || 0) : null;
-  const pvpCount = pvpRes ? (pvpRes.count || 0) : null;
+  let pvpCount = null;
+  if (needsPvp) {
+    const { data: betsToday } = await supabase.from('game_bets')
+      .select('game_id').eq('tg_id', req.user.tg_id).gte('created_at', todayStart);
+    const gameIds = [...new Set((betsToday || []).map(b => b.game_id))];
+    if (gameIds.length) {
+      const { count } = await supabase.from('games').select('*', { count: 'exact', head: true })
+        .in('id', gameIds).eq('status', 'done').not('winner_tg_id', 'is', null);
+      pvpCount = count || 0;
+    } else {
+      pvpCount = 0;
+    }
+  }
 
   res.json((tasks || []).map(t => {
     const isDaily = t.limit_mode === 'daily';
@@ -269,9 +281,16 @@ app.post('/api/tasks/check', auth, async (req, res) => {
   }
   if (task.type === 'pvp_milestone') {
     const required = Number(task.target || 0);
-    const { count } = await supabase.from('transactions').select('*', { count: 'exact', head: true })
-      .eq('tg_id', req.user.tg_id).eq('type', 'pvp').eq('currency', 'ARC').lt('amount', 0).gte('created_at', todayStart);
-    if ((count || 0) < required) return res.json({ ok: false, error: 'not_enough_pvp', need: required, have: count || 0 });
+    const { data: betsToday } = await supabase.from('game_bets')
+      .select('game_id').eq('tg_id', req.user.tg_id).gte('created_at', todayStart);
+    const gameIds = [...new Set((betsToday || []).map(b => b.game_id))];
+    let pvpDone = 0;
+    if (gameIds.length) {
+      const { count } = await supabase.from('games').select('*', { count: 'exact', head: true })
+        .in('id', gameIds).eq('status', 'done').not('winner_tg_id', 'is', null);
+      pvpDone = count || 0;
+    }
+    if (pvpDone < required) return res.json({ ok: false, error: 'not_enough_pvp', need: required, have: pvpDone });
   }
 
   // For daily tasks: upsert so the unique constraint doesn't block re-completion the next day.
