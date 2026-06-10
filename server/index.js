@@ -228,7 +228,7 @@ app.get('/api/adsgram/task-reward', async (req, res) => {
   if ((count || 0) >= 5) return res.status(200).send('already_rewarded');
   const { data: u } = await supabase.from('users').select('checkin_day, referrer_id').eq('tg_id', userId).single();
   if (!u) return res.status(404).send('user_not_found');
-  const reward = Math.round(10 * checkinMultiplier(u.checkin_day || 1));
+  const reward = Math.round(5 * checkinMultiplier(u.checkin_day || 1));
   await changeArc(userId, reward, 'ad_task', 'adsgram task');
   if (u.referrer_id) {
     const ref1Reward = Math.round(reward * 0.2);

@@ -181,7 +181,7 @@ function renderMain() {
     ${(ME.ad_task_daily_count||0) >= 5
       ? `<div class="row">
           <div class="info">
-            <span class="title">${t('ad_reward')} 3 &nbsp;<span style="color:var(--gold);font-size:13px">+10 ARC</span></span>
+            <span class="title">${t('ad_reward')} 3 &nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + чек-ин</span></span>
             <span class="sub">${(LANG==='ru'?'Выполнено':'Done')+' · '+ME.ad_task_daily_count+'/5'}</span>
           </div>
           <button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--green);font-size:18px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">✓</button>
@@ -191,10 +191,18 @@ function renderMain() {
           <button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>
         </div>
         <adsgram-task data-block-id="${ME.adsgram_block_id_task||''}" style="display:none;margin-top:8px;background:#141414;border-radius:14px;padding:12px;color:#fff;-adsgram-task-font-size:14px;-adsgram-task-icon-size:40px">
-          <span slot="reward" style="color:var(--gold);font-weight:700;font-size:13px">+10 ARC</span>
+          <span slot="reward" style="color:var(--gold);font-weight:700;font-size:13px">+5 ARC + чек-ин</span>
           <div slot="button" style="background:var(--blue);color:#fff;border-radius:10px;padding:8px 16px;font-weight:700;font-size:13px;cursor:pointer">GO</div>
           <div slot="done" style="background:#2a2a2a;color:var(--muted);border-radius:10px;padding:8px 16px;font-weight:700;font-size:13px">✓</div>
-        </adsgram-task>`}`;
+        </adsgram-task>`}
+    <div class="row">
+      <div class="info"><span class="title">${t('ad_reward')} 4</span><span class="sub">${t('soon')}</span></div>
+      <button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>
+    </div>
+    <div class="row">
+      <div class="info"><span class="title">${t('ad_reward')} 5</span><span class="sub">${t('soon')}</span></div>
+      <button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>
+    </div>`;
 
   document.getElementById('page-main').innerHTML = `
     <div class="hero-card">
@@ -229,7 +237,7 @@ function renderMain() {
         ME.ad_task_daily_count = me.ad_task_daily_count;
         renderHeader();
         if (currentTab === 'main') renderMain();
-        toast('+10 ARC');
+        toast('+5 ARC');
       }, 1500);
     });
     // No tasks available (or SDK error) → hide the widget, show the "Скоро" fallback row
