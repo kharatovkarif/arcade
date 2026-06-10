@@ -178,11 +178,11 @@ function renderMain() {
       </div>
       ${ad2Btn}
     </div>
-    ${(ME.ad_task_daily_count||0) > 0
+    ${(ME.ad_task_daily_count||0) >= 5
       ? `<div class="row">
           <div class="info">
             <span class="title">${t('ad_reward')} 3 &nbsp;<span style="color:var(--gold);font-size:13px">+10 ARC</span></span>
-            <span class="sub">${LANG==='ru'?'Выполнено сегодня':'Done today'}</span>
+            <span class="sub">${(LANG==='ru'?'Выполнено':'Done')+' · '+ME.ad_task_daily_count+'/5'}</span>
           </div>
           <button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--green);font-size:18px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">✓</button>
         </div>`

@@ -225,7 +225,7 @@ app.get('/api/adsgram/task-reward', async (req, res) => {
   const todayStart = mskDate() + 'T00:00:00+03:00';
   const { count } = await supabase.from('transactions').select('*', { count: 'exact', head: true })
     .eq('tg_id', userId).eq('type', 'ad_task').gte('created_at', todayStart);
-  if ((count || 0) >= 1) return res.status(200).send('already_rewarded');
+  if ((count || 0) >= 5) return res.status(200).send('already_rewarded');
   const { data: u } = await supabase.from('users').select('checkin_day, referrer_id').eq('tg_id', userId).single();
   if (!u) return res.status(404).send('user_not_found');
   const reward = Math.round(10 * checkinMultiplier(u.checkin_day || 1));
