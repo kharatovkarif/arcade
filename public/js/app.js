@@ -7,6 +7,7 @@ let pvpTimer = null;
 let tonConnectUI = null;
 let adsgramController = null;
 let adsgramControllerShort = null;
+let adsgramTaskController = null;
 
 async function api(path, body = {}) {
   const res = await fetch('/api' + path, {
@@ -301,6 +302,18 @@ async function renderTasks() {
       ${dailyTasks.length ? dailyTasks.map(renderDaily).join('') : `<p class="muted">${t('no_tasks')}</p>`}
     </div>
     <div class="block">
+      <div class="block-hdr">${LANG==='ru'?'Реклама':'Ads'}</div>
+      <div class="row">
+        <div class="info">
+          <span class="title">${LANG==='ru'?'Рекламное задание':'Ad Task'} &nbsp;<span style="color:var(--gold);font-size:13px">+10 ARC</span></span>
+          <span class="sub">${ME.ad_task_daily_count > 0 ? (LANG==='ru'?'Выполнено сегодня':'Done today') : (LANG==='ru'?'1 раз в день':'1 per day')}</span>
+        </div>
+        ${adsgramTaskController && ME.ad_task_daily_count < 1
+          ? `<button onclick="watchAdTask(this)" style="width:44px;height:44px;border-radius:50%;background:var(--blue);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`
+          : `<button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`}
+      </div>
+    </div>
+    <div class="block">
       <div class="block-hdr">${t('general_tasks')}</div>
       ${generalTasks.length ? generalTasks.map(renderGeneral).join('') : `<p class="muted">${t('no_tasks')}</p>`}
     </div>`;
@@ -362,6 +375,21 @@ window.watchAd = async (btn) => {
     } else {
       btn.disabled = false;
     }
+  } catch { btn.disabled = false; }
+};
+
+window.watchAdTask = async (btn) => {
+  if (!adsgramTaskController) return;
+  btn.disabled = true;
+  try {
+    await adsgramTaskController.show();
+    await new Promise(r => setTimeout(r, 1500));
+    const me = await api('/me');
+    ME.balance_arc = me.balance_arc;
+    ME.ad_task_daily_count = me.ad_task_daily_count;
+    renderHeader();
+    renderTasks();
+    toast(LANG==='ru' ? 'Задание выполнено! +10 ARC' : 'Task done! +10 ARC');
   } catch { btn.disabled = false; }
 };
 
@@ -1139,6 +1167,9 @@ async function init() {
   }
   if (ME.adsgram_block_id_short && window.Adsgram) {
     try { adsgramControllerShort = window.Adsgram.init({ blockId: ME.adsgram_block_id_short }); } catch {}
+  }
+  if (ME.adsgram_block_id_task && window.Adsgram) {
+    try { adsgramTaskController = window.Adsgram.init({ blockId: ME.adsgram_block_id_task }); } catch {}
   }
 }
 init();

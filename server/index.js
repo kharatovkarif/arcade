@@ -72,12 +72,14 @@ app.get('/api/avatar/:tgId', async (req, res) => {
 
 app.post('/api/me', auth, async (req, res) => {
   const todayStart = mskDate() + 'T00:00:00+03:00';
-  const [{ data: u }, { count: adCount }, { count: adShortCount }] = await Promise.all([
+  const [{ data: u }, { count: adCount }, { count: adShortCount }, { count: adTaskCount }] = await Promise.all([
     supabase.from('users').select('*').eq('tg_id', req.user.tg_id).single(),
     supabase.from('transactions').select('*', { count: 'exact', head: true })
       .eq('tg_id', req.user.tg_id).eq('type', 'ad').gte('created_at', todayStart),
     supabase.from('transactions').select('*', { count: 'exact', head: true })
       .eq('tg_id', req.user.tg_id).eq('type', 'ad_short').gte('created_at', todayStart),
+    supabase.from('transactions').select('*', { count: 'exact', head: true })
+      .eq('tg_id', req.user.tg_id).eq('type', 'ad_task').gte('created_at', todayStart),
   ]);
   await supabase.from('users').update({ last_active_at: new Date().toISOString() }).eq('tg_id', req.user.tg_id);
   res.json({
@@ -87,8 +89,10 @@ app.post('/api/me', auth, async (req, res) => {
     is_admin: u.is_admin, checkin_day: u.checkin_day,
     adsgram_block_id: process.env.ADSGRAM_BLOCK_ID || '',
     adsgram_block_id_short: process.env.ADSGRAM_BLOCK_ID_SHORT || '',
+    adsgram_block_id_task: process.env.ADSGRAM_BLOCK_ID_TASK || 'task-34678',
     ad_daily_count: adCount || 0,
     ad_short_daily_count: adShortCount || 0,
+    ad_task_daily_count: adTaskCount || 0,
   });
 });
 
