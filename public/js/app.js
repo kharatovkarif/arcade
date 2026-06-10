@@ -419,20 +419,19 @@ window.watchAdShort = async (btn) => {
   btn.disabled = true;
   try {
     await adsgramControllerShort.show();
-    const r = await api('/ads/watch-short');
-    if (r.ok) {
-      ME.ad_short_daily_count = r.daily_count;
-      ME.balance_arc = r.balance_arc;
-      renderHeader();
-      renderMain();
-      toast(`+${r.reward} ARC · ${r.daily_count}/30`);
-    } else if (r.error === 'daily_limit') {
-      ME.ad_short_daily_count = 30;
-      renderMain();
-      toast(LANG==='ru' ? 'Дневной лимит 30 реклам исчерпан' : 'Daily limit of 30 ads reached');
-    } else {
+    // Reward is now given server-to-server by Adsgram callback (/api/adsgram/short-reward)
+    // Refresh balance after a short delay to reflect the S2S reward
+    setTimeout(async () => {
+      const me = await api('/me');
+      if (me?.balance_arc !== undefined) {
+        ME.balance_arc = me.balance_arc;
+        ME.ad_short_daily_count = me.ad_short_daily_count || 0;
+        renderHeader();
+        renderMain();
+        toast(LANG === 'ru' ? 'Реклама просмотрена! +ARC начислено' : 'Ad watched! +ARC credited');
+      }
       btn.disabled = false;
-    }
+    }, 3000);
   } catch { btn.disabled = false; }
 };
 
