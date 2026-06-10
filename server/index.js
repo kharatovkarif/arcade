@@ -244,7 +244,7 @@ app.get('/api/adsgram/task-reward', async (req, res) => {
   res.status(200).send('ok');
 });
 
-
+app.post('/api/ads/watch-short', auth, async (req, res) => {
   const todayStart = mskDate() + 'T00:00:00+03:00';
   const { count } = await supabase.from('transactions').select('*', { count: 'exact', head: true })
     .eq('tg_id', req.user.tg_id).eq('type', 'ad_short').gte('created_at', todayStart);
