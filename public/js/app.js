@@ -190,7 +190,7 @@ function renderMain() {
           <div class="info"><span class="title">${t('ad_reward')} 3</span><span class="sub">${t('soon')}</span></div>
           <button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>
         </div>
-        <adsgram-task data-block-id="${ME.adsgram_block_id_task||''}" style="display:none;margin-top:8px">
+        <adsgram-task data-block-id="${ME.adsgram_block_id_task||''}" style="display:none;margin-top:8px;background:#141414;border-radius:14px;padding:12px;color:#fff;-adsgram-task-font-size:14px;-adsgram-task-icon-size:40px">
           <span slot="reward" style="color:var(--gold);font-weight:700;font-size:13px">+10 ARC</span>
           <div slot="button" style="background:var(--blue);color:#fff;border-radius:10px;padding:8px 16px;font-weight:700;font-size:13px;cursor:pointer">GO</div>
           <div slot="done" style="background:#2a2a2a;color:var(--muted);border-radius:10px;padding:8px 16px;font-weight:700;font-size:13px">✓</div>
@@ -232,6 +232,14 @@ function renderMain() {
         toast('+10 ARC');
       }, 1500);
     });
+    // No tasks available (or SDK error) → hide the widget, show the "Скоро" fallback row
+    const showFallback = () => {
+      const fb = document.getElementById('ad3Fallback');
+      if (fb) fb.style.display = '';
+      taskEl.style.display = 'none';
+    };
+    taskEl.addEventListener('onBannerNotFound', showFallback);
+    taskEl.addEventListener('onError', showFallback);
     // Show the widget only after the custom element is actually registered by the SDK
     if (window.customElements) customElements.whenDefined('adsgram-task').then(() => {
       const fb = document.getElementById('ad3Fallback');
