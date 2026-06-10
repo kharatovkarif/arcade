@@ -7,7 +7,6 @@ let pvpTimer = null;
 let tonConnectUI = null;
 let adsgramController = null;
 let adsgramControllerShort = null;
-let adsgramTaskController = null;
 
 async function api(path, body = {}) {
   const res = await fetch('/api' + path, {
@@ -179,15 +178,19 @@ function renderMain() {
       </div>
       ${ad2Btn}
     </div>
-    <div class="row">
-      <div class="info">
-        <span class="title">${t('ad_reward')} 3 &nbsp;<span style="color:var(--gold);font-size:13px">+10 ARC</span></span>
-        <span class="sub">${adsgramTaskController ? (ME.ad_task_daily_count > 0 ? (LANG==='ru'?'Выполнено':'Done')+' · '+ME.ad_task_daily_count+'/1' : '0/1 '+t('today')) : t('soon')}</span>
-      </div>
-      ${adsgramTaskController && ME.ad_task_daily_count < 1
-        ? `<button onclick="watchAdTask(this)" style="width:44px;height:44px;border-radius:50%;background:var(--blue);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`
-        : `<button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`}
-    </div>`;
+    ${(ME.ad_task_daily_count||0) > 0
+      ? `<div class="row">
+          <div class="info">
+            <span class="title">${t('ad_reward')} 3 &nbsp;<span style="color:var(--gold);font-size:13px">+10 ARC</span></span>
+            <span class="sub">${LANG==='ru'?'Выполнено сегодня':'Done today'}</span>
+          </div>
+          <button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--green);font-size:18px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">✓</button>
+        </div>`
+      : `<adsgram-task data-block-id="${ME.adsgram_block_id_task||''}" style="display:block;margin-top:8px">
+          <span slot="reward" style="color:var(--gold);font-weight:700;font-size:13px">+10 ARC</span>
+          <div slot="button" style="background:var(--blue);color:#fff;border-radius:10px;padding:8px 16px;font-weight:700;font-size:13px;cursor:pointer">GO</div>
+          <div slot="done" style="background:#2a2a2a;color:var(--muted);border-radius:10px;padding:8px 16px;font-weight:700;font-size:13px">✓</div>
+        </adsgram-task>`}`;
 
   document.getElementById('page-main').innerHTML = `
     <div class="hero-card">
@@ -213,6 +216,17 @@ function renderMain() {
       <div class="block-hdr">${t('watch_ads')}</div>
       ${adRows}
     </div>`;
+  const taskEl = document.querySelector('adsgram-task');
+  if (taskEl) taskEl.addEventListener('reward', () => {
+    setTimeout(async () => {
+      const me = await api('/me');
+      ME.balance_arc = me.balance_arc;
+      ME.ad_task_daily_count = me.ad_task_daily_count;
+      renderHeader();
+      if (currentTab === 'main') renderMain();
+      toast('+10 ARC');
+    }, 1500);
+  });
 }
 
 async function renderTasks() {
@@ -368,21 +382,6 @@ window.watchAd = async (btn) => {
     } else {
       btn.disabled = false;
     }
-  } catch { btn.disabled = false; }
-};
-
-window.watchAdTask = async (btn) => {
-  if (!adsgramTaskController) return;
-  btn.disabled = true;
-  try {
-    await adsgramTaskController.show();
-    await new Promise(r => setTimeout(r, 1500));
-    const me = await api('/me');
-    ME.balance_arc = me.balance_arc;
-    ME.ad_task_daily_count = me.ad_task_daily_count;
-    renderHeader();
-    renderMain();
-    toast(LANG==='ru' ? '+10 ARC' : '+10 ARC');
   } catch { btn.disabled = false; }
 };
 
@@ -1160,9 +1159,6 @@ async function init() {
   }
   if (ME.adsgram_block_id_short && window.Adsgram) {
     try { adsgramControllerShort = window.Adsgram.init({ blockId: ME.adsgram_block_id_short }); } catch {}
-  }
-  if (ME.adsgram_block_id_task && window.Adsgram) {
-    try { adsgramTaskController = window.Adsgram.init({ blockId: ME.adsgram_block_id_task }); } catch {}
   }
 }
 init();
