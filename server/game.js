@@ -8,6 +8,16 @@ const SHOW_RESULT = 3;
 const COMMISSION = 0.10;
 const MIN_BET = 10, MAX_BET = 1000;
 
+// Special no-risk round: losers get refunds, winner gets pot -10% + bonus
+const SPECIAL_ROUND_NO = 200;
+const SPECIAL_COUNTDOWN = 15 * 60;
+const SPECIAL_BONUS = 500;
+const SPECIAL_MAX_PLAYERS = 150;
+
+function isSpecial(roundNo) {
+  return roundNo === SPECIAL_ROUND_NO;
+}
+
 let current = null;
 let loopTimer = null;
 let waitingStartedAt = null;
@@ -44,6 +54,11 @@ export async function placeBet(tgId, username, firstName, amount) {
   if (amount < MIN_BET || amount > MAX_BET)
     return { ok: false, error: 'bad_amount' };
 
+  const special = isSpecial(current.roundNo);
+  const existing = current.bets.find(b => b.tg_id === tgId);
+  if (!existing && special && current.bets.length >= SPECIAL_MAX_PLAYERS)
+    return { ok: false, error: 'max_players' };
+
   const { data: newBal, error: decErr } = await supabase.rpc('try_decrement_arc', {
     p_tg_id: tgId, p_amount: amount,
   });
@@ -53,7 +68,6 @@ export async function placeBet(tgId, username, firstName, amount) {
     note: `bet round ${current.roundNo}`,
   });
 
-  const existing = current.bets.find(b => b.tg_id === tgId);
   if (existing) existing.amount += amount;
   else current.bets.push({ tg_id: tgId, username, first_name: firstName, amount });
   current.pot += amount;
@@ -63,9 +77,11 @@ export async function placeBet(tgId, username, firstName, amount) {
     game_id: current.gameId, tg_id: tgId, amount_arc: amount,
   });
 
-  if (current.bets.length >= 2 && current.status === 'waiting') {
+  // Special round: 15-min countdown starts with the very first bet
+  const enoughPlayers = special ? current.bets.length >= 1 : current.bets.length >= 2;
+  if (enoughPlayers && current.status === 'waiting') {
     current.status = 'counting';
-    current.countdownEnd = Date.now() + COUNTDOWN * 1000;
+    current.countdownEnd = Date.now() + (special ? SPECIAL_COUNTDOWN : COUNTDOWN) * 1000;
     await supabase.from('games').update({ status: 'counting', pot_arc: current.pot }).eq('id', current.gameId);
   }
 
@@ -74,6 +90,16 @@ export async function placeBet(tgId, username, firstName, amount) {
 
 async function finishRound() {
   if (current.status !== 'counting') return;
+
+  // Special round ended with a single player: refund and restart same round
+  if (isSpecial(current.roundNo) && current.bets.length < 2) {
+    const bet = current.bets[0];
+    if (bet) await changeArc(bet.tg_id, bet.amount, 'pvp_refund', `refund round ${current.roundNo}`);
+    await supabase.from('games').update({ status: 'done' }).eq('id', current.gameId);
+    await newRound();
+    return;
+  }
+
   current.status = 'spinning';
   await supabase.from('games').update({ status: 'spinning' }).eq('id', current.gameId);
 
@@ -89,9 +115,10 @@ async function finishRound() {
     if (target <= acc) { winner = b; break; }
   }
 
+  const special = isSpecial(current.roundNo);
   const chance = (winner.amount / current.pot) * 100;
   const commission = current.pot * COMMISSION;
-  const prize = current.pot - commission;
+  const prize = (current.pot - commission) + (special ? SPECIAL_BONUS : 0);
 
   current.winner = {
     tg_id: winner.tg_id,
@@ -102,7 +129,15 @@ async function finishRound() {
   };
   current.spinEndsAt = Date.now() + SPIN_DURATION * 1000;
 
-  await changeArc(winner.tg_id, prize, 'pvp', `win round ${current.roundNo}`);
+  await changeArc(winner.tg_id, prize, 'pvp', `win round ${current.roundNo}${special ? ' (special +' + SPECIAL_BONUS + ')' : ''}`);
+
+  // Special round: every loser gets their stake back
+  if (special) {
+    for (const b of current.bets) {
+      if (b.tg_id === winner.tg_id) continue;
+      await changeArc(b.tg_id, b.amount, 'pvp_refund', `special round ${current.roundNo} refund`);
+    }
+  }
 
   await supabase.from('games').update({
     status: 'spinning',
@@ -145,6 +180,7 @@ function stateView() {
     seedHash: current.seedHash,
     winner: showWinner ? current.winner : null,
     serverSeed: current.status === 'done' ? current.serverSeed : null,
+    special: isSpecial(current.roundNo) ? { bonus: SPECIAL_BONUS, maxPlayers: SPECIAL_MAX_PLAYERS } : null,
   };
 }
 
@@ -176,8 +212,10 @@ export function initGameLoop() {
   loopTimer = setInterval(async () => {
     if (!current) return;
 
-    // Refund lone player after 1 minute of waiting
-    if (current.status === 'waiting' && current.bets.length === 1 &&
+    // Refund lone player after 1 minute of waiting (normal rounds only —
+    // special round runs its own 15-min countdown from the first bet)
+    if (!isSpecial(current.roundNo) &&
+        current.status === 'waiting' && current.bets.length === 1 &&
         waitingStartedAt && Date.now() - waitingStartedAt >= 60000) {
       const bet = current.bets[0];
       await changeArc(bet.tg_id, bet.amount, 'pvp_refund', `refund round ${current.roundNo}`);

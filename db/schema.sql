@@ -103,7 +103,7 @@ create table if not exists settings (
 insert into settings(key, value) values
     ('round_counter', '1'),
     ('ton_usd', '5.0'),
-    ('arc_usd', '0.0003'),
+    ('arc_usd', '0.0001'),
     ('pvp_commission', '0.10'),
     ('exchange_daily_limit_ton', '5')
 on conflict (key) do nothing;

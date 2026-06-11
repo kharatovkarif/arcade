@@ -671,7 +671,7 @@ async function updateTonPrice() {
 }
 
 async function initSettings() {
-  if (!await getSetting('arc_usd')) await setSetting('arc_usd', '0.0003');
+  if (!await getSetting('arc_usd')) await setSetting('arc_usd', '0.0001');
   if (!await getSetting('exchange_daily_limit_ton')) await setSetting('exchange_daily_limit_ton', '5');
   await updateTonPrice();
   setInterval(updateTonPrice, 10 * 60 * 1000);
