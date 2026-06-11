@@ -597,6 +597,10 @@ function renderPvP() {
         <span class="pvp-round" id="roundLabel">ИГРА #—</span>
       </div>
     </div>
+    <div id="specialBanner" style="display:none;margin:0 0 10px;padding:12px 14px;border-radius:14px;background:linear-gradient(135deg,#3a2d00,#1a1a1a);border:1px solid #ffd60a55;text-align:center">
+      <div style="font-size:15px;font-weight:900;color:#ffd60a">⚡ ОСОБЫЙ РАУНД</div>
+      <div style="font-size:12px;color:#ccc;margin-top:4px">Проиграл — вернём ставку · Победителю банк <b style="color:#ffd60a">+500 ARC</b> сверху</div>
+    </div>
     <div class="pvp-banks">
       <div class="pvp-bank-side">
         <div class="pvp-bank-lbl">БАНК</div>
@@ -732,7 +736,10 @@ async function doBet() {
   if (!(amount >= 10 && amount <= 1000)) return toast(t('pvp_min_max'));
   const r = await api('/pvp/bet', { amount });
   if (r.ok) { ME.balance_arc = r.balance_arc; renderHeader(); loadPvP(); }
-  else toast(r.error === 'not_enough' ? t('not_enough') : t('error'));
+  else if (r.error === 'not_enough') toast(t('not_enough'));
+  else if (r.error === 'max_players') toast(LANG === 'ru' ? 'Раунд заполнен (150 игроков)' : 'Round is full (150 players)');
+  else if (r.error === 'round_closed') toast(LANG === 'ru' ? 'Раунд уже закрыт' : 'Round already closed');
+  else toast(t('error'));
 }
 
 async function loadPvP() {
@@ -741,9 +748,14 @@ async function loadPvP() {
   if (roundEl) roundEl.textContent = `ИГРА #${s.roundNo}`;
   const potEl = document.getElementById('potVal');
   if (potEl) potEl.textContent = fmt(s.pot, 0);
+  const banner = document.getElementById('specialBanner');
+  if (banner) banner.style.display = s.special ? 'block' : 'none';
   const center = document.getElementById('wheelCenter');
   if (center) {
-    if (s.status === 'counting' && s.secondsLeft != null) center.textContent = '00:' + String(s.secondsLeft).padStart(2, '0');
+    if (s.status === 'counting' && s.secondsLeft != null) {
+      const m = Math.floor(s.secondsLeft / 60), sec = s.secondsLeft % 60;
+      center.textContent = String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+    }
     else if (s.status === 'spinning') center.textContent = '🎰';
     else if (s.status === 'done' && s.winner) center.textContent = '🏆';
     else center.textContent = t('waiting');
