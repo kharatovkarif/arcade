@@ -534,9 +534,23 @@ app.post('/api/leaderboard/arc', auth, async (req, res) => {
     username: u.username || '...',
     arc: Number(u.balance_arc),
   }));
-  const myIdx = top.findIndex(u => u.username === (users?.[0] ? (users.find(x => x.tg_id === req.user.tg_id)?.username) : null));
-  const myUser = (users || []).find(u => u.tg_id === req.user.tg_id);
-  const myRank = myUser ? { rank: top.findIndex(u => u.username === myUser.username) + 1, arc: Number(myUser.balance_arc) } : null;
+
+  // Find my rank — works whether or not I'm in the top 50
+  const inTop = (users || []).findIndex(u => u.tg_id === req.user.tg_id);
+  let myRank = null;
+  if (inTop !== -1) {
+    myRank = { rank: inTop + 1, username: users[inTop].username || '...', arc: Number(users[inTop].balance_arc) };
+  } else {
+    const { data: me } = await supabase.from('users')
+      .select('username, balance_arc').eq('tg_id', req.user.tg_id).single();
+    if (me) {
+      // My rank = number of users with strictly higher balance, +1
+      const { count } = await supabase.from('users')
+        .select('*', { count: 'exact', head: true })
+        .gt('balance_arc', me.balance_arc);
+      myRank = { rank: (count || 0) + 1, username: me.username || '...', arc: Number(me.balance_arc) };
+    }
+  }
   res.json({ top, myRank });
 });
 
