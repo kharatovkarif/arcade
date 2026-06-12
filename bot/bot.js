@@ -125,8 +125,77 @@ export function startBot() {
 
   bot.onText(/\/stats/, async (msg) => {
     if (msg.from.id !== ADMIN_ID) return;
-    const { count } = await supabase.from('users').select('*', { count: 'exact', head: true });
-    bot.sendMessage(msg.chat.id, `📊 Users: ${count}`).catch(()=>{});
+    const now = new Date();
+    const d1 = new Date(now - 86400e3).toISOString();
+    const d7 = new Date(now - 7 * 86400e3).toISOString();
+    const todayStart = new Date(now); todayStart.setUTCHours(0,0,0,0);
+
+    const [
+      { count: total },
+      { count: new24h },
+      { count: active24h },
+      { count: active7d },
+      { count: pro },
+      { count: blocked },
+      { data: balSums },
+      { data: txToday },
+      { data: pvpToday },
+      { data: langBreak },
+    ] = await Promise.all([
+      supabase.from('users').select('*', { count: 'exact', head: true }),
+      supabase.from('users').select('*', { count: 'exact', head: true }).gte('created_at', d1),
+      supabase.from('users').select('*', { count: 'exact', head: true }).gte('last_active_at', d1),
+      supabase.from('users').select('*', { count: 'exact', head: true }).gte('last_active_at', d7),
+      supabase.from('users').select('*', { count: 'exact', head: true }).eq('is_pro', true),
+      supabase.from('users').select('*', { count: 'exact', head: true }).eq('bot_blocked', true),
+      supabase.from('users').select('balance_arc.sum()'),
+      supabase.from('transactions').select('type, amount').gte('created_at', todayStart.toISOString()),
+      supabase.from('games').select('pot_arc, commission_arc').gte('created_at', todayStart.toISOString()).eq('status', 'done'),
+      supabase.from('users').select('language'),
+    ]);
+
+    const totalArc = Math.floor(balSums?.[0]?.sum ?? 0);
+
+    let adArc = 0, adCount = 0, checkinArc = 0, promoArc = 0, refArc = 0;
+    for (const tx of txToday || []) {
+      const a = Number(tx.amount);
+      if (tx.type === 'ad_short' || tx.type === 'ad4') { if (a > 0) { adArc += a; adCount++; } }
+      else if (tx.type === 'checkin' && a > 0) checkinArc += a;
+      else if (tx.type === 'promo' && a > 0) promoArc += a;
+      else if (tx.type === 'referral' && a > 0) refArc += a;
+    }
+
+    let pvpCommission = 0, pvpRounds = 0;
+    for (const g of pvpToday || []) {
+      if (g.commission_arc) pvpCommission += Number(g.commission_arc);
+      pvpRounds++;
+    }
+
+    const langs = {};
+    for (const u of langBreak || []) langs[u.language || 'en'] = (langs[u.language || 'en'] || 0) + 1;
+    const langLine = Object.entries(langs).sort((a,b)=>b[1]-a[1]).map(([l,c])=>`${l}:${c}`).join(' ');
+
+    const lines = [
+      `📊 *ARCADE Stats*`,
+      ``,
+      `👥 *Пользователи*`,
+      `Всего: ${total} | Новых 24ч: +${new24h}`,
+      `Активны 24ч: ${active24h} | 7д: ${active7d}`,
+      `PRO: ${pro} | Заблокировали бота: ${blocked}`,
+      ``,
+      `🌐 *Языки*`,
+      langLine,
+      ``,
+      `💰 *ARC в системе:* ${totalArc.toLocaleString()}`,
+      ``,
+      `📈 *Сегодня*`,
+      `Реклама: +${Math.floor(adArc)} ARC (${adCount} просм.)`,
+      `Чек-ин: +${Math.floor(checkinArc)} ARC`,
+      `Промокоды: +${Math.floor(promoArc)} ARC`,
+      `Рефералы: +${Math.floor(refArc)} ARC`,
+      `PvP раунды: ${pvpRounds} | Комиссия: ${Math.floor(pvpCommission)} ARC`,
+    ];
+    bot.sendMessage(msg.chat.id, lines.join('\n'), { parse_mode: 'Markdown' }).catch(()=>{});
   });
 
   bot.onText(/\/msg (\d+) (.+)/s, async (msg, m) => {
