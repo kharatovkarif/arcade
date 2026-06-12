@@ -45,7 +45,7 @@ export function startBot() {
   // Tells which build is actually running on Railway
   bot.onText(/\/version/, (msg) => {
     if (msg.from.id !== ADMIN_ID) return;
-    bot.sendMessage(msg.chat.id, 'build: photocast-v2 (custom button + pro deep link)').catch(() => {});
+    bot.sendMessage(msg.chat.id, 'build: photocast-v3 (;;; separator)').catch(() => {});
   });
 
   bot.onText(/\/admin/, (msg) => {
@@ -163,7 +163,8 @@ export function startBot() {
   });
 
   // Photo broadcast: admin sends a photo with caption starting with /photocast.
-  // Format: /photocast text ||| postUrl ||| buttonText ||| appQuery
+  // Format: /photocast text ;;; postUrl ;;; buttonText ;;; appQuery
+  // (";;;" — Telegram auto-converts "||" pairs into spoiler markup, so pipes can't be used)
   // appQuery is appended to the Mini App URL (e.g. "pro=1" opens the PRO purchase modal).
   bot.on('message', async (msg) => {
     if (msg.from.id !== ADMIN_ID) return;
@@ -171,7 +172,7 @@ export function startBot() {
     const caption = msg.caption || '';
     if (!caption.startsWith('/photocast')) return;
     const raw = caption.slice('/photocast'.length).trim();
-    const parts = raw.split('|||').map(s => s.trim());
+    const parts = raw.split(/\|\|\||;;;/).map(s => s.trim());
     const text = (parts[0] || '').replace(/\\n/g, '\n');
     const postUrl = parts[1] || 'https://t.me/arcare_ton';
     const btnText = parts[2] || '▶️ Играть в ARCADE';
