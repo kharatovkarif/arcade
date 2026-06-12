@@ -45,7 +45,7 @@ export function startBot() {
   // Tells which build is actually running on Railway
   bot.onText(/\/version/, (msg) => {
     if (msg.from.id !== ADMIN_ID) return;
-    bot.sendMessage(msg.chat.id, 'build: photocast-v3 (;;; separator)').catch(() => {});
+    bot.sendMessage(msg.chat.id, 'build: lottery-v1').catch(() => {});
   });
 
   bot.onText(/\/admin/, (msg) => {
@@ -290,6 +290,27 @@ export async function notifyAdmin(text) {
 export async function notifyUser(tgId, text) {
   if (!bot) return;
   try { await bot.sendMessage(tgId, text); } catch {}
+}
+
+export async function notifyLotteryResult(tickets, winner, roundNo) {
+  if (!bot) return;
+  for (const t of tickets) {
+    const isWinner = t.tg_id === winner.tg_id;
+    const text = isWinner
+      ? `🎟 *Ты выиграл лотерею!*\n\n👑 PRO на 7 дней активирован! Открой приложение — статус уже отображается в профиле.\n\n_Розыгрыш #${roundNo}_`
+      : `🎟 *Итоги лотереи #${roundNo}*\n\nПобедил: @${winner.username || '...'} 🏆\n\nНе повезло в этот раз — но каждый раунд новый шанс! 🎫`;
+    try {
+      await bot.sendMessage(t.tg_id, text, {
+        parse_mode: 'Markdown',
+        reply_markup: isWinner ? {
+          inline_keyboard: [[{ text: '👑 Открыть ARCADE', web_app: { url: APP_URL } }]],
+        } : {
+          inline_keyboard: [[{ text: '🎟 Участвовать снова', web_app: { url: APP_URL + '?tab=lottery' } }]],
+        },
+      });
+    } catch {}
+    await new Promise(r => setTimeout(r, 50));
+  }
 }
 
 export async function notifyAdminWithdraw(tgId, username, amount, wallet, newBal, datetime) {

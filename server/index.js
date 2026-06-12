@@ -9,10 +9,11 @@ import {
   checkinMultiplier, changeArc, changeTon,
   isPro, adMultiplier, payReferrals,
 } from './helpers.js';
-import { startBot, botCheckMember, notifyAdminWithdraw, getUserPhotoBuffer } from '../bot/bot.js';
+import { startBot, botCheckMember, notifyAdminWithdraw, getUserPhotoBuffer, notifyLotteryResult } from '../bot/bot.js';
 import { initGameLoop, getGameState, placeBet } from './game.js';
 import { initDeposits } from './deposits.js';
 import { initInactivityLoop } from './inactivity.js';
+import { initLottery, getLotteryState, buyTicket, setLotteryNotifier } from './lottery.js';
 
 dotenv.config();
 
@@ -429,6 +430,52 @@ app.post('/api/pro/buy', auth, async (req, res) => {
   res.json({ ok: true, pro_until: newUntil, balance_ton: Number(u.balance_ton) });
 });
 
+app.post('/api/lottery/state', auth, async (req, res) => {
+  res.json(await getLotteryState());
+});
+
+app.post('/api/lottery/buy', auth, async (req, res) => {
+  const result = await buyTicket(req.user.tg_id, req.user.username, req.user.first_name);
+  res.json(result);
+});
+
+app.post('/api/lottery/history', auth, async (req, res) => {
+  const { data: rounds } = await supabase.from('lottery_rounds')
+    .select('id, round_no, winner_tg_id, result_index, result_roll, server_seed, server_seed_hash, finished_at')
+    .eq('status', 'done').not('winner_tg_id', 'is', null)
+    .order('finished_at', { ascending: false }).limit(20);
+
+  const winnerIds = [...new Set((rounds || []).map(r => r.winner_tg_id).filter(Boolean))];
+  let userMap = {};
+  if (winnerIds.length) {
+    const { data: us } = await supabase.from('users').select('tg_id, username').in('tg_id', winnerIds);
+    (us || []).forEach(u => { userMap[u.tg_id] = u.username; });
+  }
+
+  const roundIds = (rounds || []).map(r => r.id);
+  let ticketsMap = {};
+  if (roundIds.length) {
+    const { data: tks } = await supabase.from('lottery_tickets')
+      .select('round_id, tg_id, username').in('round_id', roundIds);
+    (tks || []).forEach(t => {
+      if (!ticketsMap[t.round_id]) ticketsMap[t.round_id] = [];
+      ticketsMap[t.round_id].push(t);
+    });
+  }
+
+  res.json((rounds || []).map(r => ({
+    round_no: r.round_no,
+    winner: userMap[r.winner_tg_id] || '...',
+    winner_tg_id: r.winner_tg_id,
+    winner_index: r.result_index,
+    result_roll: r.result_roll,
+    seed_hash: r.server_seed_hash,
+    server_seed: r.server_seed,
+    time: r.finished_at,
+    tickets: (ticketsMap[r.id] || []).map(t => ({ tg_id: t.tg_id, username: t.username })),
+  })));
+});
+
 app.post('/api/wallet/connect', auth, async (req, res) => {
   const wallet = (req.body.wallet || '').trim();
   if (!wallet) return res.json({ ok: false });
@@ -691,8 +738,10 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`ARCADE server running on :${PORT}`);
   startBot();
+  setLotteryNotifier(notifyLotteryResult);
   initGameLoop();
   initDeposits();
   initSettings();
   initInactivityLoop();
+  initLottery();
 });
