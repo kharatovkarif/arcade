@@ -248,14 +248,14 @@ export function startBot() {
   });
 
   // Localized broadcast: sends each user a message in their own language.
-  // Format: /lbroadcast ru:текст|||en:text|||hi:टेक्स्ट|||pt:texto|||id:teks|||bn:টেক্সট|||vi:văn bản
-  // Language sections separated by |||, each starting with "lang:".
+  // Format: /lbroadcast ru:текст|en:text|hi:टेक्स्ट|pt:texto|id:teks|bn:টেক্সট|vi:văn bản
+  // Language sections separated by |, each starting with "lang:".
   // Missing languages fall back to "en". Newlines: \n
   bot.onText(/\/lbroadcast (.+)/s, async (msg, m) => {
     if (msg.from.id !== ADMIN_ID) return;
     const raw = m[1];
     const texts = {};
-    for (const part of raw.split('|||')) {
+    for (const part of raw.split('|')) {
       const colon = part.indexOf(':');
       if (colon === -1) continue;
       const lang = part.slice(0, colon).trim();
@@ -289,11 +289,11 @@ export function startBot() {
     if (msg.from.id !== ADMIN_ID) return;
     bot.sendMessage(msg.chat.id,
       '*Локализованная рассылка*\n\n' +
-      'Формат:\n`/lbroadcast ru:текст|||en:text|||hi:...|||pt:...|||id:...|||bn:...|||vi:...`\n\n' +
-      'Разделитель языков: `|||`\n' +
+      'Формат:\n`/lbroadcast ru:текст|en:text|hi:...|pt:...|id:...|bn:...|vi:...`\n\n' +
+      'Разделитель языков: `|`\n' +
       'Перенос строки: `\\n`\n' +
       'Если язык не указан — используется en (или ru как запасной)\n\n' +
-      'Пример:\n`/lbroadcast ru:🎰 Теперь есть лотерея!|||en:🎰 Lottery is live!`',
+      'Пример:\n`/lbroadcast ru:🎰 Теперь есть лотерея!|en:🎰 Lottery is live!`',
       { parse_mode: 'Markdown' }
     ).catch(()=>{});
   });
