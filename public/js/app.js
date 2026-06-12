@@ -153,7 +153,7 @@ function renderMain() {
   const dailyShortCount = ME.ad_short_daily_count || 0;
   const daily4Count = ME.ad4_daily_count || 0;
   const reward = Math.round(10 * adMult(ME.checkin_day || 1));
-  const adLimit1 = ME.is_pro ? 40 : 30;
+  const adLimit1 = ME.is_pro ? 15 : 10;
   const adLimit2 = ME.is_pro ? 5 : 3;
   const adLimit4 = ME.is_pro ? 15 : 10;
   const limitReached = dailyCount >= adLimit1;
