@@ -154,7 +154,7 @@ function renderMain() {
   const daily4Count = ME.ad4_daily_count || 0;
   const reward = Math.round(10 * adMult(ME.checkin_day || 1));
   const limitReached = dailyCount >= 30;
-  const limitShortReached = dailyShortCount >= 3;
+  const limitShortReached = dailyShortCount >= 5;
   const limit4Reached = daily4Count >= 30;
 
   const ad1Btn = (active && !limitReached)
@@ -182,7 +182,7 @@ function renderMain() {
     <div class="row">
       <div class="info">
         <span class="title">${t('ad_reward')} 2 &nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + чек-ин</span></span>
-        <span class="sub">${activeShort ? dailyShortCount+'/3 '+(LANG==='ru'?'сегодня':'today') : t('soon')}</span>
+        <span class="sub">${activeShort ? dailyShortCount+'/5 '+(LANG==='ru'?'сегодня':'today') : t('soon')}</span>
       </div>
       ${ad2Btn}
     </div>
@@ -430,20 +430,18 @@ window.watchAdShort = async (btn) => {
   btn.disabled = true;
   try {
     await adsgramControllerShort.show();
-    const r = await api('/ads/watch-short');
-    if (r.ok) {
-      ME.ad_short_daily_count = r.daily_count;
-      ME.balance_arc = r.balance_arc;
-      renderHeader();
-      renderMain();
-      toast(`+${r.reward} ARC · ${r.daily_count}/3`);
-    } else if (r.error === 'daily_limit') {
-      ME.ad_short_daily_count = 3;
-      renderMain();
-      toast(LANG === 'ru' ? 'Дневной лимит исчерпан' : 'Daily limit reached');
-    } else {
+    setTimeout(async () => {
+      const me = await api('/me');
+      if (me?.balance_arc !== undefined) {
+        const gained = me.balance_arc - ME.balance_arc;
+        ME.balance_arc = me.balance_arc;
+        ME.ad_short_daily_count = me.ad_short_daily_count;
+        renderHeader(); renderMain();
+        if (gained > 0) toast(`+${gained} ARC · ${me.ad_short_daily_count}/5`);
+        else if (me.ad_short_daily_count >= 5) toast(LANG === 'ru' ? 'Дневной лимит 5 реклам исчерпан' : 'Daily limit 5 reached');
+      }
       btn.disabled = false;
-    }
+    }, 2500);
   } catch { btn.disabled = false; }
 };
 
