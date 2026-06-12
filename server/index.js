@@ -92,7 +92,7 @@ app.post('/api/me', auth, async (req, res) => {
     adsgram_block_id: process.env.ADSGRAM_BLOCK_ID || '',
     adsgram_block_id_short: process.env.ADSGRAM_BLOCK_ID_SHORT || '',
     adsgram_block_id_task: process.env.ADSGRAM_BLOCK_ID_TASK || 'task-34678',
-    adsgram_block_id_4: '', // disabled — slot reserved for new ad platform
+    onclicka_spot_id: process.env.ONCLICKA_SPOT_ID || '', // ad slot 4 — OnClickA TMA Rewarded
     ad_daily_count: adCount || 0,
     ad_short_daily_count: adShortCount || 0,
     ad_task_daily_count: adTaskCount || 0,
@@ -290,31 +290,32 @@ app.post('/api/ads/watch-short', auth, async (req, res) => {
   res.json({ ok: true, daily_count: current + 1, reward, balance_arc: newBal });
 });
 
-// Ad 4 — disabled, slot reserved for new ad platform
-app.get('/api/adsgram/reward4', async (req, res) => {
-  return res.status(200).send('disabled');
-  const userId = Number(req.query.userId);
-  if (!userId) return res.status(400).send('bad_request');
+// Ad 4 — OnClickA TMA Rewarded video, client-triggered with auth + 10/day limit
+app.post('/api/ads/watch4', auth, async (req, res) => {
   const todayStart = mskDate() + 'T00:00:00+03:00';
+
   const { count } = await supabase.from('transactions').select('*', { count: 'exact', head: true })
-    .eq('tg_id', userId).eq('type', 'ad4').gte('created_at', todayStart);
-  if ((count || 0) >= 30) return res.status(200).send('daily_limit');
-  const { data: u } = await supabase.from('users').select('checkin_day, referrer_id').eq('tg_id', userId).single();
-  if (!u) return res.status(404).send('user_not_found');
-  const reward = Math.round(5 * checkinMultiplier(u.checkin_day || 1));
-  await changeArc(userId, reward, 'ad4', 'adsgram reward4');
-  if (u.referrer_id) {
+    .eq('tg_id', req.user.tg_id).eq('type', 'ad4').gte('created_at', todayStart);
+  const current = count || 0;
+  if (current >= 10) return res.json({ ok: false, error: 'daily_limit', daily_count: 10 });
+
+  const { data: u } = await supabase.from('users').select('checkin_day, referrer_id').eq('tg_id', req.user.tg_id).single();
+  const reward = Math.round(5 * checkinMultiplier(u?.checkin_day || 1));
+  const newBal = await changeArc(req.user.tg_id, reward, 'ad4', 'onclicka watch');
+
+  if (u?.referrer_id) {
     const ref1Reward = Math.round(reward * 0.2);
     if (ref1Reward > 0) {
-      await changeArc(u.referrer_id, ref1Reward, 'referral', `from ${userId}`);
+      await changeArc(u.referrer_id, ref1Reward, 'referral', `from ${req.user.tg_id}`);
       const { data: ref1 } = await supabase.from('users').select('referrer_id').eq('tg_id', u.referrer_id).single();
       if (ref1?.referrer_id) {
         const ref2Reward = Math.round(reward * 0.1);
-        if (ref2Reward > 0) await changeArc(ref1.referrer_id, ref2Reward, 'referral', `from ${userId}`);
+        if (ref2Reward > 0) await changeArc(ref1.referrer_id, ref2Reward, 'referral', `from ${req.user.tg_id}`);
       }
     }
   }
-  res.status(200).send('ok');
+
+  res.json({ ok: true, daily_count: current + 1, reward, balance_arc: newBal });
 });
 
 app.post('/api/tasks/check', auth, async (req, res) => {
