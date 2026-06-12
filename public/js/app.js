@@ -7,7 +7,7 @@ let pvpTimer = null;
 let tonConnectUI = null;
 let adsgramController = null;
 let adsgramControllerShort = null;
-let adsgramController4 = null;
+let onclickaShow4 = null;
 
 async function api(path, body = {}) {
   const res = await fetch('/api' + path, {
@@ -148,14 +148,14 @@ function renderMain() {
     ? `<div class="hero-wallet">${ME.wallet.slice(0,4)}...${ME.wallet.slice(-4)}</div>` : '';
   const active = !!adsgramController;
   const activeShort = !!adsgramControllerShort;
-  const active4 = !!adsgramController4;
+  const active4 = !!onclickaShow4;
   const dailyCount = ME.ad_daily_count || 0;
   const dailyShortCount = ME.ad_short_daily_count || 0;
   const daily4Count = ME.ad4_daily_count || 0;
   const reward = Math.round(10 * adMult(ME.checkin_day || 1));
   const limitReached = dailyCount >= 30;
   const limitShortReached = dailyShortCount >= 3;
-  const limit4Reached = daily4Count >= 30;
+  const limit4Reached = daily4Count >= 10;
 
   const ad1Btn = (active && !limitReached)
     ? `<button onclick="watchAd(this)" style="width:44px;height:44px;border-radius:50%;background:var(--blue);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`
@@ -206,7 +206,7 @@ function renderMain() {
     <div class="row">
       <div class="info">
         <span class="title">${t('ad_reward')} 4 ${active4 ? '&nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + чек-ин</span>' : ''}</span>
-        <span class="sub">${active4 ? daily4Count+'/30 '+(LANG==='ru'?'сегодня':'today') : t('soon')}</span>
+        <span class="sub">${active4 ? daily4Count+'/10 '+(LANG==='ru'?'сегодня':'today') : t('soon')}</span>
       </div>
       ${ad4Btn}
     </div>
@@ -448,23 +448,24 @@ window.watchAdShort = async (btn) => {
 };
 
 window.watchAd4 = async (btn) => {
-  if (!adsgramController4) return;
+  if (!onclickaShow4) return;
   btn.disabled = true;
   try {
-    await adsgramController4.show();
-    // Reward is credited server-to-server by Adsgram (Reward URL); give it a moment, then refresh
-    setTimeout(async () => {
-      const me = await api('/me');
-      if (me?.balance_arc !== undefined) {
-        const gained = me.balance_arc - ME.balance_arc;
-        ME.balance_arc = me.balance_arc;
-        ME.ad4_daily_count = me.ad4_daily_count || 0;
-        renderHeader();
-        renderMain();
-        if (gained > 0) toast(`+${gained} ARC · ${ME.ad4_daily_count}/30`);
-      }
+    await onclickaShow4();
+    const r = await api('/ads/watch4');
+    if (r.ok) {
+      ME.ad4_daily_count = r.daily_count;
+      ME.balance_arc = r.balance_arc;
+      renderHeader();
+      renderMain();
+      toast(`+${r.reward} ARC · ${r.daily_count}/10`);
+    } else if (r.error === 'daily_limit') {
+      ME.ad4_daily_count = 10;
+      renderMain();
+      toast(LANG === 'ru' ? 'Дневной лимит исчерпан' : 'Daily limit reached');
+    } else {
       btn.disabled = false;
-    }, 2500);
+    }
   } catch { btn.disabled = false; }
 };
 
@@ -1233,8 +1234,12 @@ async function init() {
   if (ME.adsgram_block_id_short && window.Adsgram) {
     try { adsgramControllerShort = window.Adsgram.init({ blockId: ME.adsgram_block_id_short }); } catch {}
   }
-  if (ME.adsgram_block_id_4 && window.Adsgram) {
-    try { adsgramController4 = window.Adsgram.init({ blockId: ME.adsgram_block_id_4 }); } catch {}
+  if (ME.onclicka_spot_id && window.initCdTma) {
+    try {
+      window.initCdTma({ id: Number(ME.onclicka_spot_id) })
+        .then(show => { onclickaShow4 = show; renderMain(); })
+        .catch(() => {});
+    } catch {}
   }
 }
 init();
