@@ -92,7 +92,7 @@ app.post('/api/me', auth, async (req, res) => {
     adsgram_block_id: process.env.ADSGRAM_BLOCK_ID || '',
     adsgram_block_id_short: process.env.ADSGRAM_BLOCK_ID_SHORT || '',
     adsgram_block_id_task: process.env.ADSGRAM_BLOCK_ID_TASK || 'task-34678',
-    adsgram_block_id_4: process.env.ADSGRAM_BLOCK_ID_4 || '',
+    adsgram_block_id_4: '', // disabled — slot reserved for new ad platform
     ad_daily_count: adCount || 0,
     ad_short_daily_count: adShortCount || 0,
     ad_task_daily_count: adTaskCount || 0,
@@ -276,9 +276,9 @@ app.post('/api/ads/watch-short', auth, async (req, res) => {
   res.json({ ok: true, daily_count: current + 1, reward, balance_arc: newBal });
 });
 
-// Ad 4 — Rewarded block, server-to-server callback from Adsgram (Reward URL).
-// Adsgram calls this only after a confirmed full view, so it can't be spoofed by clients.
+// Ad 4 — disabled, slot reserved for new ad platform
 app.get('/api/adsgram/reward4', async (req, res) => {
+  return res.status(200).send('disabled');
   const userId = Number(req.query.userId);
   if (!userId) return res.status(400).send('bad_request');
   const todayStart = mskDate() + 'T00:00:00+03:00';
