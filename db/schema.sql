@@ -115,3 +115,26 @@ create table if not exists exchange_daily (
     ton_used numeric(20,9) default 0,
     primary key (tg_id, day)
 );
+
+create table if not exists lottery_rounds (
+    id bigserial primary key,
+    round_no bigint not null,
+    status text default 'open',
+    server_seed text,
+    server_seed_hash text,
+    result_index int,
+    result_roll numeric(12,10),
+    winner_tg_id bigint,
+    created_at timestamptz default now(),
+    finished_at timestamptz
+);
+
+create table if not exists lottery_tickets (
+    id bigserial primary key,
+    round_id bigint references lottery_rounds(id),
+    tg_id bigint not null,
+    username text,
+    first_name text,
+    created_at timestamptz default now(),
+    unique(round_id, tg_id)
+);

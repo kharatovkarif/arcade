@@ -681,62 +681,108 @@ function renderProfile() {
   document.getElementById('histBtn').onclick = openTxHistory;
 }
 
+window.setPvpSub = function(tab) {
+  pvpSubTab = tab;
+  const rs = document.getElementById('pvpRouletteSection');
+  const ls = document.getElementById('pvpLotterySection');
+  if (rs) rs.hidden = (tab !== 'roulette');
+  if (ls) ls.hidden = (tab !== 'lottery');
+  document.querySelectorAll('.pvp-subtab-btn').forEach(b => b.classList.toggle('active', b.dataset.sub === tab));
+  if (tab === 'lottery') loadLottery();
+  else loadPvP();
+};
+
 function renderPvP() {
   const el = document.getElementById('page-pvp');
   el.innerHTML = `
-    <div class="pvp-top">
-      <div class="pvp-logo">
-        <span class="pvp-logo-icon">⚔️</span>
-        <span class="pvp-logo-text">PvP</span>
-        <span class="pvp-round" id="roundLabel">ИГРА #—</span>
+    <div style="display:flex;gap:6px;margin-bottom:14px">
+      <button class="pvp-subtab-btn${pvpSubTab==='roulette'?' active':''}" data-sub="roulette" onclick="setPvpSub('roulette')">⚔️ Рулетка</button>
+      <button class="pvp-subtab-btn${pvpSubTab==='lottery'?' active':''}" data-sub="lottery" onclick="setPvpSub('lottery')">🎟 Лотерея PRO</button>
+    </div>
+
+    <div id="pvpRouletteSection" ${pvpSubTab!=='roulette'?'hidden':''}>
+      <div class="pvp-top">
+        <div class="pvp-logo">
+          <span class="pvp-logo-icon">⚔️</span>
+          <span class="pvp-logo-text">PvP</span>
+          <span class="pvp-round" id="roundLabel">ИГРА #—</span>
+        </div>
+      </div>
+      <div id="specialBanner" style="display:none;margin:0 0 10px;padding:12px 14px;border-radius:14px;background:linear-gradient(135deg,#3a2d00,#1a1a1a);border:1px solid #ffd60a55;text-align:center">
+        <div style="font-size:15px;font-weight:900;color:#ffd60a">⚡ ОСОБЫЙ РАУНД</div>
+        <div style="font-size:12px;color:#ccc;margin-top:4px">Проиграл — вернём ставку · Победителю банк <b style="color:#ffd60a">+500 ARC</b> сверху</div>
+      </div>
+      <div class="pvp-banks">
+        <div class="pvp-bank-side">
+          <div class="pvp-bank-lbl">БАНК</div>
+          <div class="pvp-bank-val"><span id="potVal">0</span> ARC</div>
+        </div>
+        <div class="pvp-bank-side" style="text-align:right">
+          <div class="pvp-bank-lbl">МОЙ БАЛАНС</div>
+          <div class="pvp-mybal-val" id="pvpMyBal">${fmt(ME?.balance_arc ?? 0, 0)} ARC</div>
+        </div>
+      </div>
+      <div class="wheel-wrap">
+        <div class="wheel-pointer"></div>
+        <div class="wheel" id="wheel"></div>
+        <div id="wheelAvatars" style="position:absolute;inset:0;pointer-events:none;z-index:3;"></div>
+        <div class="wheel-center" id="wheelCenter">${t('waiting')}</div>
+      </div>
+      <div class="pvp-input-row">
+        <input class="pvp-input" id="betInput" type="number" min="10" max="2000" placeholder="0 ARC" />
+        <button class="pvp-bet-btn" id="addBetBtn">+ ${t('add_bet')}</button>
+      </div>
+      <div class="pvp-amts">
+        <div class="pvp-amt" onclick="setBet(10)">10</div>
+        <div class="pvp-amt" onclick="setBet(50)">50</div>
+        <div class="pvp-amt" onclick="setBet(100)">100</div>
+        <div class="pvp-amt" onclick="setBet(500)">500</div>
+      </div>
+      <div class="pvp-section-lbl"><span>УЧАСТНИКИ</span></div>
+      <div id="playersList"></div>
+      <div class="hash" id="hashLine"></div>
+      <button class="btn btn-dark" style="margin-top:12px;width:100%" onclick="openPvPHistory()">📋 История игр</button>
+      <div id="winnerOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:1000;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:32px">
+        <div style="font-size:56px">🏆</div>
+        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px">ПОБЕДИТЕЛЬ</div>
+        <div id="woUsername" style="font-size:28px;font-weight:900;color:#fff"></div>
+        <div id="woChance" style="font-size:14px;color:var(--muted2);margin-top:-4px"></div>
+        <div id="woPrize" style="font-size:40px;font-weight:900;color:#ffd60a;margin-top:4px"></div>
       </div>
     </div>
-    <div id="specialBanner" style="display:none;margin:0 0 10px;padding:12px 14px;border-radius:14px;background:linear-gradient(135deg,#3a2d00,#1a1a1a);border:1px solid #ffd60a55;text-align:center">
-      <div style="font-size:15px;font-weight:900;color:#ffd60a">⚡ ОСОБЫЙ РАУНД</div>
-      <div style="font-size:12px;color:#ccc;margin-top:4px">Проиграл — вернём ставку · Победителю банк <b style="color:#ffd60a">+500 ARC</b> сверху</div>
-    </div>
-    <div class="pvp-banks">
-      <div class="pvp-bank-side">
-        <div class="pvp-bank-lbl">БАНК</div>
-        <div class="pvp-bank-val"><span id="potVal">0</span> ARC</div>
+
+    <div id="pvpLotterySection" ${pvpSubTab!=='lottery'?'hidden':''}>
+      <div class="pvp-top">
+        <div class="pvp-logo">
+          <span class="pvp-logo-icon">🎟</span>
+          <span class="pvp-logo-text">Лотерея</span>
+          <span class="pvp-round" id="lotteryRoundLabel">РАУНД #—</span>
+        </div>
       </div>
-      <div class="pvp-bank-side" style="text-align:right">
-        <div class="pvp-bank-lbl">МОЙ БАЛАНС</div>
-        <div class="pvp-mybal-val" id="pvpMyBal">${fmt(ME?.balance_arc ?? 0, 0)} ARC</div>
+      <div style="text-align:center;padding:6px 0 12px;font-size:13px;color:var(--muted2)">
+        Приз: <b style="color:#ffd60a">👑 PRO 7 дней</b> &nbsp;·&nbsp; Билет: <b style="color:#fff">750 ARC</b> &nbsp;·&nbsp; 5 участников
       </div>
-    </div>
-    <div class="wheel-wrap">
-      <div class="wheel-pointer"></div>
-      <div class="wheel" id="wheel"></div>
-      <div id="wheelAvatars" style="position:absolute;inset:0;pointer-events:none;z-index:3;"></div>
-      <div class="wheel-center" id="wheelCenter">${t('waiting')}</div>
-    </div>
-    <div class="pvp-input-row">
-      <input class="pvp-input" id="betInput" type="number" min="10" max="2000" placeholder="0 ARC" />
-      <button class="pvp-bet-btn" id="addBetBtn">+ ${t('add_bet')}</button>
-    </div>
-    <div class="pvp-amts">
-      <div class="pvp-amt" onclick="setBet(10)">10</div>
-      <div class="pvp-amt" onclick="setBet(50)">50</div>
-      <div class="pvp-amt" onclick="setBet(100)">100</div>
-      <div class="pvp-amt" onclick="setBet(500)">500</div>
-    </div>
-    <div class="pvp-section-lbl">
-      <span>УЧАСТНИКИ</span>
-    </div>
-    <div id="playersList"></div>
-    <div class="hash" id="hashLine"></div>
-    <button class="btn btn-dark" style="margin-top:12px;width:100%" onclick="openPvPHistory()">📋 История игр</button>
-    <div id="winnerOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:1000;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:32px">
-      <div style="font-size:56px">🏆</div>
-      <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px">ПОБЕДИТЕЛЬ</div>
-      <div id="woUsername" style="font-size:28px;font-weight:900;color:#fff"></div>
-      <div id="woChance" style="font-size:14px;color:var(--muted2);margin-top:-4px"></div>
-      <div id="woPrize" style="font-size:40px;font-weight:900;color:#ffd60a;margin-top:4px"></div>
+      <div id="lotterySlots" style="display:flex;gap:6px;margin-bottom:10px;justify-content:center"></div>
+      <div id="lotteryStatusLine" style="text-align:center;font-size:13px;color:var(--muted2);margin-bottom:14px;min-height:20px"></div>
+      <div id="lotteryBuyArea"></div>
+      <div id="lotteryLastWinner" style="display:none;margin-bottom:12px;padding:12px 14px;border-radius:14px;background:linear-gradient(135deg,#3a2d00,#1a1a1a);border:1px solid #ffd60a55;text-align:center"></div>
+      <div class="hash" id="lotteryHash" style="margin-top:0"></div>
+      <button class="btn btn-dark" style="margin-top:12px;width:100%" onclick="openLotteryHistory()">📋 История лотереи</button>
+      <div id="lotteryWinnerOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:1000;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:32px">
+        <div style="font-size:56px">🎟</div>
+        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px">ПОБЕДИТЕЛЬ ЛОТЕРЕИ</div>
+        <div id="lwUsername" style="font-size:28px;font-weight:900;color:#ffd60a"></div>
+        <div style="font-size:15px;color:#fff;margin-top:4px">👑 PRO на 7 дней!</div>
+      </div>
     </div>`;
+
   document.getElementById('addBetBtn').onclick = doBet;
-  loadPvP();
-  pvpTimer = setInterval(loadPvP, 1500);
+  if (pvpSubTab === 'roulette') loadPvP();
+  else loadLottery();
+  pvpTimer = setInterval(() => {
+    if (pvpSubTab === 'roulette') loadPvP();
+    else loadLottery();
+  }, 1500);
 }
 
 window.openPvPHistory = async () => {
@@ -919,6 +965,11 @@ let spinTriggered = false;
 let winnerShown = false;
 let prevPvpStatus = null;
 
+let pvpSubTab = 'roulette';
+let lotteryAnimTriggered = false;
+let prevLotteryRoundNo = null;
+let prevLotteryStatus = null;
+
 function buildWheelGradient(players) {
   let acc = 0; const stops = [];
   players.forEach((p, i) => {
@@ -999,6 +1050,246 @@ function spinWheel(players, roll) {
     ava.style.transform = `rotate(${finalAngle}deg)`;
   }
 }
+
+function buildLotterySlotHTML(ticket, index, activeIndex) {
+  const isEmpty = !ticket;
+  const isActive = index === activeIndex;
+  const g = ticket ? AVATAR_GRADIENTS[Math.abs(Number(ticket.tg_id || 0)) % AVATAR_GRADIENTS.length] : null;
+  const letter = ticket ? (ticket.first_name || ticket.username || '?')[0].toUpperCase() : '?';
+  return `<div class="lottery-slot${isActive?' lottery-slot-active':''}${!isEmpty?' filled':''}" id="lotterySlot${index}">
+    <div class="lottery-slot-avatar" ${g?`style="background:linear-gradient(135deg,${g[0]},${g[1]})"`:''}">
+      ${isEmpty
+        ? `<span style="color:var(--muted);font-size:18px">?</span>`
+        : `<span>${letter}</span><img src="/api/avatar/${ticket.tg_id}" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%">`}
+    </div>
+    <div class="lottery-slot-name">${isEmpty ? (LANG==='ru'?'Свободно':'Empty') : ('@'+(ticket.username||'...'))}</div>
+  </div>`;
+}
+
+async function loadLottery() {
+  const s = await api('/lottery/state');
+  if (!s || !document.getElementById('lotterySlots')) return;
+
+  if (s.roundNo !== prevLotteryRoundNo) {
+    lotteryAnimTriggered = false;
+    prevLotteryRoundNo = s.roundNo;
+  }
+
+  const rl = document.getElementById('lotteryRoundLabel');
+  if (rl) rl.textContent = `РАУНД #${s.roundNo}`;
+
+  // Render slots (don't touch during animation)
+  if (!lotteryAnimTriggered || s.status === 'open') {
+    const slotsEl = document.getElementById('lotterySlots');
+    if (slotsEl) {
+      const showActive = (s.status === 'done' && s.winnerIndex != null) ? s.winnerIndex : -1;
+      const html = Array.from({ length: s.maxPlayers }, (_, i) => {
+        const ticket = s.tickets[i] || null;
+        return buildLotterySlotHTML(ticket, i, showActive);
+      }).join('');
+      slotsEl.innerHTML = html;
+    }
+  }
+
+  // Status line
+  const sl = document.getElementById('lotteryStatusLine');
+  if (sl) {
+    if (s.status === 'open') {
+      sl.textContent = LANG==='ru'
+        ? `${s.tickets.length} / ${s.maxPlayers} участников`
+        : `${s.tickets.length} / ${s.maxPlayers} players`;
+    } else if (s.status === 'spinning') {
+      sl.textContent = LANG==='ru' ? '🎰 Идёт розыгрыш...' : '🎰 Drawing...';
+    } else if (s.status === 'done' && s.winner) {
+      sl.innerHTML = `🏆 ${LANG==='ru'?'Победитель':'Winner'}: <b style="color:#ffd60a">@${s.winner.username||'...'}</b> — 👑 PRO 7 дней!`;
+    }
+  }
+
+  // Buy button area
+  const buyArea = document.getElementById('lotteryBuyArea');
+  if (buyArea) {
+    const alreadyIn = s.tickets.some(tk => tk.tg_id === ME.tg_id);
+    if (s.status === 'open') {
+      if (alreadyIn) {
+        buyArea.innerHTML = `<div style="text-align:center;padding:12px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);border-radius:13px;color:var(--green);font-weight:700;font-size:14px">
+          ✅ ${LANG==='ru'?'Ты участвуешь':'You\'re in!'} — ${LANG==='ru'?'ждём':'waiting for'} ${s.maxPlayers - s.tickets.length} ${LANG==='ru'?'игрок(ов)':'more'}
+        </div>`;
+      } else {
+        buyArea.innerHTML = `<button class="btn btn-blue" id="lotteryBuyBtn" onclick="doLotteryBuy(this)">
+          🎟 ${LANG==='ru'?'Купить билет':'Buy ticket'} — 750 ARC
+        </button>
+        <div style="text-align:center;margin-top:6px;font-size:12px;color:var(--muted2)">
+          ${LANG==='ru'?'Баланс':'Balance'}: ${fmt(ME.balance_arc,0)} ARC · ${LANG==='ru'?'Шанс':'Chance'}: 20%
+        </div>`;
+      }
+    } else if (s.status === 'spinning') {
+      buyArea.innerHTML = `<div style="text-align:center;padding:12px;background:rgba(255,214,10,.08);border:1px solid #ffd60a55;border-radius:13px;color:#ffd60a;font-weight:700;font-size:14px">
+        🎰 ${LANG==='ru'?'Идёт розыгрыш...':'Drawing in progress...'}
+      </div>`;
+    } else {
+      buyArea.innerHTML = `<div style="text-align:center;padding:12px;background:rgba(255,214,10,.08);border:1px solid #ffd60a55;border-radius:13px;color:#ffd60a;font-weight:700;font-size:14px">
+        ✨ ${LANG==='ru'?'Новый раунд скоро...':'New round coming...'}
+      </div>`;
+    }
+  }
+
+  // Hash line
+  const hl = document.getElementById('lotteryHash');
+  if (hl) {
+    if (s.status === 'done' && s.serverSeed) {
+      hl.innerHTML = `<span style="color:var(--muted)">Seed:</span> ${s.serverSeed.slice(0,12)}... · <span style="color:var(--muted)">Roll:</span> ${Number(s.roll).toFixed(10)}`;
+    } else if (s.seedHash) {
+      hl.innerHTML = `🔒 ${s.seedHash.slice(0,8)}...${s.seedHash.slice(-6)}`;
+    }
+  }
+
+  // Trigger animation on status change to spinning/done
+  if (!lotteryAnimTriggered && (s.status === 'spinning' || s.status === 'done') && s.winnerIndex != null) {
+    lotteryAnimTriggered = true;
+    animateLotterySlots(s.tickets, s.winnerIndex, () => {
+      if (s.winner) showLotteryWinnerOverlay(s.winner);
+    });
+  }
+
+  prevLotteryStatus = s.status;
+}
+
+window.doLotteryBuy = async (btn) => {
+  btn.disabled = true;
+  const r = await api('/lottery/buy');
+  if (r.ok) {
+    ME.balance_arc = r.balance_arc;
+    renderHeader();
+    toast(LANG==='ru' ? '🎟 Билет куплен! Удачи!' : '🎟 Ticket bought! Good luck!');
+    loadLottery();
+  } else if (r.error === 'not_enough') {
+    toast(LANG==='ru' ? 'Недостаточно ARC (нужно 750)' : 'Not enough ARC (need 750)');
+    btn.disabled = false;
+  } else if (r.error === 'already_in') {
+    toast(LANG==='ru' ? 'Ты уже участвуешь!' : 'Already in this round!');
+    btn.disabled = false;
+  } else if (r.error === 'round_closed') {
+    toast(LANG==='ru' ? 'Раунд закрыт — подожди следующего' : 'Round closed — wait for next');
+    btn.disabled = false;
+  } else {
+    toast(t('error'));
+    btn.disabled = false;
+  }
+};
+
+function animateLotterySlots(tickets, winnerIndex, onDone) {
+  const TOTAL_PASSES = 3;
+  const TOTAL_STEPS = TOTAL_PASSES * 5 + winnerIndex + 1;
+  let step = 0;
+
+  const tick = () => {
+    const pos = step % 5;
+    for (let i = 0; i < 5; i++) {
+      const el = document.getElementById('lotterySlot' + i);
+      if (!el) return onDone && onDone();
+      el.classList.toggle('lottery-slot-active', i === pos);
+    }
+    step++;
+    if (step >= TOTAL_STEPS) {
+      onDone && onDone();
+      return;
+    }
+    const stepsLeft = TOTAL_STEPS - step;
+    const delay = stepsLeft > 6 ? 90 : 90 + (7 - stepsLeft) * 65;
+    setTimeout(tick, delay);
+  };
+
+  // Pre-render all slots so they're available for animation
+  const slotsEl = document.getElementById('lotterySlots');
+  if (slotsEl && tickets.length > 0) {
+    slotsEl.innerHTML = Array.from({ length: 5 }, (_, i) =>
+      buildLotterySlotHTML(tickets[i] || null, i, -1)
+    ).join('');
+  }
+  tick();
+}
+
+function showLotteryWinnerOverlay(winner) {
+  const ov = document.getElementById('lotteryWinnerOverlay');
+  if (!ov) return;
+  const userEl = document.getElementById('lwUsername');
+  if (userEl) userEl.textContent = '@' + (winner.username || '...');
+  ov.style.display = 'flex';
+  setTimeout(() => { ov.style.display = 'none'; }, 4000);
+}
+
+window.openLotteryHistory = async () => {
+  const ov = document.createElement('div');
+  ov.setAttribute('data-ov','1');
+  ov.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:500;display:flex;flex-direction:column;overflow:hidden';
+  ov.innerHTML = `
+    <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1a1a1a">
+      <div style="font-size:18px;font-weight:900">🎟 История лотереи</div>
+      <button onclick="this.closest('[data-ov]').remove()" style="background:#1a1a1a;border:none;color:#fff;border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer">✕</button>
+    </div>
+    <div id="lhContent" style="flex:1;overflow-y:auto;padding:12px 16px 24px">
+      <div class="pvp-empty">Загрузка...</div>
+    </div>`;
+  document.body.appendChild(ov);
+  const data = await api('/lottery/history');
+  const el = ov.querySelector('#lhContent');
+  if (!data.length) { el.innerHTML = '<div class="pvp-empty" style="padding:20px">Розыгрышей пока нет</div>'; return; }
+  el.innerHTML = data.map(r => {
+    const d = new Date(new Date(r.time).getTime() + 3*3600*1000);
+    const dateStr = d.toISOString().slice(0,10).split('-').reverse().join('.');
+    const timeStr = d.toISOString().slice(11,16);
+    const ticketRows = (r.tickets||[]).map((tk, i) => {
+      const isW = tk.tg_id === r.winner_tg_id;
+      return `<span style="font-size:12px;color:${isW?'#ffd60a':'var(--muted2)'};font-weight:${isW?'800':'400'}">@${tk.username||'...'}${isW?' 🏆':''}</span>`;
+    }).join(' · ');
+    return `
+    <div style="background:var(--card2);border:1px solid var(--line);border-radius:13px;padding:12px 14px;margin-bottom:8px;cursor:pointer" onclick="openLotteryRoundDetails(${JSON.stringify(r).replace(/"/g,'&quot;')})">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="color:var(--muted2);font-size:12px">#${r.round_no}</span>
+        <span style="color:var(--muted2);font-size:11px">${dateStr} ${timeStr} МСК</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+        <span style="font-size:14px;font-weight:800;color:#ffd60a">🏆 @${r.winner}</span>
+        <span style="font-size:12px;color:#ffd60a">👑 PRO 7д</span>
+      </div>
+      <div style="margin-top:4px">${ticketRows}</div>
+    </div>`;
+  }).join('');
+};
+
+window.openLotteryRoundDetails = (r) => {
+  const ov = document.createElement('div');
+  ov.setAttribute('data-ov','1');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:600;display:flex;align-items:flex-end;justify-content:center';
+  ov.onclick = (e) => { if (e.target === ov) ov.remove(); };
+  const ticketRows = (r.tickets||[]).map((tk, i) => {
+    const isW = tk.tg_id === r.winner_tg_id;
+    return `<div class="player-card" style="justify-content:space-between;margin-bottom:6px${isW?';border:1px solid #ffd60a':''}">
+      <span style="font-size:15px;min-width:26px">${isW?'🏆':'·'}</span>
+      <span class="pname" style="flex:1">${tk.username?'@'+tk.username:'...'}</span>
+      <span style="color:${isW?'#ffd60a':'var(--muted2)'};font-weight:700">${LANG==='ru'?'Слот':'Slot'} ${i+1}</span>
+    </div>`;
+  }).join('');
+  ov.innerHTML = `
+    <div style="background:#111;border-radius:20px 20px 0 0;width:100%;max-width:520px;max-height:80vh;overflow-y:auto;padding:20px 16px 28px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div style="font-size:17px;font-weight:900">🎟 ${LANG==='ru'?'Розыгрыш':'Round'} #${r.round_no}</div>
+        <button onclick="this.closest('[data-ov]').remove()" style="background:#1a1a1a;border:none;color:#fff;border-radius:50%;width:30px;height:30px;font-size:16px;cursor:pointer">✕</button>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Участники (${r.tickets.length})</div>
+      ${ticketRows}
+      <div style="margin-top:14px;background:#0a0a0a;border-radius:12px;padding:10px 12px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Provably Fair</div>
+        <div style="font-size:11px;color:var(--muted2);word-break:break-all;line-height:1.6">
+          <span style="color:var(--muted)">Hash:</span> ${r.seed_hash||'—'}<br>
+          <span style="color:var(--muted)">Seed:</span> ${r.server_seed||'—'}<br>
+          <span style="color:var(--muted)">Roll:</span> ${r.result_roll?Number(r.result_roll).toFixed(10):'—'}<br>
+          <span style="color:var(--muted)">Winner index:</span> ${r.winner_index != null ? r.winner_index : '—'}
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+};
 
 document.getElementById('langBtn').onclick = async () => {
   LANG = LANG === 'ru' ? 'en' : 'ru';
@@ -1339,9 +1630,13 @@ async function init() {
         .catch(() => {});
     } catch {}
   }
-  // Deep link from broadcast button: ?pro=1 opens the PRO purchase modal
-  if (new URLSearchParams(location.search).get('pro')) {
+  const urlParams = new URLSearchParams(location.search);
+  if (urlParams.get('pro')) {
     setTimeout(() => openProModal(), 400);
+  }
+  if (urlParams.get('tab') === 'lottery') {
+    pvpSubTab = 'lottery';
+    setTimeout(() => switchTab('pvp'), 300);
   }
 }
 init();
