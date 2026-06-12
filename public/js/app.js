@@ -288,7 +288,7 @@ async function renderTasks() {
   const mult = {1:'1.0',2:'1.1',3:'1.2',4:'1.3',5:'1.4',6:'1.5'};
   const days = [1,2,3,4,5,6].map(d => {
     const cur = ci.day === d ? 'cur' : '';
-    return `<div class="ci-day ${cur}"><span class="dn">Д${d}</span><span class="dx">×${mult[d]}</span></div>`;
+    return `<div class="ci-day ${cur}"><span class="dn">${t('day_prefix')}${d}</span><span class="dx">×${mult[d]}</span></div>`;
   }).join('');
 
   const DAILY_TYPES = ['ad_milestone','pvp_milestone'];
@@ -406,10 +406,10 @@ window.checkTask = async (id, btn) => {
   if (r.ok) { toast('+' + r.reward + ' ARC'); ME.balance_arc = r.balance_arc; renderHeader(); renderTasks(); }
   else {
     if (r.error === 'not_subscribed') toast(t('task_check_fail'));
-    else if (r.error === 'not_enough_referrals') toast(LANG==='ru' ? `Нужно ещё ${r.need-r.have} друзей` : `Need ${r.need-r.have} more friends`);
-    else if (r.error === 'not_enough_views') toast(LANG==='ru' ? `Нужно ещё ${r.need-r.have} реклам` : `Need ${r.need-r.have} more ads`);
-    else if (r.error === 'not_enough_pvp') toast(LANG==='ru' ? `Нужно ещё ${r.need-r.have} игр PvP` : `Need ${r.need-r.have} more PvP games`);
-    else if (r.error === 'already_done') toast(LANG==='ru' ? 'Уже получено сегодня' : 'Already claimed today');
+    else if (r.error === 'not_enough_referrals') toast(t('need_more_friends').replace('X', r.need-r.have));
+    else if (r.error === 'not_enough_views') toast(t('need_more_ads').replace('X', r.need-r.have));
+    else if (r.error === 'not_enough_pvp') toast(t('need_more_pvp').replace('X', r.need-r.have));
+    else if (r.error === 'already_done') toast(t('already_done_today'));
     else toast(t('error'));
     btn.disabled = false;
   }
@@ -496,8 +496,8 @@ async function renderFriends() {
       <div class="ref-title">${t('friends_title')}</div>
       <div class="ref-sub">${t('friends_hint')}</div>
       <div class="ref-stats">
-        <div class="ref-stat"><div class="rv">${totalInvited}</div><div class="rl">Приглашено</div></div>
-        <div class="ref-stat"><div class="rv">${fmt(totalEarned,0)}</div><div class="rl">ARC заработано</div></div>
+        <div class="ref-stat"><div class="rv">${totalInvited}</div><div class="rl">${t('invited_label')}</div></div>
+        <div class="ref-stat"><div class="rv">${fmt(totalEarned,0)}</div><div class="rl">${t('arc_earned_label')}</div></div>
       </div>
       <input class="field" id="refLink" value="${r.link}" readonly style="margin-bottom:8px" />
       <div style="display:flex;gap:8px">
@@ -613,7 +613,7 @@ function renderProfile() {
         <div class="wallet-icon">💼</div>
         <div class="wallet-info">
           <div class="wallet-addr">${shortWallet(ME.wallet)}</div>
-          <div class="wallet-status">● Подключён ✓</div>
+          <div class="wallet-status">● ${t('wallet_connected_status')}</div>
         </div>
         <button class="btn btn-sm btn-dark" onclick="disconnectWallet()">${t('disconnect')}</button>
        </div>`
@@ -639,36 +639,36 @@ function renderProfile() {
     </div>
     ${walletBlock}
     <div class="block">
-      <div class="block-hdr">${LANG==='ru'?'Операции':'Operations'}</div>
+      <div class="block-hdr">${t('ops_title')}</div>
       <button class="op-row" id="depBtn">
         <span class="op-row-ic">💎</span>
-        <span class="op-row-txt"><span class="op-row-t">${t('deposit')}</span><span class="op-row-s">${LANG==='ru'?'Пополнить баланс TON':'Top up TON balance'}</span></span>
+        <span class="op-row-txt"><span class="op-row-t">${t('deposit')}</span><span class="op-row-s">${t('ops_deposit_sub')}</span></span>
         <span class="op-row-arrow">›</span>
       </button>
       <button class="op-row" id="wdBtn">
         <span class="op-row-ic">💸</span>
-        <span class="op-row-txt"><span class="op-row-t">${t('withdraw')}</span><span class="op-row-s">${LANG==='ru'?'Вывести TON на кошелёк':'Withdraw TON to wallet'}</span></span>
+        <span class="op-row-txt"><span class="op-row-t">${t('withdraw')}</span><span class="op-row-s">${t('ops_withdraw_sub')}</span></span>
         <span class="op-row-arrow">›</span>
       </button>
       <button class="op-row" id="exBtn">
         <span class="op-row-ic">🔄</span>
-        <span class="op-row-txt"><span class="op-row-t">${LANG==='ru'?'Обмен TON → ARC':'Exchange TON → ARC'}</span><span class="op-row-s">${LANG==='ru'?'Обменять TON на ARC':'Swap TON to ARC'}</span></span>
+        <span class="op-row-txt"><span class="op-row-t">${t('exchange_ton_arc')}</span><span class="op-row-s">${t('ops_exchange_sub')}</span></span>
         <span class="op-row-arrow">›</span>
       </button>
       <div class="op-row op-row-soon">
         <span class="op-row-ic">🔁</span>
-        <span class="op-row-txt"><span class="op-row-t">${LANG==='ru'?'Обмен ARC → TON':'Exchange ARC → TON'}</span><span class="op-row-s">${LANG==='ru'?'Обменять ARC обратно в TON':'Swap ARC back to TON'}</span></span>
+        <span class="op-row-txt"><span class="op-row-t">${t('exchange_arc_ton')}</span><span class="op-row-s">${t('ops_exchange_arc_sub')}</span></span>
         <span class="tag tag-soon">${t('soon')}</span>
       </div>
     </div>
     <button class="op-row" id="lbBtn">
       <span class="op-row-ic">🏆</span>
-      <span class="op-row-txt"><span class="op-row-t">${LANG==='ru'?'Лидерборд':'Leaderboard'}</span><span class="op-row-s">${LANG==='ru'?'Топ игроков по ARC':'Top players by ARC'}</span></span>
+      <span class="op-row-txt"><span class="op-row-t">${t('leaderboard_title')}</span><span class="op-row-s">${LANG==='ru'?'Топ игроков по ARC':'Top players by ARC'}</span></span>
       <span class="op-row-arrow">›</span>
     </button>
     <button class="op-row" id="histBtn">
       <span class="op-row-ic">📋</span>
-      <span class="op-row-txt"><span class="op-row-t">${LANG==='ru'?'История операций':'History'}</span><span class="op-row-s">${LANG==='ru'?'Депозиты, выводы, обмены':'Deposits, withdrawals, swaps'}</span></span>
+      <span class="op-row-txt"><span class="op-row-t">${t('history_title')}</span><span class="op-row-s">${LANG==='ru'?'Депозиты, выводы, обмены':'Deposits, withdrawals, swaps'}</span></span>
       <span class="op-row-arrow">›</span>
     </button>`;
   applyAvatar(document.getElementById('profileAvatar'));
@@ -696,8 +696,8 @@ function renderPvP() {
   const el = document.getElementById('page-pvp');
   el.innerHTML = `
     <div style="display:flex;gap:6px;margin-bottom:14px">
-      <button class="pvp-subtab-btn${pvpSubTab==='roulette'?' active':''}" data-sub="roulette" onclick="setPvpSub('roulette')">⚔️ Рулетка</button>
-      <button class="pvp-subtab-btn${pvpSubTab==='lottery'?' active':''}" data-sub="lottery" onclick="setPvpSub('lottery')">🎟 Лотерея PRO</button>
+      <button class="pvp-subtab-btn${pvpSubTab==='roulette'?' active':''}" data-sub="roulette" onclick="setPvpSub('roulette')">⚔️ ${t('roulette_tab')}</button>
+      <button class="pvp-subtab-btn${pvpSubTab==='lottery'?' active':''}" data-sub="lottery" onclick="setPvpSub('lottery')">🎟 ${t('lottery_tab')}</button>
     </div>
 
     <div id="pvpRouletteSection" ${pvpSubTab!=='roulette'?'hidden':''}>
@@ -705,20 +705,20 @@ function renderPvP() {
         <div class="pvp-logo">
           <span class="pvp-logo-icon">⚔️</span>
           <span class="pvp-logo-text">PvP</span>
-          <span class="pvp-round" id="roundLabel">ИГРА #—</span>
+          <span class="pvp-round" id="roundLabel">${t('round')} #—</span>
         </div>
       </div>
       <div id="specialBanner" style="display:none;margin:0 0 10px;padding:12px 14px;border-radius:14px;background:linear-gradient(135deg,#3a2d00,#1a1a1a);border:1px solid #ffd60a55;text-align:center">
-        <div style="font-size:15px;font-weight:900;color:#ffd60a">⚡ ОСОБЫЙ РАУНД</div>
-        <div style="font-size:12px;color:#ccc;margin-top:4px">Проиграл — вернём ставку · Победителю банк <b style="color:#ffd60a">+500 ARC</b> сверху</div>
+        <div style="font-size:15px;font-weight:900;color:#ffd60a">⚡ ${t('pvp_special_title')}</div>
+        <div style="font-size:12px;color:#ccc;margin-top:4px">${t('pvp_special_hint')}</div>
       </div>
       <div class="pvp-banks">
         <div class="pvp-bank-side">
-          <div class="pvp-bank-lbl">БАНК</div>
+          <div class="pvp-bank-lbl">${t('pvp_bank')}</div>
           <div class="pvp-bank-val"><span id="potVal">0</span> ARC</div>
         </div>
         <div class="pvp-bank-side" style="text-align:right">
-          <div class="pvp-bank-lbl">МОЙ БАЛАНС</div>
+          <div class="pvp-bank-lbl">${t('pvp_mybal')}</div>
           <div class="pvp-mybal-val" id="pvpMyBal">${fmt(ME?.balance_arc ?? 0, 0)} ARC</div>
         </div>
       </div>
@@ -738,13 +738,13 @@ function renderPvP() {
         <div class="pvp-amt" onclick="setBet(100)">100</div>
         <div class="pvp-amt" onclick="setBet(500)">500</div>
       </div>
-      <div class="pvp-section-lbl"><span>УЧАСТНИКИ</span></div>
+      <div class="pvp-section-lbl"><span>${t('pvp_participants')}</span></div>
       <div id="playersList"></div>
       <div class="hash" id="hashLine"></div>
-      <button class="btn btn-dark" style="margin-top:12px;width:100%" onclick="openPvPHistory()">📋 История игр</button>
+      <button class="btn btn-dark" style="margin-top:12px;width:100%" onclick="openPvPHistory()">📋 ${t('pvp_history_btn')}</button>
       <div id="winnerOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:1000;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:32px">
         <div style="font-size:56px">🏆</div>
-        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px">ПОБЕДИТЕЛЬ</div>
+        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px">${t('pvp_winner_title')}</div>
         <div id="woUsername" style="font-size:28px;font-weight:900;color:#fff"></div>
         <div id="woChance" style="font-size:14px;color:var(--muted2);margin-top:-4px"></div>
         <div id="woPrize" style="font-size:40px;font-weight:900;color:#ffd60a;margin-top:4px"></div>
@@ -755,22 +755,22 @@ function renderPvP() {
       <div class="pvp-top">
         <div class="pvp-logo">
           <span class="pvp-logo-icon">🎟</span>
-          <span class="pvp-logo-text">Лотерея</span>
-          <span class="pvp-round" id="lotteryRoundLabel">РАУНД #—</span>
+          <span class="pvp-logo-text">${t('lottery_tab')}</span>
+          <span class="pvp-round" id="lotteryRoundLabel">${t('lottery_round_prefix')} #—</span>
         </div>
       </div>
       <div style="text-align:center;padding:6px 0 12px;font-size:13px;color:var(--muted2)">
-        Приз: <b style="color:#ffd60a">👑 PRO 7 дней</b> &nbsp;·&nbsp; Билет: <b style="color:#fff">750 ARC</b> &nbsp;·&nbsp; 5 участников
+        ${t('lottery_prize_7d')} &nbsp;·&nbsp; ${t('lottery_ticket_arc')}
       </div>
       <div id="lotterySlots" style="display:flex;gap:6px;margin-bottom:10px;justify-content:center"></div>
       <div id="lotteryStatusLine" style="text-align:center;font-size:13px;color:var(--muted2);margin-bottom:14px;min-height:20px"></div>
       <div id="lotteryBuyArea"></div>
       <div id="lotteryLastWinner" style="display:none;margin-bottom:12px;padding:12px 14px;border-radius:14px;background:linear-gradient(135deg,#3a2d00,#1a1a1a);border:1px solid #ffd60a55;text-align:center"></div>
       <div class="hash" id="lotteryHash" style="margin-top:0"></div>
-      <button class="btn btn-dark" style="margin-top:12px;width:100%" onclick="openLotteryHistory()">📋 История лотереи</button>
+      <button class="btn btn-dark" style="margin-top:12px;width:100%" onclick="openLotteryHistory()">📋 ${t('lottery_history_btn')}</button>
       <div id="lotteryWinnerOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:1000;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:32px">
         <div style="font-size:56px">🎟</div>
-        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px">ПОБЕДИТЕЛЬ ЛОТЕРЕИ</div>
+        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px">${t('pvp_winner_title')} ${t('lottery_tab').toUpperCase()}</div>
         <div id="lwUsername" style="font-size:28px;font-weight:900;color:#ffd60a"></div>
         <div style="font-size:15px;color:#fff;margin-top:4px">👑 PRO на 7 дней!</div>
       </div>
@@ -790,16 +790,16 @@ window.openPvPHistory = async () => {
   ov.setAttribute('data-ov','1'); ov.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:500;display:flex;flex-direction:column;overflow:hidden';
   ov.innerHTML = `
     <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1a1a1a">
-      <div style="font-size:18px;font-weight:900">📋 История PvP</div>
+      <div style="font-size:18px;font-weight:900">📋 ${t('pvp_history_title')}</div>
       <button onclick="this.closest('[data-ov]').remove()" style="background:#1a1a1a;border:none;color:#fff;border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer">✕</button>
     </div>
     <div id="pvpHistContent" style="flex:1;overflow-y:auto;padding:12px 16px">
-      <div class="pvp-empty">Загрузка...</div>
+      <div class="pvp-empty">${t('loading')}</div>
     </div>`;
   document.body.appendChild(ov);
   const data = await api('/pvp/history');
   const el = ov.querySelector('#pvpHistContent');
-  if (!data.length) { el.innerHTML = '<div class="pvp-empty" style="padding:20px">Игр пока нет</div>'; return; }
+  if (!data.length) { el.innerHTML = `<div class="pvp-empty" style="padding:20px">${t('pvp_empty')}</div>`; return; }
   el.innerHTML = data.map(g => `
     <div class="player-card" style="justify-content:space-between;margin-bottom:6px;cursor:pointer" onclick="openRoundDetails(${g.round_no})">
       <span style="color:var(--muted2);font-size:12px;min-width:36px">#${g.round_no}</span>
@@ -818,17 +818,17 @@ window.openRoundDetails = async (roundNo) => {
   ov.innerHTML = `
     <div style="background:#111;border-radius:20px 20px 0 0;width:100%;max-width:520px;max-height:80vh;overflow-y:auto;padding:20px 16px 28px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-        <div style="font-size:17px;font-weight:900">🎰 ${LANG==='ru'?'Раунд':'Round'} #${roundNo}</div>
+        <div style="font-size:17px;font-weight:900">🎰 ${t('pvp_round_prefix')} #${roundNo}</div>
         <button onclick="this.closest('[data-ov]').remove()" style="background:#1a1a1a;border:none;color:#fff;border-radius:50%;width:30px;height:30px;font-size:16px;cursor:pointer">✕</button>
       </div>
-      <div id="rdContent"><div class="pvp-empty" style="padding:16px">${LANG==='ru'?'Загрузка...':'Loading...'}</div></div>
+      <div id="rdContent"><div class="pvp-empty" style="padding:16px">${t('loading')}</div></div>
     </div>`;
   document.body.appendChild(ov);
 
   const r = await api('/pvp/round', { round_no: roundNo });
   const el = ov.querySelector('#rdContent');
   if (!el) return;
-  if (!r.ok) { el.innerHTML = `<div class="pvp-empty" style="padding:16px">${LANG==='ru'?'Раунд не найден':'Round not found'}</div>`; return; }
+  if (!r.ok) { el.innerHTML = `<div class="pvp-empty" style="padding:16px">${t('pvp_not_found')}</div>`; return; }
 
   // MSK time = UTC+3
   const d = new Date(new Date(r.finished_at).getTime() + 3 * 3600 * 1000);
@@ -848,15 +848,15 @@ window.openRoundDetails = async (roundNo) => {
 
   el.innerHTML = `
     <div style="background:#0a0a0a;border-radius:14px;padding:12px 14px;margin-bottom:12px;display:flex;flex-wrap:wrap;gap:10px 18px;font-size:13px">
-      <div><span style="color:var(--muted2)">${LANG==='ru'?'Банк':'Pot'}:</span> <b style="color:#ffd60a">${fmt(r.pot,0)} ARC</b></div>
-      <div><span style="color:var(--muted2)">${LANG==='ru'?'Приз':'Prize'}:</span> <b style="color:#ffd60a">${fmt(r.prize,0)} ARC</b></div>
-      <div><span style="color:var(--muted2)">${LANG==='ru'?'Комиссия':'Fee'}:</span> <b>${fmt(r.commission,0)} ARC</b></div>
-      <div><span style="color:var(--muted2)">${LANG==='ru'?'Дата':'Date'}:</span> <b>${dateStr} ${timeStr} МСК</b></div>
+      <div><span style="color:var(--muted2)">${t('pvp_pot')}:</span> <b style="color:#ffd60a">${fmt(r.pot,0)} ARC</b></div>
+      <div><span style="color:var(--muted2)">${t('pvp_prize')}:</span> <b style="color:#ffd60a">${fmt(r.prize,0)} ARC</b></div>
+      <div><span style="color:var(--muted2)">${t('pvp_fee')}:</span> <b>${fmt(r.commission,0)} ARC</b></div>
+      <div><span style="color:var(--muted2)">${t('pvp_date')}:</span> <b>${dateStr} ${timeStr} МСК</b></div>
     </div>
-    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">${LANG==='ru'?'Участники':'Players'} (${r.players.length})</div>
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">${t('pvp_participants')} (${r.players.length})</div>
     ${rows}
     <div style="margin-top:14px;background:#0a0a0a;border-radius:12px;padding:10px 12px">
-      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Provably Fair</div>
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">${t('provably_fair')}</div>
       <div style="font-size:11px;color:var(--muted2);word-break:break-all;line-height:1.6">
         <span style="color:var(--muted)">Hash:</span> ${r.seed_hash || '—'}<br>
         <span style="color:var(--muted)">Seed:</span> ${r.server_seed || '—'}<br>
@@ -878,16 +878,16 @@ async function doBet() {
   const r = await api('/pvp/bet', { amount });
   if (r.ok) { ME.balance_arc = r.balance_arc; renderHeader(); loadPvP(); }
   else if (r.error === 'not_enough') toast(t('not_enough'));
-  else if (r.error === 'max_players') toast(LANG === 'ru' ? 'Раунд заполнен (150 игроков)' : 'Round is full (150 players)');
-  else if (r.error === 'round_closed') toast(LANG === 'ru' ? 'Раунд уже закрыт' : 'Round already closed');
-  else if (r.error === 'limit_total') toast(LANG === 'ru' ? `Суммарно за раунд не более ${maxBet} ARC` : `Max ${maxBet} ARC total per round`);
+  else if (r.error === 'max_players') toast(t('pvp_max_players_msg'));
+  else if (r.error === 'round_closed') toast(t('pvp_round_closed'));
+  else if (r.error === 'limit_total') toast(`${t('limit_total_msg')} ${maxBet} ARC`);
   else toast(t('error'));
 }
 
 async function loadPvP() {
   const s = await api('/pvp/state');
   const roundEl = document.getElementById('roundLabel');
-  if (roundEl) roundEl.textContent = `ИГРА #${s.roundNo}`;
+  if (roundEl) roundEl.textContent = `${t('round')} #${s.roundNo}`;
   const potEl = document.getElementById('potVal');
   if (potEl) potEl.textContent = fmt(s.pot, 0);
   const banner = document.getElementById('specialBanner');
@@ -938,7 +938,7 @@ async function loadPvP() {
             <span class="pchance">${p.chance}% · ${fmt(p.amount,0)} ARC</span>
           </div>`;
         }).join('')
-      : `<div class="pvp-empty">Будь первым — сделай ставку!</div>`;
+      : `<div class="pvp-empty">${t('pvp_empty')}</div>`;
   }
   const hl = document.getElementById('hashLine');
   if (hl) {
@@ -1025,7 +1025,7 @@ function showWinnerOverlay(winner) {
   const ov = document.getElementById('winnerOverlay');
   if (!ov) return;
   document.getElementById('woUsername').textContent = '@' + (winner.username || '...');
-  document.getElementById('woChance').textContent = winner.chance + '% шанс победы';
+  document.getElementById('woChance').textContent = winner.chance + t('pvp_win_chance');
   document.getElementById('woPrize').textContent = '+' + parseFloat(winner.prize).toLocaleString() + ' ARC';
   ov.style.display = 'flex';
   setTimeout(() => { ov.style.display = 'none'; }, 3000);
@@ -1076,7 +1076,7 @@ async function loadLottery() {
   }
 
   const rl = document.getElementById('lotteryRoundLabel');
-  if (rl) rl.textContent = `РАУНД #${s.roundNo}`;
+  if (rl) rl.textContent = `${t('lottery_round_prefix')} #${s.roundNo}`;
 
   // Render slots (don't touch during animation)
   if (!lotteryAnimTriggered || s.status === 'open') {
@@ -1095,13 +1095,11 @@ async function loadLottery() {
   const sl = document.getElementById('lotteryStatusLine');
   if (sl) {
     if (s.status === 'open') {
-      sl.textContent = LANG==='ru'
-        ? `${s.tickets.length} / ${s.maxPlayers} участников`
-        : `${s.tickets.length} / ${s.maxPlayers} players`;
+      sl.textContent = `${s.tickets.length} / ${s.maxPlayers} ${t('lottery_players_of')}`;
     } else if (s.status === 'spinning') {
-      sl.textContent = LANG==='ru' ? '🎰 Идёт розыгрыш...' : '🎰 Drawing...';
+      sl.textContent = t('lottery_spinning');
     } else if (s.status === 'done' && s.winner) {
-      sl.innerHTML = `🏆 ${LANG==='ru'?'Победитель':'Winner'}: <b style="color:#ffd60a">@${s.winner.username||'...'}</b> — 👑 PRO 7 дней!`;
+      sl.innerHTML = `🏆 ${t('lottery_winner_label')}: <b style="color:#ffd60a">@${s.winner.username||'...'}</b> — 👑 PRO!`;
     }
   }
 
@@ -1112,23 +1110,23 @@ async function loadLottery() {
     if (s.status === 'open') {
       if (alreadyIn) {
         buyArea.innerHTML = `<div style="text-align:center;padding:12px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);border-radius:13px;color:var(--green);font-weight:700;font-size:14px">
-          ✅ ${LANG==='ru'?'Ты участвуешь':'You\'re in!'} — ${LANG==='ru'?'ждём':'waiting for'} ${s.maxPlayers - s.tickets.length} ${LANG==='ru'?'игрок(ов)':'more'}
+          ${t('lottery_already_in')} — ${t('lottery_wait_more')} ${s.maxPlayers - s.tickets.length}
         </div>`;
       } else {
         buyArea.innerHTML = `<button class="btn btn-blue" id="lotteryBuyBtn" onclick="doLotteryBuy(this)">
-          🎟 ${LANG==='ru'?'Купить билет':'Buy ticket'} — 750 ARC
+          🎟 ${t('lottery_buy_btn')}
         </button>
         <div style="text-align:center;margin-top:6px;font-size:12px;color:var(--muted2)">
-          ${LANG==='ru'?'Баланс':'Balance'}: ${fmt(ME.balance_arc,0)} ARC · ${LANG==='ru'?'Шанс':'Chance'}: 20%
+          ${t('balance')}: ${fmt(ME.balance_arc,0)} ARC · ${t('chance')}: 20%
         </div>`;
       }
     } else if (s.status === 'spinning') {
       buyArea.innerHTML = `<div style="text-align:center;padding:12px;background:rgba(255,214,10,.08);border:1px solid #ffd60a55;border-radius:13px;color:#ffd60a;font-weight:700;font-size:14px">
-        🎰 ${LANG==='ru'?'Идёт розыгрыш...':'Drawing in progress...'}
+        ${t('lottery_spinning')}
       </div>`;
     } else {
       buyArea.innerHTML = `<div style="text-align:center;padding:12px;background:rgba(255,214,10,.08);border:1px solid #ffd60a55;border-radius:13px;color:#ffd60a;font-weight:700;font-size:14px">
-        ✨ ${LANG==='ru'?'Новый раунд скоро...':'New round coming...'}
+        ✨ ${t('lottery_new_round')}
       </div>`;
     }
   }
@@ -1160,16 +1158,16 @@ window.doLotteryBuy = async (btn) => {
   if (r.ok) {
     ME.balance_arc = r.balance_arc;
     renderHeader();
-    toast(LANG==='ru' ? '🎟 Билет куплен! Удачи!' : '🎟 Ticket bought! Good luck!');
+    toast('🎟 ' + (LANG==='ru' ? 'Билет куплен! Удачи!' : 'Ticket bought! Good luck!'));
     loadLottery();
   } else if (r.error === 'not_enough') {
-    toast(LANG==='ru' ? 'Недостаточно ARC (нужно 750)' : 'Not enough ARC (need 750)');
+    toast(t('not_enough'));
     btn.disabled = false;
   } else if (r.error === 'already_in') {
-    toast(LANG==='ru' ? 'Ты уже участвуешь!' : 'Already in this round!');
+    toast(t('lottery_already_in'));
     btn.disabled = false;
   } else if (r.error === 'round_closed') {
-    toast(LANG==='ru' ? 'Раунд закрыт — подожди следующего' : 'Round closed — wait for next');
+    toast(t('lottery_spinning'));
     btn.disabled = false;
   } else {
     toast(t('error'));
@@ -1224,16 +1222,16 @@ window.openLotteryHistory = async () => {
   ov.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:500;display:flex;flex-direction:column;overflow:hidden';
   ov.innerHTML = `
     <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1a1a1a">
-      <div style="font-size:18px;font-weight:900">🎟 История лотереи</div>
+      <div style="font-size:18px;font-weight:900">🎟 ${t('lottery_history_title')}</div>
       <button onclick="this.closest('[data-ov]').remove()" style="background:#1a1a1a;border:none;color:#fff;border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer">✕</button>
     </div>
     <div id="lhContent" style="flex:1;overflow-y:auto;padding:12px 16px 24px">
-      <div class="pvp-empty">Загрузка...</div>
+      <div class="pvp-empty">${t('loading')}</div>
     </div>`;
   document.body.appendChild(ov);
   const data = await api('/lottery/history');
   const el = ov.querySelector('#lhContent');
-  if (!data.length) { el.innerHTML = '<div class="pvp-empty" style="padding:20px">Розыгрышей пока нет</div>'; return; }
+  if (!data.length) { el.innerHTML = `<div class="pvp-empty" style="padding:20px">${t('lottery_empty')}</div>`; return; }
   el.innerHTML = data.map(r => {
     const d = new Date(new Date(r.time).getTime() + 3*3600*1000);
     const dateStr = d.toISOString().slice(0,10).split('-').reverse().join('.');
@@ -1279,7 +1277,7 @@ window.openLotteryRoundDetails = (r) => {
       <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Участники (${r.tickets.length})</div>
       ${ticketRows}
       <div style="margin-top:14px;background:#0a0a0a;border-radius:12px;padding:10px 12px">
-        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Provably Fair</div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">${t('provably_fair')}</div>
         <div style="font-size:11px;color:var(--muted2);word-break:break-all;line-height:1.6">
           <span style="color:var(--muted)">Hash:</span> ${r.seed_hash||'—'}<br>
           <span style="color:var(--muted)">Seed:</span> ${r.server_seed||'—'}<br>
@@ -1291,9 +1289,43 @@ window.openLotteryRoundDetails = (r) => {
   document.body.appendChild(ov);
 };
 
-document.getElementById('langBtn').onclick = async () => {
-  LANG = LANG === 'ru' ? 'en' : 'ru';
-  await api('/language', { language: LANG });
+document.getElementById('langBtn').onclick = () => openLangPicker();
+
+function openLangPicker() {
+  const langs = [
+    { code: 'ru', name: 'Русский', flag: '🇷🇺' },
+    { code: 'en', name: 'English', flag: '🇬🇧' },
+    { code: 'hi', name: 'हिंदी', flag: '🇮🇳' },
+    { code: 'pt', name: 'Português', flag: '🇧🇷' },
+    { code: 'id', name: 'Bahasa ID', flag: '🇮🇩' },
+    { code: 'bn', name: 'বাংলা', flag: '🇧🇩' },
+    { code: 'vi', name: 'Tiếng Việt', flag: '🇻🇳' },
+  ];
+  const ov = document.createElement('div');
+  ov.setAttribute('data-ov','1');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:600;display:flex;align-items:flex-end;justify-content:center';
+  ov.onclick = e => { if (e.target === ov) ov.remove(); };
+  ov.innerHTML = `
+    <div style="background:#111;border-radius:20px 20px 0 0;width:100%;max-width:520px;padding:20px 16px 28px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div style="font-size:16px;font-weight:900">🌐 Language</div>
+        <button onclick="this.closest('[data-ov]').remove()" style="background:#1a1a1a;border:none;color:#fff;border-radius:50%;width:30px;height:30px;font-size:16px;cursor:pointer">✕</button>
+      </div>
+      ${langs.map(l => `
+        <div onclick="setLang('${l.code}',this.closest('[data-ov]'))" style="display:flex;align-items:center;gap:12px;padding:13px 14px;border-radius:13px;background:${LANG===l.code?'rgba(255,255,255,.1)':'#1a1a1a'};border:1px solid ${LANG===l.code?'var(--gold)':'transparent'};margin-bottom:7px;cursor:pointer">
+          <span style="font-size:22px">${l.flag}</span>
+          <span style="font-weight:700;font-size:15px">${l.name}</span>
+          ${LANG===l.code?'<span style="margin-left:auto;color:var(--gold);font-size:18px">✓</span>':''}
+        </div>`).join('')}
+    </div>`;
+  document.body.appendChild(ov);
+}
+
+window.setLang = async (code, ov) => {
+  LANG = code;
+  if (ov) ov.remove();
+  await api('/language', { language: code });
+  document.getElementById('langBtn').textContent = code.toUpperCase();
   applyLang();
 };
 
@@ -1322,15 +1354,15 @@ async function openTxHistory() {
   ov.setAttribute('data-ov','1'); ov.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:500;display:flex;flex-direction:column;overflow:hidden';
   ov.innerHTML = `
     <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1a1a1a">
-      <div style="font-size:18px;font-weight:900">📋 ${LANG==='ru'?'История операций':'History'}</div>
+      <div style="font-size:18px;font-weight:900">📋 ${t('history_title')}</div>
       <button onclick="this.closest('[data-ov]').remove()" style="background:#1a1a1a;border:none;color:#fff;border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer">✕</button>
     </div>
-    <div id="txContent" style="flex:1;overflow-y:auto;padding:12px 16px 24px"><div class="pvp-empty">Загрузка...</div></div>`;
+    <div id="txContent" style="flex:1;overflow-y:auto;padding:12px 16px 24px"><div class="pvp-empty">${t('loading')}</div></div>`;
   document.body.appendChild(ov);
   const all = await api('/transactions/history');
   const content = document.getElementById('txContent');
   if (!content) return;
-  if (!all.length) { content.innerHTML = `<div class="pvp-empty" style="padding:20px">${LANG==='ru'?'Операций пока нет':'No transactions yet'}</div>`; return; }
+  if (!all.length) { content.innerHTML = `<div class="pvp-empty" style="padding:20px">${t('no_transactions')}</div>`; return; }
   const typeIcon = { deposit: '💎', withdraw: '💸', exchange: '🔄' };
   const typeLabel = { deposit: LANG==='ru'?'Депозит':'Deposit', withdraw: LANG==='ru'?'Вывод':'Withdraw', exchange: LANG==='ru'?'Обмен':'Exchange' };
   content.innerHTML = all.map(tx => {
@@ -1354,7 +1386,7 @@ function openLeaderboard() {
   ov.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:500;display:flex;flex-direction:column;overflow:hidden';
   ov.innerHTML = `
     <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1a1a1a">
-      <div style="font-size:18px;font-weight:900">🏆 ${LANG==='ru'?'Лидерборд':'Leaderboard'}</div>
+      <div style="font-size:18px;font-weight:900">🏆 ${t('leaderboard_title')}</div>
       <button onclick="document.getElementById('lbOverlay').remove()" style="background:#1a1a1a;border:none;color:#fff;border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer">✕</button>
     </div>
     <div style="display:flex;gap:8px;padding:12px 16px 0">
@@ -1389,7 +1421,7 @@ window.lbShowTab = function(tab) {
           <span style="color:var(--gold);font-weight:700">${fmt(p.arc, 0)} ARC</span>
         </div>`).join('') || `<div class="pvp-empty" style="padding:10px">${LANG==='ru'?'Пока пусто':'Empty'}</div>`;
       const myRow = data.myRank && data.myRank.rank > 3 ? `
-        <div style="margin-top:12px;padding:8px 0;border-top:1px solid #2a2a2a;color:var(--muted2);font-size:12px;text-align:center">${LANG==='ru'?'Твоё место':'Your rank'}</div>
+        <div style="margin-top:12px;padding:8px 0;border-top:1px solid #2a2a2a;color:var(--muted2);font-size:12px;text-align:center">${t('my_rank_label')}</div>
         <div class="player-card" style="justify-content:space-between;${data.myRank.pro ? proStyle.slice(1) : 'border:1px solid var(--gold)'}">
           <span style="color:var(--gold);font-weight:700;min-width:32px">#${data.myRank.rank}</span>
           <span class="pname" style="flex:1">@${ME.username || '...'}${data.myRank.pro ? ' 👑' : ''}</span>
@@ -1403,8 +1435,8 @@ window.lbShowTab = function(tab) {
       const prizes = ['1 TON','0.5 TON','0.3 TON','0.2 TON','0.2 TON','0.1 TON','0.1 TON','0.1 TON','0.1 TON','0.1 TON'];
       const header = `
         <div style="background:#111;border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--muted)">
-          🏆 ${LANG==='ru'?'Конкурс рефералов · до 23 июня':'Referral contest · until Jun 23'}<br>
-          <span style="color:var(--gold);font-size:11px">${LANG==='ru'?'Мин. 2 активных друга · Призы: 2.7 TON':'Min 2 active friends · Prizes: 2.7 TON'}</span>
+          🏆 ${t('ref_contest')}<br>
+          <span style="color:var(--gold);font-size:11px">${t('ref_prizes')}</span>
         </div>`;
       const rows = (data.top || []).map(p => {
         const prize = prizes[p.rank-1] ? `<span style="color:#4af;font-size:11px;font-weight:700">${prizes[p.rank-1]}</span>` : '';
@@ -1416,7 +1448,7 @@ window.lbShowTab = function(tab) {
         </div>`;
       }).join('') || `<div class="pvp-empty" style="padding:10px">${LANG==='ru'?'Пока никто не пригласил активных друзей':'No active referrals yet'}</div>`;
       const myRow = data.myRank && data.myRank.rank > 3 ? `
-        <div style="margin-top:12px;padding:8px 0;border-top:1px solid #2a2a2a;color:var(--muted2);font-size:12px;text-align:center">${LANG==='ru'?'Твоё место':'Your rank'}</div>
+        <div style="margin-top:12px;padding:8px 0;border-top:1px solid #2a2a2a;color:var(--muted2);font-size:12px;text-align:center">${t('my_rank_label')}</div>
         <div class="player-card" style="justify-content:space-between;border:1px solid var(--gold)">
           <span style="color:var(--gold);font-weight:700;min-width:32px">#${data.myRank.rank}</span>
           <span class="pname" style="flex:1">@${ME.username || '...'}</span>
@@ -1610,9 +1642,16 @@ async function init() {
     document.getElementById('content').innerHTML = `<div class="block"><p class="muted">Open this app from Telegram</p></div>`;
     return;
   }
-  const tgLang = window.Telegram?.WebApp?.initDataUnsafe?.user?.language_code;
-  const ruLangs = ['ru', 'tg', 'ky', 'uz', 'kk'];
-  LANG = ME.language || (ruLangs.includes(tgLang) ? 'ru' : 'en');
+  const tgLang = (window.Telegram?.WebApp?.initDataUnsafe?.user?.language_code || '').toLowerCase();
+  const langMap = {
+    'ru': 'ru', 'uk': 'ru', 'be': 'ru', 'kk': 'ru', 'ky': 'ru', 'tg': 'ru', 'uz': 'ru',
+    'hi': 'hi',
+    'pt': 'pt', 'pt-br': 'pt',
+    'id': 'id',
+    'bn': 'bn',
+    'vi': 'vi',
+  };
+  LANG = ME.language || langMap[tgLang] || 'en';
   renderHeader(); applyLang(); switchTab('main');
   initTonConnect();
   setInterval(refreshBalance, 10000);

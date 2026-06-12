@@ -114,7 +114,8 @@ app.post('/api/me', auth, async (req, res) => {
 });
 
 app.post('/api/language', auth, async (req, res) => {
-  const lang = req.body.language === 'en' ? 'en' : 'ru';
+  const allowed = ['ru', 'en', 'hi', 'pt', 'id', 'bn', 'vi'];
+  const lang = allowed.includes(req.body.language) ? req.body.language : 'en';
   await supabase.from('users').update({ language: lang }).eq('tg_id', req.user.tg_id);
   res.json({ ok: true, language: lang });
 });
