@@ -247,6 +247,57 @@ export function startBot() {
     ).catch(()=>{});
   });
 
+  // Localized broadcast: sends each user a message in their own language.
+  // Format: /lbroadcast ru:текст|||en:text|||hi:टेक्स्ट|||pt:texto|||id:teks|||bn:টেক্সট|||vi:văn bản
+  // Language sections separated by |||, each starting with "lang:".
+  // Missing languages fall back to "en". Newlines: \n
+  bot.onText(/\/lbroadcast (.+)/s, async (msg, m) => {
+    if (msg.from.id !== ADMIN_ID) return;
+    const raw = m[1];
+    const texts = {};
+    for (const part of raw.split('|||')) {
+      const colon = part.indexOf(':');
+      if (colon === -1) continue;
+      const lang = part.slice(0, colon).trim();
+      const text = part.slice(colon + 1).replace(/\\n/g, '\n').trim();
+      texts[lang] = text;
+    }
+    if (!texts.en && !texts.ru) {
+      return bot.sendMessage(msg.chat.id,
+        '❌ Нужен хотя бы один язык.\nФормат: /lbroadcast ru:текст|||en:text|||hi:...'
+      ).catch(()=>{});
+    }
+    const fallback = texts.en || texts.ru;
+    const { data: users } = await supabase.from('users').select('tg_id, language').eq('bot_blocked', false);
+    if (!users?.length) return bot.sendMessage(msg.chat.id, '❌ No users').catch(()=>{});
+    let ok = 0, fail = 0;
+    for (const u of users) {
+      const text = texts[u.language] || fallback;
+      try {
+        await bot.sendMessage(u.tg_id, text, {
+          parse_mode: 'Markdown',
+          reply_markup: { inline_keyboard: [[{ text: '▶️ Open ARCADE', web_app: { url: APP_URL } }]] },
+        });
+        ok++;
+      } catch { fail++; }
+      await new Promise(r => setTimeout(r, 50));
+    }
+    bot.sendMessage(msg.chat.id, `✅ Отправлено: ${ok}\n❌ Ошибок: ${fail}`).catch(()=>{});
+  });
+
+  bot.onText(/\/lbroadcast$/, (msg) => {
+    if (msg.from.id !== ADMIN_ID) return;
+    bot.sendMessage(msg.chat.id,
+      '*Локализованная рассылка*\n\n' +
+      'Формат:\n`/lbroadcast ru:текст|||en:text|||hi:...|||pt:...|||id:...|||bn:...|||vi:...`\n\n' +
+      'Разделитель языков: `|||`\n' +
+      'Перенос строки: `\\n`\n' +
+      'Если язык не указан — используется en (или ru как запасной)\n\n' +
+      'Пример:\n`/lbroadcast ru:🎰 Теперь есть лотерея!|||en:🎰 Lottery is live!`',
+      { parse_mode: 'Markdown' }
+    ).catch(()=>{});
+  });
+
   // Photo broadcast: admin sends a photo with caption starting with /photocast.
   // Format: /photocast text ;;; postUrl ;;; buttonText ;;; appQuery
   // (";;;" — Telegram auto-converts "||" pairs into spoiler markup, so pipes can't be used)
