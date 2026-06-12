@@ -1339,5 +1339,9 @@ async function init() {
         .catch(() => {});
     } catch {}
   }
+  // Deep link from broadcast button: ?pro=1 opens the PRO purchase modal
+  if (new URLSearchParams(location.search).get('pro')) {
+    setTimeout(() => openProModal(), 400);
+  }
 }
 init();
