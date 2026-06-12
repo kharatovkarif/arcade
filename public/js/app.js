@@ -454,6 +454,9 @@ window.watchAdShort = async (btn) => {
       ME.ad_short_daily_count = r.daily_count;
       renderMain();
       toast(LANG === 'ru' ? 'Дневной лимит исчерпан' : 'Daily limit reached');
+    } else if (r.error === 'cooldown') {
+      toast(LANG === 'ru' ? 'Слишком быстро — подожди немного' : 'Too fast — wait a moment');
+      btn.disabled = false;
     } else {
       btn.disabled = false;
     }
@@ -476,6 +479,9 @@ window.watchAd4 = async (btn) => {
       ME.ad4_daily_count = r.daily_count;
       renderMain();
       toast(LANG === 'ru' ? 'Дневной лимит исчерпан' : 'Daily limit reached');
+    } else if (r.error === 'cooldown') {
+      toast(LANG === 'ru' ? 'Слишком быстро — подожди немного' : 'Too fast — wait a moment');
+      btn.disabled = false;
     } else {
       btn.disabled = false;
     }
@@ -748,6 +754,7 @@ function renderPvP() {
         <div id="woUsername" style="font-size:28px;font-weight:900;color:#fff"></div>
         <div id="woChance" style="font-size:14px;color:var(--muted2);margin-top:-4px"></div>
         <div id="woPrize" style="font-size:40px;font-weight:900;color:#ffd60a;margin-top:4px"></div>
+        <div id="woShare"></div>
       </div>
     </div>
 
@@ -772,7 +779,8 @@ function renderPvP() {
         <div style="font-size:56px">🎟</div>
         <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px">${t('pvp_winner_title')} ${t('lottery_tab').toUpperCase()}</div>
         <div id="lwUsername" style="font-size:28px;font-weight:900;color:#ffd60a"></div>
-        <div style="font-size:15px;color:#fff;margin-top:4px">👑 PRO на 7 дней!</div>
+        <div style="font-size:15px;color:#fff;margin-top:4px">👑 ${t('lottery_prize_7d')}</div>
+        <div id="lwShare"></div>
       </div>
     </div>`;
 
@@ -1027,9 +1035,24 @@ function showWinnerOverlay(winner) {
   document.getElementById('woUsername').textContent = '@' + (winner.username || '...');
   document.getElementById('woChance').textContent = winner.chance + t('pvp_win_chance');
   document.getElementById('woPrize').textContent = '+' + parseFloat(winner.prize).toLocaleString() + ' ARC';
+  const mine = ME && Number(winner.tg_id) === Number(ME.tg_id);
+  const share = document.getElementById('woShare');
+  if (share) share.innerHTML = mine
+    ? `<button class="btn btn-blue" style="margin-top:14px" onclick="shareWin('pvp',${Math.round(parseFloat(winner.prize) || 0)})">📤 ${t('share')}</button>`
+    : '';
   ov.style.display = 'flex';
-  setTimeout(() => { ov.style.display = 'none'; }, 3000);
+  setTimeout(() => { ov.style.display = 'none'; }, mine ? 8000 : 3000);
 }
+
+// Opens Telegram's share dialog with the user's referral link, so every shared
+// win doubles as an invite.
+window.shareWin = (kind, prize) => {
+  const link = `https://t.me/arc_tonbot?startapp=${ME?.tg_id || ''}`;
+  const text = kind === 'pvp'
+    ? t('share_win_pvp').replace('{prize}', fmt(prize, 0))
+    : t('share_win_lottery');
+  tg?.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`);
+};
 
 function spinWheel(players, roll) {
   const wheel = document.getElementById('wheel');
@@ -1212,8 +1235,13 @@ function showLotteryWinnerOverlay(winner) {
   if (!ov) return;
   const userEl = document.getElementById('lwUsername');
   if (userEl) userEl.textContent = '@' + (winner.username || '...');
+  const mine = ME && Number(winner.tg_id) === Number(ME.tg_id);
+  const share = document.getElementById('lwShare');
+  if (share) share.innerHTML = mine
+    ? `<button class="btn btn-blue" style="margin-top:14px" onclick="shareWin('lottery',0)">📤 ${t('share')}</button>`
+    : '';
   ov.style.display = 'flex';
-  setTimeout(() => { ov.style.display = 'none'; }, 4000);
+  setTimeout(() => { ov.style.display = 'none'; }, mine ? 8000 : 4000);
 }
 
 window.openLotteryHistory = async () => {

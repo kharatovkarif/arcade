@@ -9,11 +9,12 @@ import {
   checkinMultiplier, changeArc, changeTon,
   isPro, adMultiplier, payReferrals,
 } from './helpers.js';
-import { startBot, botCheckMember, notifyAdminWithdraw, getUserPhotoBuffer, notifyLotteryResult } from '../bot/bot.js';
-import { initGameLoop, getGameState, placeBet } from './game.js';
+import { startBot, botCheckMember, notifyAdminWithdraw, getUserPhotoBuffer, notifyLotteryResult, notifyPvpRound } from '../bot/bot.js';
+import { initGameLoop, getGameState, placeBet, setPvpNotifier } from './game.js';
 import { initDeposits } from './deposits.js';
 import { initInactivityLoop } from './inactivity.js';
 import { initLottery, getLotteryState, buyTicket, setLotteryNotifier } from './lottery.js';
+import { initReminderLoop } from './reminders.js';
 
 dotenv.config();
 
@@ -259,6 +260,17 @@ app.get('/api/adsgram/task-reward', async (req, res) => {
   res.status(200).send('ok');
 });
 
+// Minimum gap between client-triggered ad rewards of one type: a real ad takes
+// at least this long to watch, so anything faster is a scripted replay.
+const AD_COOLDOWN_MS = 15000;
+
+async function adCooldownActive(tgId, type) {
+  const { data: lastTx } = await supabase.from('transactions')
+    .select('created_at').eq('tg_id', tgId).eq('type', type)
+    .order('created_at', { ascending: false }).limit(1).maybeSingle();
+  return !!(lastTx && Date.now() - new Date(lastTx.created_at).getTime() < AD_COOLDOWN_MS);
+}
+
 // Ad 2 — Interstitial (no S2S in this format), client-triggered with auth + daily limit
 app.post('/api/ads/watch-short', auth, async (req, res) => {
   const todayStart = mskDate() + 'T00:00:00+03:00';
@@ -268,6 +280,8 @@ app.post('/api/ads/watch-short', auth, async (req, res) => {
     .eq('tg_id', req.user.tg_id).eq('type', 'ad_short').gte('created_at', todayStart);
   const current = count || 0;
   if (current >= limit) return res.json({ ok: false, error: 'daily_limit', daily_count: limit });
+  if (await adCooldownActive(req.user.tg_id, 'ad_short'))
+    return res.json({ ok: false, error: 'cooldown', daily_count: current });
 
   const reward = Math.round(5 * adMultiplier(req.user));
   const newBal = await changeArc(req.user.tg_id, reward, 'ad_short', 'ad short watch');
@@ -285,6 +299,8 @@ app.post('/api/ads/watch4', auth, async (req, res) => {
     .eq('tg_id', req.user.tg_id).eq('type', 'ad4').gte('created_at', todayStart);
   const current = count || 0;
   if (current >= limit) return res.json({ ok: false, error: 'daily_limit', daily_count: limit });
+  if (await adCooldownActive(req.user.tg_id, 'ad4'))
+    return res.json({ ok: false, error: 'cooldown', daily_count: current });
 
   const reward = Math.round(5 * adMultiplier(req.user));
   const newBal = await changeArc(req.user.tg_id, reward, 'ad4', 'onclicka watch');
@@ -740,9 +756,11 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`ARCADE server running on :${PORT}`);
   startBot();
   setLotteryNotifier(notifyLotteryResult);
+  setPvpNotifier(notifyPvpRound);
   initGameLoop();
   initDeposits();
   initSettings();
   initInactivityLoop();
+  initReminderLoop();
   initLottery();
 });

@@ -21,6 +21,9 @@ function isSpecial(roundNo) {
 let current = null;
 let loopTimer = null;
 let waitingStartedAt = null;
+let notifyRoundFn = null; // injected from index.js to avoid importing the bot here
+
+export function setPvpNotifier(fn) { notifyRoundFn = fn; }
 
 async function newRound() {
   const roundNo = Number(await getSetting('round_counter')) || 1;
@@ -87,6 +90,10 @@ export async function placeBet(tgId, username, firstName, amount, pro = false) {
     current.status = 'counting';
     current.countdownEnd = Date.now() + (special ? SPECIAL_COUNTDOWN : COUNTDOWN) * 1000;
     await supabase.from('games').update({ status: 'counting', pot_arc: current.pot }).eq('id', current.gameId);
+    if (notifyRoundFn) {
+      const playerIds = current.bets.map(b => b.tg_id);
+      Promise.resolve(notifyRoundFn(current.roundNo, playerIds, current.pot)).catch(() => {});
+    }
   }
 
   return { ok: true, balance_arc: await balance(tgId), state: stateView() };

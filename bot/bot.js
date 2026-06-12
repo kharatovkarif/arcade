@@ -10,6 +10,36 @@ const APP_URL = process.env.APP_URL;
 let bot = null;
 const pendingWithdrawals = new Map();
 
+const WELCOME_TEXT =
+  '🎮 *Welcome to ARCADE*\n\n' +
+  'The ultimate PvP gaming platform on TON.\n\n' +
+  '⚔️ Battle players in real-time PvP roulette\n' +
+  '🪙 Earn ARC by watching ads & completing tasks\n' +
+  '👥 Invite friends and earn from referrals\n' +
+  '💎 Deposit & withdraw TON\n\n' +
+  'Tap the button below to start playing 👇';
+
+const WELCOME_KEYBOARD = () => ({
+  inline_keyboard: [
+    [{ text: '▶️ Launch ARCADE', web_app: { url: APP_URL } }],
+    [
+      { text: '📢 Channel', url: 'https://t.me/arcare_ton' },
+      { text: '💬 Support', url: 'https://t.me/Ventlp' },
+    ],
+  ],
+});
+
+// Telegram rejects messages to users who blocked the bot or never opened a chat
+// with it — remember that so notification loops skip them instead of retrying.
+function isPermanentSendError(e) {
+  const m = (e?.message || '').toLowerCase();
+  return m.includes('blocked') || m.includes('chat not found') || m.includes('deactivated');
+}
+
+async function markBotBlocked(tgId) {
+  await supabase.from('users').update({ bot_blocked: true }).eq('tg_id', tgId).then(() => {}, () => {});
+}
+
 export function startBot() {
   if (!TOKEN) { console.warn('BOT_TOKEN not set'); return; }
   bot = new TelegramBot(TOKEN, { polling: true });
@@ -20,32 +50,18 @@ export function startBot() {
 
 
   bot.onText(/\/start/, (msg) => {
-    const text =
-      '🎮 *Welcome to ARCADE*\n\n' +
-      'The ultimate PvP gaming platform on TON.\n\n' +
-      '⚔️ Battle players in real-time PvP roulette\n' +
-      '🪙 Earn ARC by watching ads & completing tasks\n' +
-      '👥 Invite friends and earn from referrals\n' +
-      '💎 Deposit & withdraw TON\n\n' +
-      'Tap the button below to start playing 👇';
-    bot.sendMessage(msg.chat.id, text, {
+    // The user reached the bot directly — they're definitely messageable again
+    supabase.from('users').update({ bot_blocked: false }).eq('tg_id', msg.chat.id).then(() => {}, () => {});
+    bot.sendMessage(msg.chat.id, WELCOME_TEXT, {
       parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '▶️ Launch ARCADE', web_app: { url: APP_URL } }],
-          [
-            { text: '📢 Channel', url: 'https://t.me/arcare_ton' },
-            { text: '💬 Support', url: 'https://t.me/Ventlp' },
-          ],
-        ],
-      },
+      reply_markup: WELCOME_KEYBOARD(),
     }).catch(e => console.log('send error:', e.message));
   });
 
   // Tells which build is actually running on Railway
   bot.onText(/\/version/, (msg) => {
     if (msg.from.id !== ADMIN_ID) return;
-    bot.sendMessage(msg.chat.id, 'build: lottery-v1').catch(() => {});
+    bot.sendMessage(msg.chat.id, 'build: notify-v1').catch(() => {});
   });
 
   bot.onText(/\/admin/, (msg) => {
@@ -289,7 +305,73 @@ export async function notifyAdmin(text) {
 
 export async function notifyUser(tgId, text) {
   if (!bot) return;
-  try { await bot.sendMessage(tgId, text); } catch {}
+  try { await bot.sendMessage(tgId, text); }
+  catch (e) { if (isPermanentSendError(e)) await markBotBlocked(tgId); }
+}
+
+// Sends a message with an "open the app" button; returns false when undeliverable.
+export async function sendAppMessage(tgId, text, btnText = '▶️ ARCADE') {
+  if (!bot) return false;
+  try {
+    await bot.sendMessage(tgId, text, {
+      reply_markup: { inline_keyboard: [[{ text: btnText, web_app: { url: APP_URL } }]] },
+    });
+    return true;
+  } catch (e) {
+    if (isPermanentSendError(e)) await markBotBlocked(tgId);
+    return false;
+  }
+}
+
+// The same greeting as /start, sent automatically the first time a user opens
+// the Mini App — deep-link visitors never press /start, and without this first
+// message the bot can't notify them at all.
+export async function sendWelcome(tgId) {
+  if (!bot) return;
+  try {
+    await bot.sendMessage(tgId, WELCOME_TEXT, {
+      parse_mode: 'Markdown',
+      reply_markup: WELCOME_KEYBOARD(),
+    });
+  } catch (e) {
+    if (isPermanentSendError(e)) await markBotBlocked(tgId);
+  }
+}
+
+const PVP_NOTIFY_TEXTS = {
+  ru: (n, pot) => `⚔️ PvP раунд #${n} начался!\n\nБанк: ${pot} ARC — успей сделать ставку!`,
+  en: (n, pot) => `⚔️ PvP round #${n} has started!\n\nPot: ${pot} ARC — place your bet now!`,
+  hi: (n, pot) => `⚔️ PvP राउंड #${n} शुरू हो गया है!\n\nपॉट: ${pot} ARC — अभी अपनी बेट लगाएं!`,
+  pt: (n, pot) => `⚔️ A rodada PvP #${n} começou!\n\nPote: ${pot} ARC — faça sua aposta agora!`,
+  id: (n, pot) => `⚔️ Ronde PvP #${n} telah dimulai!\n\nPot: ${pot} ARC — pasang taruhanmu sekarang!`,
+  bn: (n, pot) => `⚔️ PvP রাউন্ড #${n} শুরু হয়েছে!\n\nপট: ${pot} ARC — এখনই বাজি ধরুন!`,
+  vi: (n, pot) => `⚔️ Vòng PvP #${n} đã bắt đầu!\n\nQuỹ: ${pot} ARC — đặt cược ngay!`,
+};
+
+// Tells recently active users that a PvP round is live. Per-user throttle:
+// at most one such ping every 24 hours, so it never feels like spam.
+export async function notifyPvpRound(roundNo, playerIds, pot) {
+  if (!bot) return;
+  const activeSince = new Date(Date.now() - 7 * 86400 * 1000).toISOString();
+  const throttleBefore = Date.now() - 24 * 3600 * 1000;
+  const { data: users } = await supabase.from('users')
+    .select('tg_id, language, last_pvp_notify_at')
+    .eq('bot_blocked', false).eq('is_banned', false)
+    .gte('last_active_at', activeSince);
+  const targets = (users || []).filter(u =>
+    !playerIds.includes(u.tg_id) &&
+    (!u.last_pvp_notify_at || new Date(u.last_pvp_notify_at).getTime() < throttleBefore)
+  );
+  if (!targets.length) return;
+  // Mark everyone up front so a crash mid-send can't cause a second wave
+  await supabase.from('users')
+    .update({ last_pvp_notify_at: new Date().toISOString() })
+    .in('tg_id', targets.map(u => u.tg_id));
+  for (const u of targets) {
+    const make = PVP_NOTIFY_TEXTS[u.language] || PVP_NOTIFY_TEXTS.en;
+    await sendAppMessage(u.tg_id, make(roundNo, pot), '⚔️ PvP');
+    await new Promise(r => setTimeout(r, 50));
+  }
 }
 
 export async function notifyLotteryResult(tickets, winner, roundNo) {
