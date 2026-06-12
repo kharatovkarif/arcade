@@ -42,6 +42,12 @@ export function startBot() {
     }).catch(e => console.log('send error:', e.message));
   });
 
+  // Tells which build is actually running on Railway
+  bot.onText(/\/version/, (msg) => {
+    if (msg.from.id !== ADMIN_ID) return;
+    bot.sendMessage(msg.chat.id, 'build: photocast-v2 (custom button + pro deep link)').catch(() => {});
+  });
+
   bot.onText(/\/admin/, (msg) => {
     if (msg.from.id !== ADMIN_ID) return;
     bot.sendMessage(msg.chat.id,
@@ -173,7 +179,7 @@ export function startBot() {
     const fileId = msg.photo[msg.photo.length - 1].file_id;
     const { data: users } = await supabase.from('users').select('tg_id');
     if (!users?.length) return bot.sendMessage(msg.chat.id, '❌ No users').catch(() => {});
-    let ok = 0, fail = 0;
+    let ok = 0, fail = 0, firstErr = null;
     for (const u of users) {
       try {
         await bot.sendPhoto(u.tg_id, fileId, {
@@ -187,10 +193,15 @@ export function startBot() {
           },
         });
         ok++;
-      } catch { fail++; }
+      } catch (e) {
+        fail++;
+        if (!firstErr) firstErr = e.message;
+      }
       await new Promise(r => setTimeout(r, 50));
     }
-    bot.sendMessage(msg.chat.id, `✅ Отправлено: ${ok}\n❌ Ошибок: ${fail}`).catch(() => {});
+    bot.sendMessage(msg.chat.id,
+      `✅ Отправлено: ${ok}\n❌ Ошибок: ${fail}${firstErr ? `\n\nПервая ошибка:\n${firstErr}` : ''}`
+    ).catch(() => {});
   });
 
   bot.onText(/\/promo_list/, async (msg) => {
