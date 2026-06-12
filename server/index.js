@@ -235,7 +235,7 @@ app.get('/api/adsgram/reward1', async (req, res) => {
   const todayStart = mskDate() + 'T00:00:00+03:00';
   const { count } = await supabase.from('transactions').select('*', { count: 'exact', head: true })
     .eq('tg_id', userId).eq('type', 'ad').gte('created_at', todayStart);
-  if ((count || 0) >= (isPro(u) ? 40 : 30)) return res.status(200).send('daily_limit');
+  if ((count || 0) >= (isPro(u) ? 15 : 10)) return res.status(200).send('daily_limit');
 
   const reward = Math.round(10 * adMultiplier(u));
   await changeArc(userId, reward, 'ad', 'adsgram reward1');

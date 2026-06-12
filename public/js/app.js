@@ -429,7 +429,7 @@ window.watchAd = async (btn) => {
         ME.ad_daily_count = me.ad_daily_count;
         renderHeader();
         renderMain();
-        const lim = me.is_pro ? 40 : 30;
+        const lim = me.is_pro ? 15 : 10;
         if (gained > 0) toast(`+${gained} ARC · ${me.ad_daily_count}/${lim}`);
         else if (me.ad_daily_count >= lim) toast(t('ad_daily_limit_n').replace('{n}', lim));
       }
