@@ -1,4 +1,5 @@
 import { supabase } from './db.js';
+import { sendWelcome } from '../bot/bot.js';
 
 export async function getSetting(key) {
   const { data } = await supabase.from('settings').select('value').eq('key', key).single();
@@ -27,7 +28,8 @@ export async function getOrCreateUser(tgUser, startParam) {
       }
     }
 
-    const lang = tgUser.language_code === 'ru' ? 'ru' : 'en';
+    const supported = ['ru', 'en', 'hi', 'pt', 'id', 'bn', 'vi'];
+    const lang = supported.includes(tgUser.language_code) ? tgUser.language_code : 'en';
     const { data: created } = await supabase
       .from('users')
       .insert({
@@ -41,6 +43,9 @@ export async function getOrCreateUser(tgUser, startParam) {
       .select()
       .single();
     user = created;
+    // Deep-link visitors never press /start, so greet them from the bot side now —
+    // this opens the chat and makes future notifications deliverable.
+    if (user) sendWelcome(user.tg_id);
   } else {
     await supabase
       .from('users')

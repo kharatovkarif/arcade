@@ -10,6 +10,36 @@ const APP_URL = process.env.APP_URL;
 let bot = null;
 const pendingWithdrawals = new Map();
 
+const WELCOME_TEXT =
+  '🎮 *Welcome to ARCADE*\n\n' +
+  'The ultimate PvP gaming platform on TON.\n\n' +
+  '⚔️ Battle players in real-time PvP roulette\n' +
+  '🪙 Earn ARC by watching ads & completing tasks\n' +
+  '👥 Invite friends and earn from referrals\n' +
+  '💎 Deposit & withdraw TON\n\n' +
+  'Tap the button below to start playing 👇';
+
+const WELCOME_KEYBOARD = () => ({
+  inline_keyboard: [
+    [{ text: '▶️ Launch ARCADE', web_app: { url: APP_URL } }],
+    [
+      { text: '📢 Channel', url: 'https://t.me/arcare_ton' },
+      { text: '💬 Support', url: 'https://t.me/Ventlp' },
+    ],
+  ],
+});
+
+// Telegram rejects messages to users who blocked the bot or never opened a chat
+// with it — remember that so notification loops skip them instead of retrying.
+function isPermanentSendError(e) {
+  const m = (e?.message || '').toLowerCase();
+  return m.includes('blocked') || m.includes('chat not found') || m.includes('deactivated');
+}
+
+async function markBotBlocked(tgId) {
+  await supabase.from('users').update({ bot_blocked: true }).eq('tg_id', tgId).then(() => {}, () => {});
+}
+
 export function startBot() {
   if (!TOKEN) { console.warn('BOT_TOKEN not set'); return; }
   bot = new TelegramBot(TOKEN, { polling: true });
@@ -20,32 +50,18 @@ export function startBot() {
 
 
   bot.onText(/\/start/, (msg) => {
-    const text =
-      '🎮 *Welcome to ARCADE*\n\n' +
-      'The ultimate PvP gaming platform on TON.\n\n' +
-      '⚔️ Battle players in real-time PvP roulette\n' +
-      '🪙 Earn ARC by watching ads & completing tasks\n' +
-      '👥 Invite friends and earn from referrals\n' +
-      '💎 Deposit & withdraw TON\n\n' +
-      'Tap the button below to start playing 👇';
-    bot.sendMessage(msg.chat.id, text, {
+    // The user reached the bot directly — they're definitely messageable again
+    supabase.from('users').update({ bot_blocked: false }).eq('tg_id', msg.chat.id).then(() => {}, () => {});
+    bot.sendMessage(msg.chat.id, WELCOME_TEXT, {
       parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '▶️ Launch ARCADE', web_app: { url: APP_URL } }],
-          [
-            { text: '📢 Channel', url: 'https://t.me/arcare_ton' },
-            { text: '💬 Support', url: 'https://t.me/Ventlp' },
-          ],
-        ],
-      },
+      reply_markup: WELCOME_KEYBOARD(),
     }).catch(e => console.log('send error:', e.message));
   });
 
   // Tells which build is actually running on Railway
   bot.onText(/\/version/, (msg) => {
     if (msg.from.id !== ADMIN_ID) return;
-    bot.sendMessage(msg.chat.id, 'build: lottery-v1').catch(() => {});
+    bot.sendMessage(msg.chat.id, 'build: notify-v1').catch(() => {});
   });
 
   bot.onText(/\/admin/, (msg) => {
@@ -109,8 +125,77 @@ export function startBot() {
 
   bot.onText(/\/stats/, async (msg) => {
     if (msg.from.id !== ADMIN_ID) return;
-    const { count } = await supabase.from('users').select('*', { count: 'exact', head: true });
-    bot.sendMessage(msg.chat.id, `📊 Users: ${count}`).catch(()=>{});
+    const now = new Date();
+    const d1 = new Date(now - 86400e3).toISOString();
+    const d7 = new Date(now - 7 * 86400e3).toISOString();
+    const todayStart = new Date(now); todayStart.setUTCHours(0,0,0,0);
+
+    const [
+      { count: total },
+      { count: new24h },
+      { count: active24h },
+      { count: active7d },
+      { count: pro },
+      { count: blocked },
+      { data: balSums },
+      { data: txToday },
+      { data: pvpToday },
+      { data: langBreak },
+    ] = await Promise.all([
+      supabase.from('users').select('*', { count: 'exact', head: true }),
+      supabase.from('users').select('*', { count: 'exact', head: true }).gte('created_at', d1),
+      supabase.from('users').select('*', { count: 'exact', head: true }).gte('last_active_at', d1),
+      supabase.from('users').select('*', { count: 'exact', head: true }).gte('last_active_at', d7),
+      supabase.from('users').select('*', { count: 'exact', head: true }).eq('is_pro', true),
+      supabase.from('users').select('*', { count: 'exact', head: true }).eq('bot_blocked', true),
+      supabase.from('users').select('balance_arc.sum()'),
+      supabase.from('transactions').select('type, amount').gte('created_at', todayStart.toISOString()),
+      supabase.from('games').select('pot_arc, commission_arc').gte('created_at', todayStart.toISOString()).eq('status', 'done'),
+      supabase.from('users').select('language'),
+    ]);
+
+    const totalArc = Math.floor(balSums?.[0]?.sum ?? 0);
+
+    let adArc = 0, adCount = 0, checkinArc = 0, promoArc = 0, refArc = 0;
+    for (const tx of txToday || []) {
+      const a = Number(tx.amount);
+      if (tx.type === 'ad_short' || tx.type === 'ad4') { if (a > 0) { adArc += a; adCount++; } }
+      else if (tx.type === 'checkin' && a > 0) checkinArc += a;
+      else if (tx.type === 'promo' && a > 0) promoArc += a;
+      else if (tx.type === 'referral' && a > 0) refArc += a;
+    }
+
+    let pvpCommission = 0, pvpRounds = 0;
+    for (const g of pvpToday || []) {
+      if (g.commission_arc) pvpCommission += Number(g.commission_arc);
+      pvpRounds++;
+    }
+
+    const langs = {};
+    for (const u of langBreak || []) langs[u.language || 'en'] = (langs[u.language || 'en'] || 0) + 1;
+    const langLine = Object.entries(langs).sort((a,b)=>b[1]-a[1]).map(([l,c])=>`${l}:${c}`).join(' ');
+
+    const lines = [
+      `📊 *ARCADE Stats*`,
+      ``,
+      `👥 *Пользователи*`,
+      `Всего: ${total} | Новых 24ч: +${new24h}`,
+      `Активны 24ч: ${active24h} | 7д: ${active7d}`,
+      `PRO: ${pro} | Заблокировали бота: ${blocked}`,
+      ``,
+      `🌐 *Языки*`,
+      langLine,
+      ``,
+      `💰 *ARC в системе:* ${totalArc.toLocaleString()}`,
+      ``,
+      `📈 *Сегодня*`,
+      `Реклама: +${Math.floor(adArc)} ARC (${adCount} просм.)`,
+      `Чек-ин: +${Math.floor(checkinArc)} ARC`,
+      `Промокоды: +${Math.floor(promoArc)} ARC`,
+      `Рефералы: +${Math.floor(refArc)} ARC`,
+      `PvP раунды: ${pvpRounds} | Комиссия: ${Math.floor(pvpCommission)} ARC`,
+    ];
+    bot.sendMessage(msg.chat.id, lines.join('\n'), { parse_mode: 'Markdown' }).catch(()=>{});
   });
 
   bot.onText(/\/msg (\d+) (.+)/s, async (msg, m) => {
@@ -159,6 +244,57 @@ export function startBot() {
     if (msg.from.id !== ADMIN_ID) return;
     bot.sendMessage(msg.chat.id,
       'Используй: /broadcast текст\n\nПеренос строки: \\n\n\nПример:\n/broadcast 👀 @D1r2u1g уже набрал 303 ARC...\\n\\nДо победного приза — 0.5 TON — осталось всего 197 ARC.'
+    ).catch(()=>{});
+  });
+
+  // Localized broadcast: sends each user a message in their own language.
+  // Format: /lbroadcast ru:текст|en:text|hi:टेक्स्ट|pt:texto|id:teks|bn:টেক্সট|vi:văn bản
+  // Language sections separated by |, each starting with "lang:".
+  // Missing languages fall back to "en". Newlines: \n
+  bot.onText(/\/lbroadcast (.+)/s, async (msg, m) => {
+    if (msg.from.id !== ADMIN_ID) return;
+    const raw = m[1];
+    const texts = {};
+    for (const part of raw.split('|')) {
+      const colon = part.indexOf(':');
+      if (colon === -1) continue;
+      const lang = part.slice(0, colon).trim();
+      const text = part.slice(colon + 1).replace(/\\n/g, '\n').trim();
+      texts[lang] = text;
+    }
+    if (!texts.en && !texts.ru) {
+      return bot.sendMessage(msg.chat.id,
+        '❌ Нужен хотя бы один язык.\nФормат: /lbroadcast ru:текст|||en:text|||hi:...'
+      ).catch(()=>{});
+    }
+    const fallback = texts.en || texts.ru;
+    const { data: users } = await supabase.from('users').select('tg_id, language').eq('bot_blocked', false);
+    if (!users?.length) return bot.sendMessage(msg.chat.id, '❌ No users').catch(()=>{});
+    let ok = 0, fail = 0;
+    for (const u of users) {
+      const text = texts[u.language] || fallback;
+      try {
+        await bot.sendMessage(u.tg_id, text, {
+          parse_mode: 'Markdown',
+          reply_markup: { inline_keyboard: [[{ text: '▶️ Open ARCADE', web_app: { url: APP_URL } }]] },
+        });
+        ok++;
+      } catch { fail++; }
+      await new Promise(r => setTimeout(r, 50));
+    }
+    bot.sendMessage(msg.chat.id, `✅ Отправлено: ${ok}\n❌ Ошибок: ${fail}`).catch(()=>{});
+  });
+
+  bot.onText(/\/lbroadcast$/, (msg) => {
+    if (msg.from.id !== ADMIN_ID) return;
+    bot.sendMessage(msg.chat.id,
+      '*Локализованная рассылка*\n\n' +
+      'Формат:\n`/lbroadcast ru:текст|en:text|hi:...|pt:...|id:...|bn:...|vi:...`\n\n' +
+      'Разделитель языков: `|`\n' +
+      'Перенос строки: `\\n`\n' +
+      'Если язык не указан — используется en (или ru как запасной)\n\n' +
+      'Пример:\n`/lbroadcast ru:🎰 Теперь есть лотерея!|en:🎰 Lottery is live!`',
+      { parse_mode: 'Markdown' }
     ).catch(()=>{});
   });
 
@@ -289,7 +425,73 @@ export async function notifyAdmin(text) {
 
 export async function notifyUser(tgId, text) {
   if (!bot) return;
-  try { await bot.sendMessage(tgId, text); } catch {}
+  try { await bot.sendMessage(tgId, text); }
+  catch (e) { if (isPermanentSendError(e)) await markBotBlocked(tgId); }
+}
+
+// Sends a message with an "open the app" button; returns false when undeliverable.
+export async function sendAppMessage(tgId, text, btnText = '▶️ ARCADE') {
+  if (!bot) return false;
+  try {
+    await bot.sendMessage(tgId, text, {
+      reply_markup: { inline_keyboard: [[{ text: btnText, web_app: { url: APP_URL } }]] },
+    });
+    return true;
+  } catch (e) {
+    if (isPermanentSendError(e)) await markBotBlocked(tgId);
+    return false;
+  }
+}
+
+// The same greeting as /start, sent automatically the first time a user opens
+// the Mini App — deep-link visitors never press /start, and without this first
+// message the bot can't notify them at all.
+export async function sendWelcome(tgId) {
+  if (!bot) return;
+  try {
+    await bot.sendMessage(tgId, WELCOME_TEXT, {
+      parse_mode: 'Markdown',
+      reply_markup: WELCOME_KEYBOARD(),
+    });
+  } catch (e) {
+    if (isPermanentSendError(e)) await markBotBlocked(tgId);
+  }
+}
+
+const PVP_NOTIFY_TEXTS = {
+  ru: (n, pot) => `⚔️ PvP раунд #${n} начался!\n\nБанк: ${pot} ARC — успей сделать ставку!`,
+  en: (n, pot) => `⚔️ PvP round #${n} has started!\n\nPot: ${pot} ARC — place your bet now!`,
+  hi: (n, pot) => `⚔️ PvP राउंड #${n} शुरू हो गया है!\n\nपॉट: ${pot} ARC — अभी अपनी बेट लगाएं!`,
+  pt: (n, pot) => `⚔️ A rodada PvP #${n} começou!\n\nPote: ${pot} ARC — faça sua aposta agora!`,
+  id: (n, pot) => `⚔️ Ronde PvP #${n} telah dimulai!\n\nPot: ${pot} ARC — pasang taruhanmu sekarang!`,
+  bn: (n, pot) => `⚔️ PvP রাউন্ড #${n} শুরু হয়েছে!\n\nপট: ${pot} ARC — এখনই বাজি ধরুন!`,
+  vi: (n, pot) => `⚔️ Vòng PvP #${n} đã bắt đầu!\n\nQuỹ: ${pot} ARC — đặt cược ngay!`,
+};
+
+// Tells recently active users that a PvP round is live. Per-user throttle:
+// at most one such ping every 24 hours, so it never feels like spam.
+export async function notifyPvpRound(roundNo, playerIds, pot) {
+  if (!bot) return;
+  const activeSince = new Date(Date.now() - 7 * 86400 * 1000).toISOString();
+  const throttleBefore = Date.now() - 24 * 3600 * 1000;
+  const { data: users } = await supabase.from('users')
+    .select('tg_id, language, last_pvp_notify_at')
+    .eq('bot_blocked', false).eq('is_banned', false)
+    .gte('last_active_at', activeSince);
+  const targets = (users || []).filter(u =>
+    !playerIds.includes(u.tg_id) &&
+    (!u.last_pvp_notify_at || new Date(u.last_pvp_notify_at).getTime() < throttleBefore)
+  );
+  if (!targets.length) return;
+  // Mark everyone up front so a crash mid-send can't cause a second wave
+  await supabase.from('users')
+    .update({ last_pvp_notify_at: new Date().toISOString() })
+    .in('tg_id', targets.map(u => u.tg_id));
+  for (const u of targets) {
+    const make = PVP_NOTIFY_TEXTS[u.language] || PVP_NOTIFY_TEXTS.en;
+    await sendAppMessage(u.tg_id, make(roundNo, pot), '⚔️ PvP');
+    await new Promise(r => setTimeout(r, 50));
+  }
 }
 
 export async function notifyLotteryResult(tickets, winner, roundNo) {
