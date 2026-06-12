@@ -408,20 +408,20 @@ window.watchAd = async (btn) => {
   btn.disabled = true;
   try {
     await adsgramController.show();
-    const r = await api('/ads/watch');
-    if (r.ok) {
-      ME.ad_daily_count = r.daily_count;
-      ME.balance_arc = r.balance_arc;
-      renderHeader();
-      renderMain();
-      toast(`+${r.reward} ARC · ${r.daily_count}/30`);
-    } else if (r.error === 'daily_limit') {
-      ME.ad_daily_count = 30;
-      renderMain();
-      toast(LANG==='ru' ? 'Дневной лимит 30 реклам исчерпан' : 'Daily limit of 30 ads reached');
-    } else {
+    // Reward is credited server-to-server by Adsgram (Reward URL); give it a moment, then refresh
+    setTimeout(async () => {
+      const me = await api('/me');
+      if (me?.balance_arc !== undefined) {
+        const gained = me.balance_arc - ME.balance_arc;
+        ME.balance_arc = me.balance_arc;
+        ME.ad_daily_count = me.ad_daily_count;
+        renderHeader();
+        renderMain();
+        if (gained > 0) toast(`+${gained} ARC · ${me.ad_daily_count}/30`);
+        else if (me.ad_daily_count >= 30) toast(LANG==='ru' ? 'Дневной лимит 30 реклам исчерпан' : 'Daily limit of 30 ads reached');
+      }
       btn.disabled = false;
-    }
+    }, 2500);
   } catch { btn.disabled = false; }
 };
 
