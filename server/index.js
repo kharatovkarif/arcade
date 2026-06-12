@@ -269,7 +269,7 @@ app.post('/api/ads/watch-short', auth, async (req, res) => {
   const { count } = await supabase.from('transactions').select('*', { count: 'exact', head: true })
     .eq('tg_id', req.user.tg_id).eq('type', 'ad_short').gte('created_at', todayStart);
   const current = count || 0;
-  if (current >= 5) return res.json({ ok: false, error: 'daily_limit', daily_count: 5 });
+  if (current >= 3) return res.json({ ok: false, error: 'daily_limit', daily_count: 3 });
 
   const { data: u } = await supabase.from('users').select('checkin_day, referrer_id').eq('tg_id', req.user.tg_id).single();
   const reward = Math.round(5 * checkinMultiplier(u?.checkin_day || 1));

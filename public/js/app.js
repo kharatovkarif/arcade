@@ -154,7 +154,7 @@ function renderMain() {
   const daily4Count = ME.ad4_daily_count || 0;
   const reward = Math.round(10 * adMult(ME.checkin_day || 1));
   const limitReached = dailyCount >= 30;
-  const limitShortReached = dailyShortCount >= 5;
+  const limitShortReached = dailyShortCount >= 3;
   const limit4Reached = daily4Count >= 30;
 
   const ad1Btn = (active && !limitReached)
@@ -182,7 +182,7 @@ function renderMain() {
     <div class="row">
       <div class="info">
         <span class="title">${t('ad_reward')} 2 &nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + чек-ин</span></span>
-        <span class="sub">${activeShort ? dailyShortCount+'/5 '+(LANG==='ru'?'сегодня':'today') : t('soon')}</span>
+        <span class="sub">${activeShort ? dailyShortCount+'/3 '+(LANG==='ru'?'сегодня':'today') : t('soon')}</span>
       </div>
       ${ad2Btn}
     </div>
@@ -436,9 +436,9 @@ window.watchAdShort = async (btn) => {
       ME.balance_arc = r.balance_arc;
       renderHeader();
       renderMain();
-      toast(`+${r.reward} ARC · ${r.daily_count}/5`);
+      toast(`+${r.reward} ARC · ${r.daily_count}/3`);
     } else if (r.error === 'daily_limit') {
-      ME.ad_short_daily_count = 5;
+      ME.ad_short_daily_count = 3;
       renderMain();
       toast(LANG === 'ru' ? 'Дневной лимит исчерпан' : 'Daily limit reached');
     } else {
