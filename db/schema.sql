@@ -12,6 +12,7 @@ create table if not exists users (
     is_admin boolean default false,
     checkin_day int default 0,
     checkin_last date,
+    pro_until timestamptz,
     last_seen timestamptz default now(),
     burn_warned boolean default false,
     created_at timestamptz default now()
