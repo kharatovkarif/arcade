@@ -156,16 +156,20 @@ export function startBot() {
     ).catch(()=>{});
   });
 
-  // Photo broadcast: admin sends a photo with caption starting with /photocast
+  // Photo broadcast: admin sends a photo with caption starting with /photocast.
+  // Format: /photocast text ||| postUrl ||| buttonText ||| appQuery
+  // appQuery is appended to the Mini App URL (e.g. "pro=1" opens the PRO purchase modal).
   bot.on('message', async (msg) => {
     if (msg.from.id !== ADMIN_ID) return;
     if (!msg.photo) return;
     const caption = msg.caption || '';
     if (!caption.startsWith('/photocast')) return;
     const raw = caption.slice('/photocast'.length).trim();
-    const sepIdx = raw.indexOf('|||');
-    const text = (sepIdx !== -1 ? raw.slice(0, sepIdx) : raw).replace(/\\n/g, '\n').trim();
-    const postUrl = sepIdx !== -1 ? raw.slice(sepIdx + 3).trim() : 'https://t.me/arcare_ton';
+    const parts = raw.split('|||').map(s => s.trim());
+    const text = (parts[0] || '').replace(/\\n/g, '\n');
+    const postUrl = parts[1] || 'https://t.me/arcare_ton';
+    const btnText = parts[2] || '▶️ Играть в ARCADE';
+    const appUrl = parts[3] ? `${APP_URL}?${parts[3]}` : APP_URL;
     const fileId = msg.photo[msg.photo.length - 1].file_id;
     const { data: users } = await supabase.from('users').select('tg_id');
     if (!users?.length) return bot.sendMessage(msg.chat.id, '❌ No users').catch(() => {});
@@ -177,8 +181,8 @@ export function startBot() {
           parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [
-              [{ text: '▶️ Играть в ARCADE', web_app: { url: APP_URL } }],
-              [{ text: '📢 Смотреть канал', url: postUrl }],
+              [{ text: btnText, web_app: { url: appUrl } }],
+              [{ text: '📢 Смотреть пост', url: postUrl }],
             ],
           },
         });
