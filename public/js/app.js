@@ -430,18 +430,20 @@ window.watchAdShort = async (btn) => {
   btn.disabled = true;
   try {
     await adsgramControllerShort.show();
-    setTimeout(async () => {
-      const me = await api('/me');
-      if (me?.balance_arc !== undefined) {
-        const gained = me.balance_arc - ME.balance_arc;
-        ME.balance_arc = me.balance_arc;
-        ME.ad_short_daily_count = me.ad_short_daily_count;
-        renderHeader(); renderMain();
-        if (gained > 0) toast(`+${gained} ARC · ${me.ad_short_daily_count}/5`);
-        else if (me.ad_short_daily_count >= 5) toast(LANG === 'ru' ? 'Дневной лимит 5 реклам исчерпан' : 'Daily limit 5 reached');
-      }
+    const r = await api('/ads/watch-short');
+    if (r.ok) {
+      ME.ad_short_daily_count = r.daily_count;
+      ME.balance_arc = r.balance_arc;
+      renderHeader();
+      renderMain();
+      toast(`+${r.reward} ARC · ${r.daily_count}/5`);
+    } else if (r.error === 'daily_limit') {
+      ME.ad_short_daily_count = 5;
+      renderMain();
+      toast(LANG === 'ru' ? 'Дневной лимит исчерпан' : 'Daily limit reached');
+    } else {
       btn.disabled = false;
-    }, 2500);
+    }
   } catch { btn.disabled = false; }
 };
 

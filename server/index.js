@@ -262,44 +262,32 @@ app.get('/api/adsgram/task-reward', async (req, res) => {
   res.status(200).send('ok');
 });
 
-// Ad 2 — Rewarded block, server-to-server callback from Adsgram (Reward URL).
-// https://<host>/api/adsgram/reward2?token=<ADSGRAM_S2S_SECRET>&userId=[userId]
-app.get('/api/adsgram/reward2', async (req, res) => {
-  const secret = process.env.ADSGRAM_S2S_SECRET || '';
-  if (!secret || req.query.token !== secret) return res.status(403).send('forbidden');
-  const userId = Number(req.query.userId);
-  if (!userId) return res.status(400).send('bad_request');
-
+// Ad 2 — Interstitial (no S2S in this format), client-triggered with auth + 5/day limit
+app.post('/api/ads/watch-short', auth, async (req, res) => {
   const todayStart = mskDate() + 'T00:00:00+03:00';
+
   const { count } = await supabase.from('transactions').select('*', { count: 'exact', head: true })
-    .eq('tg_id', userId).eq('type', 'ad_short').gte('created_at', todayStart);
-  if ((count || 0) >= 5) return res.status(200).send('daily_limit');
+    .eq('tg_id', req.user.tg_id).eq('type', 'ad_short').gte('created_at', todayStart);
+  const current = count || 0;
+  if (current >= 5) return res.json({ ok: false, error: 'daily_limit', daily_count: 5 });
 
-  const { data: u } = await supabase.from('users')
-    .select('checkin_day, referrer_id').eq('tg_id', userId).single();
-  if (!u) return res.status(404).send('user_not_found');
-  const reward = Math.round(5 * checkinMultiplier(u.checkin_day || 1));
-  await changeArc(userId, reward, 'ad_short', 'adsgram reward2');
+  const { data: u } = await supabase.from('users').select('checkin_day, referrer_id').eq('tg_id', req.user.tg_id).single();
+  const reward = Math.round(5 * checkinMultiplier(u?.checkin_day || 1));
+  const newBal = await changeArc(req.user.tg_id, reward, 'ad_short', 'ad short watch');
 
-  if (u.referrer_id) {
+  if (u?.referrer_id) {
     const ref1Reward = Math.round(reward * 0.2);
     if (ref1Reward > 0) {
-      await changeArc(u.referrer_id, ref1Reward, 'referral', `from ${userId}`);
-      const { data: ref1 } = await supabase.from('users')
-        .select('referrer_id').eq('tg_id', u.referrer_id).single();
+      await changeArc(u.referrer_id, ref1Reward, 'referral', `from ${req.user.tg_id}`);
+      const { data: ref1 } = await supabase.from('users').select('referrer_id').eq('tg_id', u.referrer_id).single();
       if (ref1?.referrer_id) {
         const ref2Reward = Math.round(reward * 0.1);
-        if (ref2Reward > 0) await changeArc(ref1.referrer_id, ref2Reward, 'referral', `from ${userId}`);
+        if (ref2Reward > 0) await changeArc(ref1.referrer_id, ref2Reward, 'referral', `from ${req.user.tg_id}`);
       }
     }
   }
 
-  res.status(200).send('ok');
-});
-
-// Short ad client endpoint — disabled in favour of S2S
-app.post('/api/ads/watch-short', auth, async (req, res) => {
-  res.json({ ok: false, error: 'use_s2s' });
+  res.json({ ok: true, daily_count: current + 1, reward, balance_arc: newBal });
 });
 
 // Ad 4 — disabled, slot reserved for new ad platform
