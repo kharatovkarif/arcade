@@ -47,15 +47,19 @@ async function newRound() {
   };
 }
 
-export async function placeBet(tgId, username, firstName, amount) {
+export async function placeBet(tgId, username, firstName, amount, pro = false) {
   if (!current) await newRound();
   if (current.status === 'spinning' || current.status === 'done')
     return { ok: false, error: 'round_closed' };
-  if (amount < MIN_BET || amount > MAX_BET)
+  const maxBet = pro ? 2000 : MAX_BET;
+  if (amount < MIN_BET || amount > maxBet)
     return { ok: false, error: 'bad_amount' };
 
   const special = isSpecial(current.roundNo);
   const existing = current.bets.find(b => b.tg_id === tgId);
+  // Repeat bets accumulate — the per-round total must respect the same cap
+  if (existing && existing.amount + amount > maxBet)
+    return { ok: false, error: 'limit_total' };
   if (!existing && special && current.bets.length >= SPECIAL_MAX_PLAYERS)
     return { ok: false, error: 'max_players' };
 
@@ -68,8 +72,8 @@ export async function placeBet(tgId, username, firstName, amount) {
     note: `bet round ${current.roundNo}`,
   });
 
-  if (existing) existing.amount += amount;
-  else current.bets.push({ tg_id: tgId, username, first_name: firstName, amount });
+  if (existing) { existing.amount += amount; existing.pro = existing.pro || pro; }
+  else current.bets.push({ tg_id: tgId, username, first_name: firstName, amount, pro });
   current.pot += amount;
   if (current.status === 'waiting' && current.bets.length === 1) waitingStartedAt = Date.now();
 
@@ -117,7 +121,8 @@ async function finishRound() {
 
   const special = isSpecial(current.roundNo);
   const chance = (winner.amount / current.pot) * 100;
-  const commission = current.pot * COMMISSION;
+  // PRO winner keeps more: 5% commission instead of 10%
+  const commission = current.pot * (winner.pro ? 0.05 : COMMISSION);
   const prize = (current.pot - commission) + (special ? SPECIAL_BONUS : 0);
 
   current.winner = {
@@ -164,6 +169,7 @@ function stateView() {
     username: b.username,
     first_name: b.first_name,
     amount: b.amount,
+    pro: !!b.pro,
     chance: current.pot ? ((b.amount / current.pot) * 100).toFixed(2) : '0',
   }));
   let secondsLeft = null;

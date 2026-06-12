@@ -7,6 +7,7 @@ import { verifyTelegramData } from './auth.js';
 import {
   getOrCreateUser, getSetting, setSetting,
   checkinMultiplier, changeArc, changeTon,
+  isPro, adMultiplier, payReferrals,
 } from './helpers.js';
 import { startBot, botCheckMember, notifyAdminWithdraw, getUserPhotoBuffer } from '../bot/bot.js';
 import { initGameLoop, getGameState, placeBet } from './game.js';
@@ -83,12 +84,23 @@ app.post('/api/me', auth, async (req, res) => {
     supabase.from('transactions').select('*', { count: 'exact', head: true })
       .eq('tg_id', req.user.tg_id).eq('type', 'ad4').gte('created_at', todayStart),
   ]);
-  await supabase.from('users').update({ last_active_at: new Date().toISOString() }).eq('tg_id', req.user.tg_id);
+  const pro = isPro(u);
+  // While PRO is active the checkin streak is maintained automatically at max,
+  // so after expiry the user keeps ×1.5 as long as they claim daily as usual.
+  if (pro && u.checkin_last !== mskDate()) {
+    u.checkin_day = Math.max(u.checkin_day || 0, 6);
+    await supabase.from('users')
+      .update({ checkin_day: u.checkin_day, checkin_last: mskDate(), last_active_at: new Date().toISOString() })
+      .eq('tg_id', req.user.tg_id);
+  } else {
+    await supabase.from('users').update({ last_active_at: new Date().toISOString() }).eq('tg_id', req.user.tg_id);
+  }
   res.json({
     tg_id: u.tg_id, username: u.username, first_name: u.first_name,
     language: u.language, balance_arc: Number(u.balance_arc),
     balance_ton: Number(u.balance_ton), wallet: u.wallet,
     is_admin: u.is_admin, checkin_day: u.checkin_day,
+    is_pro: pro, pro_until: u.pro_until,
     adsgram_block_id: process.env.ADSGRAM_BLOCK_ID || '',
     adsgram_block_id_short: process.env.ADSGRAM_BLOCK_ID_SHORT || '',
     adsgram_block_id_task: process.env.ADSGRAM_BLOCK_ID_TASK || 'task-34678',
@@ -108,8 +120,12 @@ app.post('/api/language', auth, async (req, res) => {
 
 app.post('/api/checkin/status', auth, async (req, res) => {
   const { data: u } = await supabase.from('users')
-    .select('checkin_day, checkin_last').eq('tg_id', req.user.tg_id).single();
+    .select('checkin_day, checkin_last, pro_until').eq('tg_id', req.user.tg_id).single();
   const today = mskDate();
+  if (isPro(u)) {
+    // PRO keeps the streak at max automatically — nothing to claim
+    return res.json({ day: Math.max(u.checkin_day || 0, 6), multiplier: 1.5, canClaim: false, pro: true });
+  }
   res.json({
     day: u.checkin_day, multiplier: checkinMultiplier(u.checkin_day),
     canClaim: u.checkin_last !== today,
@@ -209,29 +225,18 @@ app.get('/api/adsgram/reward1', async (req, res) => {
   const userId = Number(req.query.userId);
   if (!userId) return res.status(400).send('bad_request');
 
+  const { data: u } = await supabase.from('users')
+    .select('checkin_day, referrer_id, pro_until').eq('tg_id', userId).single();
+  if (!u) return res.status(404).send('user_not_found');
+
   const todayStart = mskDate() + 'T00:00:00+03:00';
   const { count } = await supabase.from('transactions').select('*', { count: 'exact', head: true })
     .eq('tg_id', userId).eq('type', 'ad').gte('created_at', todayStart);
-  if ((count || 0) >= 30) return res.status(200).send('daily_limit');
+  if ((count || 0) >= (isPro(u) ? 40 : 30)) return res.status(200).send('daily_limit');
 
-  const { data: u } = await supabase.from('users')
-    .select('checkin_day, referrer_id').eq('tg_id', userId).single();
-  if (!u) return res.status(404).send('user_not_found');
-  const reward = 10 * checkinMultiplier(u.checkin_day || 1);
+  const reward = Math.round(10 * adMultiplier(u));
   await changeArc(userId, reward, 'ad', 'adsgram reward1');
-
-  if (u.referrer_id) {
-    const ref1Reward = Math.round(reward * 0.2);
-    if (ref1Reward > 0) {
-      await changeArc(u.referrer_id, ref1Reward, 'referral', `from ${userId}`);
-      const { data: ref1 } = await supabase.from('users')
-        .select('referrer_id').eq('tg_id', u.referrer_id).single();
-      if (ref1?.referrer_id) {
-        const ref2Reward = Math.round(reward * 0.1);
-        if (ref2Reward > 0) await changeArc(ref1.referrer_id, ref2Reward, 'referral', `from ${userId}`);
-      }
-    }
-  }
+  await payReferrals(userId, reward, u.referrer_id);
 
   res.status(200).send('ok');
 });
@@ -244,76 +249,44 @@ app.get('/api/adsgram/task-reward', async (req, res) => {
   const { count } = await supabase.from('transactions').select('*', { count: 'exact', head: true })
     .eq('tg_id', userId).eq('type', 'ad_task').gte('created_at', todayStart);
   if ((count || 0) >= 5) return res.status(200).send('already_rewarded');
-  const { data: u } = await supabase.from('users').select('checkin_day, referrer_id').eq('tg_id', userId).single();
+  const { data: u } = await supabase.from('users').select('checkin_day, referrer_id, pro_until').eq('tg_id', userId).single();
   if (!u) return res.status(404).send('user_not_found');
-  const reward = Math.round(5 * checkinMultiplier(u.checkin_day || 1));
+  const reward = Math.round(5 * adMultiplier(u));
   await changeArc(userId, reward, 'ad_task', 'adsgram task');
-  if (u.referrer_id) {
-    const ref1Reward = Math.round(reward * 0.2);
-    if (ref1Reward > 0) {
-      await changeArc(u.referrer_id, ref1Reward, 'referral', `from ${userId}`);
-      const { data: ref1 } = await supabase.from('users').select('referrer_id').eq('tg_id', u.referrer_id).single();
-      if (ref1?.referrer_id) {
-        const ref2Reward = Math.round(reward * 0.1);
-        if (ref2Reward > 0) await changeArc(ref1.referrer_id, ref2Reward, 'referral', `from ${userId}`);
-      }
-    }
-  }
+  await payReferrals(userId, reward, u.referrer_id);
   res.status(200).send('ok');
 });
 
-// Ad 2 — Interstitial (no S2S in this format), client-triggered with auth + 5/day limit
+// Ad 2 — Interstitial (no S2S in this format), client-triggered with auth + daily limit
 app.post('/api/ads/watch-short', auth, async (req, res) => {
   const todayStart = mskDate() + 'T00:00:00+03:00';
+  const limit = isPro(req.user) ? 5 : 3;
 
   const { count } = await supabase.from('transactions').select('*', { count: 'exact', head: true })
     .eq('tg_id', req.user.tg_id).eq('type', 'ad_short').gte('created_at', todayStart);
   const current = count || 0;
-  if (current >= 3) return res.json({ ok: false, error: 'daily_limit', daily_count: 3 });
+  if (current >= limit) return res.json({ ok: false, error: 'daily_limit', daily_count: limit });
 
-  const { data: u } = await supabase.from('users').select('checkin_day, referrer_id').eq('tg_id', req.user.tg_id).single();
-  const reward = Math.round(5 * checkinMultiplier(u?.checkin_day || 1));
+  const reward = Math.round(5 * adMultiplier(req.user));
   const newBal = await changeArc(req.user.tg_id, reward, 'ad_short', 'ad short watch');
-
-  if (u?.referrer_id) {
-    const ref1Reward = Math.round(reward * 0.2);
-    if (ref1Reward > 0) {
-      await changeArc(u.referrer_id, ref1Reward, 'referral', `from ${req.user.tg_id}`);
-      const { data: ref1 } = await supabase.from('users').select('referrer_id').eq('tg_id', u.referrer_id).single();
-      if (ref1?.referrer_id) {
-        const ref2Reward = Math.round(reward * 0.1);
-        if (ref2Reward > 0) await changeArc(ref1.referrer_id, ref2Reward, 'referral', `from ${req.user.tg_id}`);
-      }
-    }
-  }
+  await payReferrals(req.user.tg_id, reward, req.user.referrer_id);
 
   res.json({ ok: true, daily_count: current + 1, reward, balance_arc: newBal });
 });
 
-// Ad 4 — OnClickA TMA Rewarded video, client-triggered with auth + 10/day limit
+// Ad 4 — OnClickA TMA Rewarded video, client-triggered with auth + daily limit
 app.post('/api/ads/watch4', auth, async (req, res) => {
   const todayStart = mskDate() + 'T00:00:00+03:00';
+  const limit = isPro(req.user) ? 15 : 10;
 
   const { count } = await supabase.from('transactions').select('*', { count: 'exact', head: true })
     .eq('tg_id', req.user.tg_id).eq('type', 'ad4').gte('created_at', todayStart);
   const current = count || 0;
-  if (current >= 10) return res.json({ ok: false, error: 'daily_limit', daily_count: 10 });
+  if (current >= limit) return res.json({ ok: false, error: 'daily_limit', daily_count: limit });
 
-  const { data: u } = await supabase.from('users').select('checkin_day, referrer_id').eq('tg_id', req.user.tg_id).single();
-  const reward = Math.round(5 * checkinMultiplier(u?.checkin_day || 1));
+  const reward = Math.round(5 * adMultiplier(req.user));
   const newBal = await changeArc(req.user.tg_id, reward, 'ad4', 'onclicka watch');
-
-  if (u?.referrer_id) {
-    const ref1Reward = Math.round(reward * 0.2);
-    if (ref1Reward > 0) {
-      await changeArc(u.referrer_id, ref1Reward, 'referral', `from ${req.user.tg_id}`);
-      const { data: ref1 } = await supabase.from('users').select('referrer_id').eq('tg_id', u.referrer_id).single();
-      if (ref1?.referrer_id) {
-        const ref2Reward = Math.round(reward * 0.1);
-        if (ref2Reward > 0) await changeArc(ref1.referrer_id, ref2Reward, 'referral', `from ${req.user.tg_id}`);
-      }
-    }
-  }
+  await payReferrals(req.user.tg_id, reward, req.user.referrer_id);
 
   res.json({ ok: true, daily_count: current + 1, reward, balance_arc: newBal });
 });
@@ -430,9 +403,30 @@ app.post('/api/pvp/state', auth, async (req, res) => {
 
 app.post('/api/pvp/bet', auth, async (req, res) => {
   const amount = Number(req.body.amount);
-  if (!(amount >= 10 && amount <= 1000)) return res.json({ ok: false, error: 'bad_amount' });
-  const result = await placeBet(req.user.tg_id, req.user.username, req.user.first_name, amount);
+  const pro = isPro(req.user);
+  const maxBet = pro ? 2000 : 1000;
+  if (!(amount >= 10 && amount <= maxBet)) return res.json({ ok: false, error: 'bad_amount' });
+  const result = await placeBet(req.user.tg_id, req.user.username, req.user.first_name, amount, pro);
   res.json(result);
+});
+
+// PRO subscription: atomic purchase — TON is deducted and pro_until extended
+// in a single DB statement, so PRO can never appear without payment.
+const PRO_PRICE_TON = 0.2;
+const PRO_DAYS = 7;
+
+app.post('/api/pro/buy', auth, async (req, res) => {
+  const { data: newUntil, error } = await supabase.rpc('try_buy_pro', {
+    p_tg_id: req.user.tg_id, p_price: PRO_PRICE_TON, p_days: PRO_DAYS,
+  });
+  if (error) return res.json({ ok: false, error: 'server' });
+  if (!newUntil) return res.json({ ok: false, error: 'not_enough_ton', price: PRO_PRICE_TON });
+  await supabase.from('transactions').insert({
+    tg_id: req.user.tg_id, type: 'pro', currency: 'TON', amount: -PRO_PRICE_TON,
+    note: `PRO +${PRO_DAYS}d`,
+  });
+  const { data: u } = await supabase.from('users').select('balance_ton').eq('tg_id', req.user.tg_id).single();
+  res.json({ ok: true, pro_until: newUntil, balance_ton: Number(u.balance_ton) });
 });
 
 app.post('/api/wallet/connect', auth, async (req, res) => {
@@ -541,29 +535,30 @@ app.post('/api/pvp/round', auth, async (req, res) => {
 
 app.post('/api/leaderboard/arc', auth, async (req, res) => {
   const { data: users } = await supabase.from('users')
-    .select('tg_id, username, balance_arc')
+    .select('tg_id, username, balance_arc, pro_until')
     .order('balance_arc', { ascending: false })
     .limit(50);
   const top = (users || []).map((u, i) => ({
     rank: i + 1,
     username: u.username || '...',
     arc: Number(u.balance_arc),
+    pro: isPro(u),
   }));
 
   // Find my rank — works whether or not I'm in the top 50
   const inTop = (users || []).findIndex(u => u.tg_id === req.user.tg_id);
   let myRank = null;
   if (inTop !== -1) {
-    myRank = { rank: inTop + 1, username: users[inTop].username || '...', arc: Number(users[inTop].balance_arc) };
+    myRank = { rank: inTop + 1, username: users[inTop].username || '...', arc: Number(users[inTop].balance_arc), pro: isPro(users[inTop]) };
   } else {
     const { data: me } = await supabase.from('users')
-      .select('username, balance_arc').eq('tg_id', req.user.tg_id).single();
+      .select('username, balance_arc, pro_until').eq('tg_id', req.user.tg_id).single();
     if (me) {
       // My rank = number of users with strictly higher balance, +1
       const { count } = await supabase.from('users')
         .select('*', { count: 'exact', head: true })
         .gt('balance_arc', me.balance_arc);
-      myRank = { rank: (count || 0) + 1, username: me.username || '...', arc: Number(me.balance_arc) };
+      myRank = { rank: (count || 0) + 1, username: me.username || '...', arc: Number(me.balance_arc), pro: isPro(me) };
     }
   }
   res.json({ top, myRank });

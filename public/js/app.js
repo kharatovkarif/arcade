@@ -153,9 +153,12 @@ function renderMain() {
   const dailyShortCount = ME.ad_short_daily_count || 0;
   const daily4Count = ME.ad4_daily_count || 0;
   const reward = Math.round(10 * adMult(ME.checkin_day || 1));
-  const limitReached = dailyCount >= 30;
-  const limitShortReached = dailyShortCount >= 3;
-  const limit4Reached = daily4Count >= 10;
+  const adLimit1 = ME.is_pro ? 40 : 30;
+  const adLimit2 = ME.is_pro ? 5 : 3;
+  const adLimit4 = ME.is_pro ? 15 : 10;
+  const limitReached = dailyCount >= adLimit1;
+  const limitShortReached = dailyShortCount >= adLimit2;
+  const limit4Reached = daily4Count >= adLimit4;
 
   const ad1Btn = (active && !limitReached)
     ? `<button onclick="watchAd(this)" style="width:44px;height:44px;border-radius:50%;background:var(--blue);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`
@@ -175,14 +178,14 @@ function renderMain() {
     <div class="row">
       <div class="info">
         <span class="title">${t('ad_reward')} 1 &nbsp;<span style="color:var(--gold);font-size:13px">+10 ARC + чек-ин</span></span>
-        <span class="sub">${dailyCount}/30 ${LANG==='ru'?'сегодня':'today'}</span>
+        <span class="sub">${dailyCount}/${adLimit1} ${LANG==='ru'?'сегодня':'today'}</span>
       </div>
       ${ad1Btn}
     </div>
     <div class="row">
       <div class="info">
         <span class="title">${t('ad_reward')} 2 &nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + чек-ин</span></span>
-        <span class="sub">${activeShort ? dailyShortCount+'/3 '+(LANG==='ru'?'сегодня':'today') : t('soon')}</span>
+        <span class="sub">${activeShort ? dailyShortCount+'/'+adLimit2+' '+(LANG==='ru'?'сегодня':'today') : t('soon')}</span>
       </div>
       ${ad2Btn}
     </div>
@@ -206,7 +209,7 @@ function renderMain() {
     <div class="row">
       <div class="info">
         <span class="title">${t('ad_reward')} 4 ${active4 ? '&nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + чек-ин</span>' : ''}</span>
-        <span class="sub">${active4 ? daily4Count+'/10 '+(LANG==='ru'?'сегодня':'today') : t('soon')}</span>
+        <span class="sub">${active4 ? daily4Count+'/'+adLimit4+' '+(LANG==='ru'?'сегодня':'today') : t('soon')}</span>
       </div>
       ${ad4Btn}
     </div>
@@ -230,6 +233,15 @@ function renderMain() {
           <div class="hl">ARC</div>
         </div>
       </div>
+    </div>
+    <div onclick="openProModal()" style="cursor:pointer;margin-bottom:12px;padding:13px 16px;border-radius:14px;background:linear-gradient(135deg,#3a2d00,#1a1a1a);border:1px solid #ffd60a55;display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div>
+        <div style="font-size:14px;font-weight:900;color:#ffd60a">👑 ARCADE PRO</div>
+        <div style="font-size:12px;color:#ccc;margin-top:2px">${ME.is_pro
+          ? (LANG==='ru' ? `Активен · осталось ${proDaysLeft()} дн.` : `Active · ${proDaysLeft()} days left`)
+          : (LANG==='ru' ? '+25% реклама · корона · комиссия 5%' : '+25% ads · crown · 5% fee')}</div>
+      </div>
+      <span style="color:#ffd60a;font-size:18px">›</span>
     </div>
     <div class="block">
       <div class="block-hdr">${t('about_title')}</div>
@@ -346,9 +358,9 @@ async function renderTasks() {
         <div class="ci-stat"><div class="cv">×${mult[ci.day]||'1.5'}</div><div class="cl">${t('multiplier')}</div></div>
       </div>
       <div class="ci-days">${days}</div>
-      <div class="ci-hint">💡 ${t('checkin_hint')}</div>
+      <div class="ci-hint">💡 ${ci.pro ? (LANG==='ru'?'👑 PRO: чек-ин ×1.5 начисляется автоматически':'👑 PRO: check-in ×1.5 is automatic') : t('checkin_hint')}</div>
       <button class="btn btn-white" id="checkinBtn" ${ci.canClaim?'':'disabled'}>
-        ${ci.canClaim ? t('claim') : t('checkin_done')}
+        ${ci.canClaim ? t('claim') : (ci.pro ? '👑 PRO' : t('checkin_done'))}
       </button>
     </div>
     <div class="block">
@@ -417,8 +429,9 @@ window.watchAd = async (btn) => {
         ME.ad_daily_count = me.ad_daily_count;
         renderHeader();
         renderMain();
-        if (gained > 0) toast(`+${gained} ARC · ${me.ad_daily_count}/30`);
-        else if (me.ad_daily_count >= 30) toast(LANG==='ru' ? 'Дневной лимит 30 реклам исчерпан' : 'Daily limit of 30 ads reached');
+        const lim = me.is_pro ? 40 : 30;
+        if (gained > 0) toast(`+${gained} ARC · ${me.ad_daily_count}/${lim}`);
+        else if (me.ad_daily_count >= lim) toast(LANG==='ru' ? `Дневной лимит ${lim} реклам исчерпан` : `Daily limit of ${lim} ads reached`);
       }
       btn.disabled = false;
     }, 2500);
@@ -436,9 +449,9 @@ window.watchAdShort = async (btn) => {
       ME.balance_arc = r.balance_arc;
       renderHeader();
       renderMain();
-      toast(`+${r.reward} ARC · ${r.daily_count}/3`);
+      toast(`+${r.reward} ARC · ${r.daily_count}/${ME.is_pro ? 5 : 3}`);
     } else if (r.error === 'daily_limit') {
-      ME.ad_short_daily_count = 3;
+      ME.ad_short_daily_count = r.daily_count;
       renderMain();
       toast(LANG === 'ru' ? 'Дневной лимит исчерпан' : 'Daily limit reached');
     } else {
@@ -458,9 +471,9 @@ window.watchAd4 = async (btn) => {
       ME.balance_arc = r.balance_arc;
       renderHeader();
       renderMain();
-      toast(`+${r.reward} ARC · ${r.daily_count}/10`);
+      toast(`+${r.reward} ARC · ${r.daily_count}/${ME.is_pro ? 15 : 10}`);
     } else if (r.error === 'daily_limit') {
-      ME.ad4_daily_count = 10;
+      ME.ad4_daily_count = r.daily_count;
       renderMain();
       toast(LANG === 'ru' ? 'Дневной лимит исчерпан' : 'Daily limit reached');
     } else {
@@ -522,6 +535,77 @@ window.disconnectWallet = async () => {
   renderMain();
 };
 
+function proDaysLeft() {
+  if (!ME.pro_until) return 0;
+  return Math.max(0, Math.ceil((new Date(ME.pro_until) - Date.now()) / 86400000));
+}
+
+window.openProModal = () => {
+  const ov = document.createElement('div');
+  ov.setAttribute('data-ov','1');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:600;display:flex;align-items:flex-end;justify-content:center';
+  ov.onclick = (e) => { if (e.target === ov) ov.remove(); };
+  const benefits = LANG==='ru' ? [
+    ['📺','+25% к награде за рекламу'],
+    ['⚡','Чек-ин ×1.5 автоматически'],
+    ['👑','Корона в PvP — видят все'],
+    ['🏆','Золотая строка в лидерборде'],
+    ['💰','Комиссия 5% вместо 10% при победе'],
+    ['🎯','Ставка до 2000 ARC'],
+    ['👥','Реферал 25% вместо 20%'],
+    ['📈','Лимиты рекламы: 40/5/15'],
+  ] : [
+    ['📺','+25% ad rewards'],
+    ['⚡','Check-in ×1.5 automatic'],
+    ['👑','Crown in PvP — everyone sees'],
+    ['🏆','Gold row in leaderboard'],
+    ['💰','5% fee instead of 10% on win'],
+    ['🎯','Bet up to 2000 ARC'],
+    ['👥','Referral 25% instead of 20%'],
+    ['📈','Higher ad limits: 40/5/15'],
+  ];
+  const statusLine = ME.is_pro
+    ? `<div style="text-align:center;margin-bottom:10px;padding:8px;border-radius:10px;background:rgba(255,214,10,.12);color:#ffd60a;font-weight:800;font-size:13px">${LANG==='ru' ? `✓ PRO активен · осталось ${proDaysLeft()} дн.` : `✓ PRO active · ${proDaysLeft()} days left`}</div>`
+    : '';
+  ov.innerHTML = `
+    <div style="background:#111;border-radius:20px 20px 0 0;width:100%;max-width:520px;max-height:85vh;overflow-y:auto;padding:20px 16px 28px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:19px;font-weight:900;color:#ffd60a">👑 ARCADE PRO</div>
+        <button onclick="this.closest('[data-ov]').remove()" style="background:#1a1a1a;border:none;color:#fff;border-radius:50%;width:30px;height:30px;font-size:16px;cursor:pointer">✕</button>
+      </div>
+      ${statusLine}
+      ${benefits.map(b => `<div style="display:flex;gap:10px;align-items:center;padding:8px 4px;font-size:14px"><span>${b[0]}</span><span>${b[1]}</span></div>`).join('')}
+      <button class="btn btn-blue" style="margin-top:14px" onclick="buyPro(this)">
+        ${ME.is_pro ? (LANG==='ru'?'Продлить +7 дней — 0.2 TON':'Extend +7 days — 0.2 TON') : (LANG==='ru'?'Купить — 0.2 TON / 7 дней':'Buy — 0.2 TON / 7 days')}
+      </button>
+      <div style="text-align:center;margin-top:8px;font-size:12px;color:var(--muted2)">${LANG==='ru'?'Спишется с баланса TON':'Deducted from your TON balance'} · ${fmt(ME.balance_ton,2)} TON</div>
+    </div>`;
+  document.body.appendChild(ov);
+};
+
+window.buyPro = async (btn) => {
+  btn.disabled = true;
+  const r = await api('/pro/buy');
+  if (r.ok) {
+    ME.is_pro = true;
+    ME.pro_until = r.pro_until;
+    ME.balance_ton = r.balance_ton;
+    document.querySelectorAll('[data-ov]').forEach(o => o.remove());
+    renderHeader();
+    if (currentTab === 'main') renderMain();
+    if (currentTab === 'profile') renderProfile();
+    toast(LANG==='ru' ? `👑 PRO активен! Осталось ${proDaysLeft()} дн.` : `👑 PRO active! ${proDaysLeft()} days left`);
+  } else if (r.error === 'not_enough_ton') {
+    btn.disabled = false;
+    toast(LANG==='ru' ? 'Недостаточно TON — пополни баланс' : 'Not enough TON — make a deposit');
+    document.querySelectorAll('[data-ov]').forEach(o => o.remove());
+    openDeposit();
+  } else {
+    btn.disabled = false;
+    toast(t('error'));
+  }
+};
+
 function renderProfile() {
   const el = document.getElementById('page-profile');
   const walletBlock = ME.wallet
@@ -537,12 +621,21 @@ function renderProfile() {
   el.innerHTML = `
     <div class="profile-card">
       <div class="profile-avatar" id="profileAvatar"></div>
-      <div class="profile-name">${ME.username ? '@' + ME.username : ME.first_name}</div>
+      <div class="profile-name">${ME.username ? '@' + ME.username : ME.first_name}${ME.is_pro ? ' <span style="color:#ffd60a">👑</span>' : ''}</div>
       <div class="profile-stats">
         <div class="profile-stat"><div class="pv">${fmt(ME.balance_ton, 2)}</div><div class="pl">TON</div></div>
         <div class="profile-stat"><div class="pv">${fmt(ME.balance_arc, 0)}</div><div class="pl">ARC</div></div>
-        <div class="profile-stat"><div class="pv">×${ME.checkin_day >= 6 ? '1.5' : Math.max(1.0, 1 + ((ME.checkin_day||1) - 1) * 0.1).toFixed(1)}</div><div class="pl">Множитель</div></div>
+        <div class="profile-stat"><div class="pv">×${ME.is_pro || ME.checkin_day >= 6 ? '1.5' : Math.max(1.0, 1 + ((ME.checkin_day||1) - 1) * 0.1).toFixed(1)}</div><div class="pl">Множитель</div></div>
       </div>
+    </div>
+    <div onclick="openProModal()" style="cursor:pointer;margin-bottom:10px;padding:13px 16px;border-radius:14px;background:linear-gradient(135deg,#3a2d00,#1a1a1a);border:1px solid #ffd60a55;display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div>
+        <div style="font-size:14px;font-weight:900;color:#ffd60a">👑 ARCADE PRO</div>
+        <div style="font-size:12px;color:#ccc;margin-top:2px">${ME.is_pro
+          ? (LANG==='ru' ? `Активен · осталось ${proDaysLeft()} дн.` : `Active · ${proDaysLeft()} days left`)
+          : (LANG==='ru' ? 'Купить за 0.2 TON / 7 дней' : 'Buy for 0.2 TON / 7 days')}</div>
+      </div>
+      <span style="color:#ffd60a;font-size:18px">›</span>
     </div>
     ${walletBlock}
     <div class="block">
@@ -619,7 +712,7 @@ function renderPvP() {
       <div class="wheel-center" id="wheelCenter">${t('waiting')}</div>
     </div>
     <div class="pvp-input-row">
-      <input class="pvp-input" id="betInput" type="number" min="10" max="1000" placeholder="0 ARC" />
+      <input class="pvp-input" id="betInput" type="number" min="10" max="2000" placeholder="0 ARC" />
       <button class="pvp-bet-btn" id="addBetBtn">+ ${t('add_bet')}</button>
     </div>
     <div class="pvp-amts">
@@ -734,12 +827,14 @@ window.setBet = (v) => {
 
 async function doBet() {
   const amount = Number(document.getElementById('betInput')?.value);
-  if (!(amount >= 10 && amount <= 1000)) return toast(t('pvp_min_max'));
+  const maxBet = ME.is_pro ? 2000 : 1000;
+  if (!(amount >= 10 && amount <= maxBet)) return toast(t('pvp_min_max'));
   const r = await api('/pvp/bet', { amount });
   if (r.ok) { ME.balance_arc = r.balance_arc; renderHeader(); loadPvP(); }
   else if (r.error === 'not_enough') toast(t('not_enough'));
   else if (r.error === 'max_players') toast(LANG === 'ru' ? 'Раунд заполнен (150 игроков)' : 'Round is full (150 players)');
   else if (r.error === 'round_closed') toast(LANG === 'ru' ? 'Раунд уже закрыт' : 'Round already closed');
+  else if (r.error === 'limit_total') toast(LANG === 'ru' ? `Суммарно за раунд не более ${maxBet} ARC` : `Max ${maxBet} ARC total per round`);
   else toast(t('error'));
 }
 
@@ -787,10 +882,11 @@ async function loadPvP() {
       ? s.players.map(p => {
           const g = AVATAR_GRADIENTS[Math.abs(Number(p.tg_id || 0)) % AVATAR_GRADIENTS.length];
           const letter = (p.first_name || p.username || '?')[0].toUpperCase();
-          return `<div class="player-card">
-            <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,${g[0]},${g[1]});color:#fff;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;position:relative;margin-right:10px">
+          return `<div class="player-card"${p.pro ? ' style="border:1px solid #ffd60a55"' : ''}>
+            <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,${g[0]},${g[1]});color:#fff;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;overflow:visible;flex-shrink:0;position:relative;margin-right:10px">
               <span>${letter}</span>
-              <img src="/api/avatar/${p.tg_id}" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">
+              <img src="/api/avatar/${p.tg_id}" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%">
+              ${p.pro ? '<span onclick="openProModal()" style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);font-size:13px;cursor:pointer;z-index:2">👑</span>' : ''}
             </div>
             <span class="pname" style="flex:1">@${p.username || '...'}</span>
             <span class="pchance">${p.chance}% · ${fmt(p.amount,0)} ARC</span>
@@ -848,9 +944,10 @@ function drawWheelAvatars(players, rotDeg) {
     const y = Math.round(cy - r * Math.cos(mid_rad));
     const g = AVATAR_GRADIENTS[Math.abs(Number(p.tg_id || 0)) % AVATAR_GRADIENTS.length];
     const letter = (p.first_name || p.username || '?')[0].toUpperCase();
-    return `<div style="position:absolute;left:${x - sz/2}px;top:${y - sz/2}px;width:${sz}px;height:${sz}px;border-radius:50%;background:linear-gradient(135deg,${g[0]},${g[1]});color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;overflow:hidden;border:2px solid rgba(0,0,0,.45);box-shadow:0 2px 6px rgba(0,0,0,.5)">
+    return `<div style="position:absolute;left:${x - sz/2}px;top:${y - sz/2}px;width:${sz}px;height:${sz}px;border-radius:50%;background:linear-gradient(135deg,${g[0]},${g[1]});color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid rgba(0,0,0,.45);box-shadow:0 2px 6px rgba(0,0,0,.5)">
       <span>${letter}</span>
-      <img src="/api/avatar/${p.tg_id}" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">
+      <img src="/api/avatar/${p.tg_id}" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%">
+      ${p.pro ? `<span style="position:absolute;top:-13px;left:50%;transform:translateX(-50%);font-size:12px">👑</span>` : ''}
     </div>`;
   }).join('');
   el.style.transition = 'none';
@@ -993,17 +1090,18 @@ window.lbShowTab = function(tab) {
   if (tab === 'arc') {
     api('/leaderboard/arc').then(data => {
       if (!document.getElementById('lbContent')) return;
+      const proStyle = ';background:linear-gradient(90deg,#5c4700,#8a6d00 50%,#5c4700);border:1px solid #ffd60a';
       const rows = (data.top || []).map(p => `
-        <div class="player-card" style="justify-content:space-between;margin-bottom:6px${p.username === ME.username ? ';border:1px solid var(--gold)' : ''}">
+        <div class="player-card" style="justify-content:space-between;margin-bottom:6px${p.pro ? proStyle : (p.username === ME.username ? ';border:1px solid var(--gold)' : '')}">
           <span style="font-size:18px;min-width:32px">${medals[p.rank-1] || `<span style='color:var(--muted2);font-weight:700'>#${p.rank}</span>`}</span>
-          <span class="pname" style="flex:1">@${p.username}</span>
+          <span class="pname" style="flex:1">@${p.username}${p.pro ? ' 👑' : ''}</span>
           <span style="color:var(--gold);font-weight:700">${fmt(p.arc, 0)} ARC</span>
         </div>`).join('') || `<div class="pvp-empty" style="padding:10px">${LANG==='ru'?'Пока пусто':'Empty'}</div>`;
       const myRow = data.myRank && data.myRank.rank > 3 ? `
         <div style="margin-top:12px;padding:8px 0;border-top:1px solid #2a2a2a;color:var(--muted2);font-size:12px;text-align:center">${LANG==='ru'?'Твоё место':'Your rank'}</div>
-        <div class="player-card" style="justify-content:space-between;border:1px solid var(--gold)">
+        <div class="player-card" style="justify-content:space-between;${data.myRank.pro ? proStyle.slice(1) : 'border:1px solid var(--gold)'}">
           <span style="color:var(--gold);font-weight:700;min-width:32px">#${data.myRank.rank}</span>
-          <span class="pname" style="flex:1">@${ME.username || '...'}</span>
+          <span class="pname" style="flex:1">@${ME.username || '...'}${data.myRank.pro ? ' 👑' : ''}</span>
           <span style="color:var(--gold);font-weight:700">${fmt(data.myRank.arc, 0)} ARC</span>
         </div>` : '';
       document.getElementById('lbContent').innerHTML = rows + myRow;
