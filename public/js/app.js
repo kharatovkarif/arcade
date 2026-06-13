@@ -429,6 +429,7 @@ window.openTasksAbout = () => {
 window.closeTasksAbout = () => {
   const ov = document.getElementById('tasksAboutOverlay');
   if (ov) ov.classList.remove('show');
+  document.body.style.overflow = '';
 };
 
 async function doCheckin() {
@@ -908,6 +909,7 @@ window.openPvpAbout = () => {
 window.closePvpAbout = () => {
   const ov = document.getElementById('pvpAboutOverlay');
   if (ov) ov.classList.remove('show');
+  document.body.style.overflow = '';
 };
 
 window.openPvPHistory = async () => {
