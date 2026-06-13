@@ -418,7 +418,11 @@ async function renderTasks() {
 
 window.openTasksAbout = () => {
   const ov = document.getElementById('tasksAboutOverlay');
-  if (ov) ov.classList.add('show');
+  if (ov) {
+    ov.classList.add('show');
+    const sheet = ov.querySelector('.pvp-about-sheet');
+    if (sheet) sheet.scrollTop = 0;
+  }
 };
 window.closeTasksAbout = () => {
   const ov = document.getElementById('tasksAboutOverlay');
@@ -892,7 +896,11 @@ function renderPvP() {
 
 window.openPvpAbout = () => {
   const ov = document.getElementById('pvpAboutOverlay');
-  if (ov) ov.classList.add('show');
+  if (ov) {
+    ov.classList.add('show');
+    const sheet = ov.querySelector('.pvp-about-sheet');
+    if (sheet) sheet.scrollTop = 0;
+  }
 };
 window.closePvpAbout = () => {
   const ov = document.getElementById('pvpAboutOverlay');
