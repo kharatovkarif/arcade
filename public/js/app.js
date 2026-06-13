@@ -415,8 +415,52 @@ window.checkTask = async (id, btn) => {
   }
 };
 
+// Human check: hold button 3s every 5 ad1 watches (PRO: every 10)
+function holdCaptcha() {
+  return new Promise((resolve, reject) => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px';
+    overlay.innerHTML = `
+      <div style="color:#fff;font-size:15px;font-weight:700;text-align:center;padding:0 32px;opacity:.8">${LANG==='ru'?'Зажми кнопку 3 секунды':'Hold the button for 3 seconds'}</div>
+      <div id="hcBtn" style="width:90px;height:90px;border-radius:50%;background:#1a1a1a;border:3px solid #333;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;overflow:hidden;user-select:none;-webkit-user-select:none">
+        <svg style="position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)" viewBox="0 0 90 90">
+          <circle id="hcRing" cx="45" cy="45" r="41" fill="none" stroke="#fff" stroke-width="4" stroke-dasharray="258" stroke-dashoffset="258" style="transition:stroke-dashoffset .05s linear"/>
+        </svg>
+        <span style="font-size:28px;position:relative;z-index:1">👆</span>
+      </div>
+      <div id="hcX" style="color:#555;font-size:13px;cursor:pointer;padding:8px 20px">✕ ${LANG==='ru'?'Закрыть':'Close'}</div>
+    `;
+    document.body.appendChild(overlay);
+    const btn = overlay.querySelector('#hcBtn');
+    const ring = overlay.querySelector('#hcRing');
+    const xBtn = overlay.querySelector('#hcX');
+    let timer = null, startT = null;
+    const DURATION = 3000;
+    const CIRC = 258;
+    function tick() {
+      const elapsed = Date.now() - startT;
+      const progress = Math.min(elapsed / DURATION, 1);
+      ring.style.strokeDashoffset = CIRC * (1 - progress);
+      if (progress >= 1) { cleanup(); resolve(); }
+      else timer = requestAnimationFrame(tick);
+    }
+    function start(e) { e.preventDefault(); if (startT) return; startT = Date.now(); timer = requestAnimationFrame(tick); }
+    function stop(e) { e.preventDefault(); if (!startT) return; cancelAnimationFrame(timer); startT = null; ring.style.strokeDashoffset = CIRC; }
+    function cleanup() { cancelAnimationFrame(timer); document.body.removeChild(overlay); }
+    btn.addEventListener('mousedown', start); btn.addEventListener('touchstart', start, {passive:false});
+    btn.addEventListener('mouseup', stop); btn.addEventListener('mouseleave', stop);
+    btn.addEventListener('touchend', stop); btn.addEventListener('touchcancel', stop);
+    xBtn.addEventListener('click', () => { cleanup(); reject(); });
+  });
+}
+
 window.watchAd = async (btn) => {
   if (!adsgramController) return;
+  const threshold = ME.is_pro ? 10 : 5;
+  const count = ME.ad_daily_count || 0;
+  if (count > 0 && count % threshold === 0) {
+    try { await holdCaptcha(); } catch { return; }
+  }
   btn.disabled = true;
   try {
     await adsgramController.show();
