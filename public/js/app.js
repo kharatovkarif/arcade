@@ -742,6 +742,7 @@ function renderPvP() {
           <span class="pvp-logo-text">PvP</span>
           <span class="pvp-round" id="roundLabel">${t('round')} #—</span>
         </div>
+        <button class="pvp-info-btn" onclick="openPvpAbout()"><span class="pvp-info-i">ⓘ</span> ${t('pvp_about_title')}</button>
       </div>
       <div id="specialBanner" style="display:none;margin:0 0 10px;padding:12px 14px;border-radius:14px;background:linear-gradient(135deg,#3a2d00,#1a1a1a);border:1px solid #ffd60a55;text-align:center">
         <div style="font-size:15px;font-weight:900;color:#ffd60a">⚡ ${t('pvp_special_title')}</div>
@@ -809,6 +810,30 @@ function renderPvP() {
         <div id="lwUsername" style="font-size:28px;font-weight:900;color:#ffd60a"></div>
         <div style="font-size:15px;color:#fff;margin-top:4px">👑 PRO на 7 дней!</div>
       </div>
+    </div>
+
+    <div id="pvpAboutOverlay" class="pvp-about-overlay" onclick="if(event.target===this)closePvpAbout()">
+      <div class="pvp-about-sheet">
+        <div class="pvp-about-head">
+          <span class="pvp-about-title">${t('pvp_about_title')}</span>
+          <span class="pvp-about-x" onclick="closePvpAbout()">✕</span>
+        </div>
+        <div class="pvp-about-how">
+          <div class="pvp-about-how-t">🎮 ${t('pvp_how_title')}</div>
+          <div class="pvp-about-how-d">${t('pvp_how_text')}</div>
+        </div>
+        <div class="pvp-about-rules">
+          ${[['📥',1],['👥',2],['⏱',3],['📊',4],['🔒',5],['🏆',6]].map(([ic,n])=>`
+            <div class="pvp-about-rule">
+              <div class="pvp-about-rule-ic">${ic}</div>
+              <div class="pvp-about-rule-tx">
+                <div class="pvp-about-rule-t">${t('pvp_r'+n+'_t')}</div>
+                <div class="pvp-about-rule-d">${t('pvp_r'+n+'_d')}</div>
+              </div>
+            </div>`).join('')}
+        </div>
+        <button class="btn btn-blue" style="margin-top:6px" onclick="closePvpAbout()">${t('pvp_about_ok')}</button>
+      </div>
     </div>`;
 
   document.getElementById('addBetBtn').onclick = doBet;
@@ -819,6 +844,15 @@ function renderPvP() {
     else loadLottery();
   }, 1500);
 }
+
+window.openPvpAbout = () => {
+  const ov = document.getElementById('pvpAboutOverlay');
+  if (ov) ov.classList.add('show');
+};
+window.closePvpAbout = () => {
+  const ov = document.getElementById('pvpAboutOverlay');
+  if (ov) ov.classList.remove('show');
+};
 
 window.openPvPHistory = async () => {
   const ov = document.createElement('div');
