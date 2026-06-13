@@ -292,9 +292,11 @@ async function renderTasks() {
   }).join('');
 
   const DAILY_TYPES = ['ad_milestone','pvp_milestone'];
+  const PARTNER_TYPES = ['subscribe','link'];
   const sorted = (allTasks || []).slice().sort((a,b) => a.completed - b.completed || Number(a.target) - Number(b.target));
   const dailyTasks   = sorted.filter(tk => DAILY_TYPES.includes(tk.type));
-  const generalTasks = sorted.filter(tk => !DAILY_TYPES.includes(tk.type));
+  const partnerTasks = sorted.filter(tk => PARTNER_TYPES.includes(tk.type));
+  const generalTasks = sorted.filter(tk => !DAILY_TYPES.includes(tk.type) && !PARTNER_TYPES.includes(tk.type));
 
   function pbar(prog, need) {
     const pct = need > 0 ? Math.min(100, Math.round((prog||0)/need*100)) : 0;
@@ -375,13 +377,17 @@ async function renderTasks() {
       <input class="field" id="promoInput" placeholder="${t('promo_placeholder')}" />
       <button class="btn btn-blue" id="promoBtn">${t('activate')}</button>
     </div>
+    ${dailyTasks.length ? `<div class="block">
+      <div class="block-hdr">📅 ${t('daily_tasks')}</div>
+      ${dailyTasks.map(renderDaily).join('')}
+    </div>` : ''}
+    ${generalTasks.length ? `<div class="block">
+      <div class="block-hdr">📋 ${t('general_tasks')}</div>
+      ${generalTasks.map(renderGeneral).join('')}
+    </div>` : ''}
     <div class="block">
-      <div class="block-hdr">${t('daily_tasks')}</div>
-      ${dailyTasks.length ? dailyTasks.map(renderDaily).join('') : `<p class="muted">${t('no_tasks')}</p>`}
-    </div>
-    <div class="block">
-      <div class="block-hdr">${t('general_tasks')}</div>
-      ${generalTasks.length ? generalTasks.map(renderGeneral).join('') : `<p class="muted">${t('no_tasks')}</p>`}
+      <div class="block-hdr">🤝 ${t('partner_tasks')}</div>
+      ${partnerTasks.length ? partnerTasks.map(renderGeneral).join('') : `<p class="muted">${t('no_tasks')}</p>`}
     </div>
 
     <div id="tasksAboutOverlay" class="pvp-about-overlay" onclick="if(event.target===this)closeTasksAbout()">
