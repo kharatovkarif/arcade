@@ -422,11 +422,9 @@ window.openTasksAbout = () => {
   if (!ov) return;
   window.scrollTo(0, 0);
   document.documentElement.scrollTop = 0;
-  document.body.scrollTop = 0;
   const sheet = ov.querySelector('.pvp-about-sheet');
   if (sheet) sheet.scrollTop = 0;
   ov.classList.add('show');
-  document.body.style.overflow = 'hidden';
 };
 window.closeTasksAbout = () => {
   const ov = document.getElementById('tasksAboutOverlay');
@@ -904,11 +902,9 @@ window.openPvpAbout = () => {
   if (!ov) return;
   window.scrollTo(0, 0);
   document.documentElement.scrollTop = 0;
-  document.body.scrollTop = 0;
   const sheet = ov.querySelector('.pvp-about-sheet');
   if (sheet) sheet.scrollTop = 0;
   ov.classList.add('show');
-  document.body.style.overflow = 'hidden';
 };
 window.closePvpAbout = () => {
   const ov = document.getElementById('pvpAboutOverlay');
