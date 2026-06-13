@@ -417,6 +417,11 @@ async function renderTasks() {
   document.getElementById('promoBtn').onclick = doPromo;
 }
 
+function _lockBg(e) {
+  const sheet = e.currentTarget.querySelector('.pvp-about-sheet');
+  if (sheet && sheet.contains(e.target)) return;
+  e.preventDefault();
+}
 window.openTasksAbout = () => {
   const ov = document.getElementById('tasksAboutOverlay');
   if (!ov) return;
@@ -425,11 +430,13 @@ window.openTasksAbout = () => {
   const sheet = ov.querySelector('.pvp-about-sheet');
   if (sheet) sheet.scrollTop = 0;
   ov.classList.add('show');
+  ov.addEventListener('touchmove', _lockBg, { passive: false });
 };
 window.closeTasksAbout = () => {
   const ov = document.getElementById('tasksAboutOverlay');
-  if (ov) ov.classList.remove('show');
-  document.body.style.overflow = '';
+  if (!ov) return;
+  ov.classList.remove('show');
+  ov.removeEventListener('touchmove', _lockBg);
 };
 
 async function doCheckin() {
@@ -905,11 +912,13 @@ window.openPvpAbout = () => {
   const sheet = ov.querySelector('.pvp-about-sheet');
   if (sheet) sheet.scrollTop = 0;
   ov.classList.add('show');
+  ov.addEventListener('touchmove', _lockBg, { passive: false });
 };
 window.closePvpAbout = () => {
   const ov = document.getElementById('pvpAboutOverlay');
-  if (ov) ov.classList.remove('show');
-  document.body.style.overflow = '';
+  if (!ov) return;
+  ov.classList.remove('show');
+  ov.removeEventListener('touchmove', _lockBg);
 };
 
 window.openPvPHistory = async () => {
