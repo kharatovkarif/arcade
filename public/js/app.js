@@ -292,6 +292,7 @@ async function renderTasks() {
   }).join('');
 
   const DAILY_TYPES = ['ad_milestone','pvp_milestone'];
+  const PARTNER_TYPES = ['subscribe','link'];
   const sorted = (allTasks || []).slice().sort((a,b) => a.completed - b.completed || Number(a.target) - Number(b.target));
   const dailyTasks   = sorted.filter(tk => DAILY_TYPES.includes(tk.type));
   const partnerTasks = sorted.filter(tk => !DAILY_TYPES.includes(tk.type) && tk.is_partner);
