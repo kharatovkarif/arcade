@@ -295,8 +295,8 @@ async function renderTasks() {
   const PARTNER_TYPES = ['subscribe','link'];
   const sorted = (allTasks || []).slice().sort((a,b) => a.completed - b.completed || Number(a.target) - Number(b.target));
   const dailyTasks   = sorted.filter(tk => DAILY_TYPES.includes(tk.type));
-  const partnerTasks = sorted.filter(tk => PARTNER_TYPES.includes(tk.type));
-  const generalTasks = sorted.filter(tk => !DAILY_TYPES.includes(tk.type) && !PARTNER_TYPES.includes(tk.type));
+  const partnerTasks = sorted.filter(tk => !DAILY_TYPES.includes(tk.type) && tk.is_partner);
+  const generalTasks = sorted.filter(tk => !DAILY_TYPES.includes(tk.type) && !tk.is_partner);
 
   function pbar(prog, need) {
     const pct = need > 0 ? Math.min(100, Math.round((prog||0)/need*100)) : 0;
@@ -385,10 +385,10 @@ async function renderTasks() {
       <div class="block-hdr">📋 ${t('general_tasks')}</div>
       ${generalTasks.map(renderGeneral).join('')}
     </div>` : ''}
-    <div class="block">
+    ${partnerTasks.length ? `<div class="block">
       <div class="block-hdr">🤝 ${t('partner_tasks')}</div>
-      ${partnerTasks.length ? partnerTasks.map(renderGeneral).join('') : `<p class="muted">${t('no_tasks')}</p>`}
-    </div>
+      ${partnerTasks.map(renderGeneral).join('')}
+    </div>` : ''}
 
     <div id="tasksAboutOverlay" class="pvp-about-overlay" onclick="if(event.target===this)closeTasksAbout()">
       <div class="pvp-about-sheet">
@@ -419,7 +419,11 @@ async function renderTasks() {
 
 window.openTasksAbout = () => {
   const ov = document.getElementById('tasksAboutOverlay');
-  if (ov) ov.classList.add('show');
+  if (ov) {
+    ov.classList.add('show');
+    const sheet = ov.querySelector('.pvp-about-sheet');
+    if (sheet) sheet.scrollTop = 0;
+  }
 };
 window.closeTasksAbout = () => {
   const ov = document.getElementById('tasksAboutOverlay');
@@ -893,7 +897,11 @@ function renderPvP() {
 
 window.openPvpAbout = () => {
   const ov = document.getElementById('pvpAboutOverlay');
-  if (ov) ov.classList.add('show');
+  if (ov) {
+    ov.classList.add('show');
+    const sheet = ov.querySelector('.pvp-about-sheet');
+    if (sheet) sheet.scrollTop = 0;
+  }
 };
 window.closePvpAbout = () => {
   const ov = document.getElementById('pvpAboutOverlay');

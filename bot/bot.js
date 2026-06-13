@@ -71,6 +71,7 @@ export function startBot() {
       '/promo_add CODE REWARD MODE [num]  (modes: global|count|time)\n' +
       '/promo_del CODE\n' +
       '/task_add subscribe @chan 50 | RU | EN\n' +
+      '/task_add partner subscribe @chan 50 | RU | EN\n' +
       '/task_del ID\n' +
       '/stats'
     ).catch(() => {});
@@ -108,13 +109,16 @@ export function startBot() {
   bot.onText(/\/task_add (.+)/, async (msg, m) => {
     if (msg.from.id !== ADMIN_ID) return;
     const [head, ru, en] = m[1].split('|').map(s => s.trim());
-    const [type, target, reward] = head.split(/\s+/);
-    if (!type || !reward) return bot.sendMessage(msg.chat.id, '❌ /task_add subscribe @chan 50 | RU | EN').catch(()=>{});
+    const parts = head.split(/\s+/);
+    let is_partner = false, type, target, reward;
+    if (parts[0] === 'partner') { is_partner = true; [, type, target, reward] = parts; }
+    else { [type, target, reward] = parts; }
+    if (!type || !reward) return bot.sendMessage(msg.chat.id, '❌ /task_add [partner] subscribe @chan 50 | RU | EN').catch(()=>{});
     const { error } = await supabase.from('tasks').insert({
       type, target: target && target.startsWith('@') ? target : null,
-      reward_arc: Number(reward), title_ru: ru || 'Task', title_en: en || 'Task', is_active: true,
+      reward_arc: Number(reward), title_ru: ru || 'Task', title_en: en || 'Task', is_active: true, is_partner,
     });
-    bot.sendMessage(msg.chat.id, error ? `❌ ${error.message}` : `✅ Task created (+${reward} ARC)`).catch(()=>{});
+    bot.sendMessage(msg.chat.id, error ? `❌ ${error.message}` : `✅ Task created (+${reward} ARC)${is_partner ? ' [partner]' : ''}`).catch(()=>{});
   });
 
   bot.onText(/\/task_del (\d+)/, async (msg, m) => {
