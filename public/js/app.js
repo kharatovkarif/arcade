@@ -294,7 +294,8 @@ async function renderTasks() {
   const DAILY_TYPES = ['ad_milestone','pvp_milestone'];
   const sorted = (allTasks || []).slice().sort((a,b) => a.completed - b.completed || Number(a.target) - Number(b.target));
   const dailyTasks   = sorted.filter(tk => DAILY_TYPES.includes(tk.type));
-  const generalTasks = sorted.filter(tk => !DAILY_TYPES.includes(tk.type));
+  const partnerTasks = sorted.filter(tk => !DAILY_TYPES.includes(tk.type) && tk.is_partner);
+  const generalTasks = sorted.filter(tk => !DAILY_TYPES.includes(tk.type) && !tk.is_partner);
 
   function pbar(prog, need) {
     const pct = need > 0 ? Math.min(100, Math.round((prog||0)/need*100)) : 0;
@@ -382,6 +383,10 @@ async function renderTasks() {
     ${generalTasks.length ? `<div class="block">
       <div class="block-hdr">📋 ${t('general_tasks')}</div>
       ${generalTasks.map(renderGeneral).join('')}
+    </div>` : ''}
+    ${partnerTasks.length ? `<div class="block">
+      <div class="block-hdr">🤝 ${t('partner_tasks')}</div>
+      ${partnerTasks.map(renderGeneral).join('')}
     </div>` : ''}
 
     <div id="tasksAboutOverlay" class="pvp-about-overlay" onclick="if(event.target===this)closeTasksAbout()">

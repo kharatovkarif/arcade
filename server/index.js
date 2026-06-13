@@ -205,7 +205,7 @@ app.post('/api/tasks', auth, async (req, res) => {
   res.json((tasks || []).map(t => {
     const isDaily = t.limit_mode === 'daily';
     const completed = isDaily ? doneToday.has(t.id) : doneAll.has(t.id);
-    const base = { id: t.id, title_ru: t.title_ru, title_en: t.title_en, type: t.type, target: t.target, reward_arc: Number(t.reward_arc), completed };
+    const base = { id: t.id, title_ru: t.title_ru, title_en: t.title_en, type: t.type, target: t.target, reward_arc: Number(t.reward_arc), completed, is_partner: !!t.is_partner };
     if (t.type === 'referral_milestone') return { ...base, progress: refCount, need: Number(t.target || 0) };
     if (t.type === 'ad_milestone') return { ...base, progress: adCount, need: Number(t.target || 0) };
     if (t.type === 'pvp_milestone') return { ...base, progress: pvpCount, need: Number(t.target || 0) };
