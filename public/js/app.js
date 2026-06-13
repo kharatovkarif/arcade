@@ -351,6 +351,13 @@ async function renderTasks() {
   }
 
   el.innerHTML = `
+    <div class="pvp-top">
+      <div class="pvp-logo">
+        <span class="pvp-logo-icon">🎯</span>
+        <span class="pvp-logo-text">${t('tasks_title')}</span>
+      </div>
+      <button class="pvp-info-btn" onclick="openTasksAbout()"><span class="pvp-info-i">ⓘ</span> ${t('tasks_about_title')}</button>
+    </div>
     <div class="ci-card">
       <div class="ci-hdr">${t('daily_checkin')}</div>
       <div class="ci-stats">
@@ -375,10 +382,43 @@ async function renderTasks() {
     <div class="block">
       <div class="block-hdr">${t('general_tasks')}</div>
       ${generalTasks.length ? generalTasks.map(renderGeneral).join('') : `<p class="muted">${t('no_tasks')}</p>`}
+    </div>
+
+    <div id="tasksAboutOverlay" class="pvp-about-overlay" onclick="if(event.target===this)closeTasksAbout()">
+      <div class="pvp-about-sheet">
+        <div class="pvp-about-head">
+          <span class="pvp-about-title">${t('tasks_about_title')}</span>
+          <span class="pvp-about-x" onclick="closeTasksAbout()">✕</span>
+        </div>
+        <div class="pvp-about-how">
+          <div class="pvp-about-how-t">🎯 ${t('tasks_how_title')}</div>
+          <div class="pvp-about-how-d">${t('tasks_how_text')}</div>
+        </div>
+        <div class="pvp-about-rules">
+          ${[['✅',1],['🤝',2],['⚠️',3],['🚫',4]].map(([ic,n])=>`
+            <div class="pvp-about-rule">
+              <div class="pvp-about-rule-ic">${ic}</div>
+              <div class="pvp-about-rule-tx">
+                <div class="pvp-about-rule-t">${t('tasks_t'+n+'_t')}</div>
+                <div class="pvp-about-rule-d">${t('tasks_t'+n+'_d')}</div>
+              </div>
+            </div>`).join('')}
+        </div>
+        <button class="btn btn-blue" style="margin-top:6px" onclick="closeTasksAbout()">${t('tasks_about_ok')}</button>
+      </div>
     </div>`;
   document.getElementById('checkinBtn').onclick = doCheckin;
   document.getElementById('promoBtn').onclick = doPromo;
 }
+
+window.openTasksAbout = () => {
+  const ov = document.getElementById('tasksAboutOverlay');
+  if (ov) ov.classList.add('show');
+};
+window.closeTasksAbout = () => {
+  const ov = document.getElementById('tasksAboutOverlay');
+  if (ov) ov.classList.remove('show');
+};
 
 async function doCheckin() {
   const r = await api('/checkin/claim');
