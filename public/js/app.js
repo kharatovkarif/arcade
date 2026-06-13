@@ -456,9 +456,9 @@ function holdCaptcha() {
 
 window.watchAd = async (btn) => {
   if (!adsgramController) return;
-  const threshold = ME.is_pro ? 10 : 5;
   const count = ME.ad_daily_count || 0;
-  if (count > 0 && count % threshold === 0) {
+  const needCheck = count === 5 || (ME.is_pro && count === 10);
+  if (needCheck) {
     try { await holdCaptcha(); } catch { return; }
   }
   btn.disabled = true;
