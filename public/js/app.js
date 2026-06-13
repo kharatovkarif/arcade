@@ -43,6 +43,18 @@ function openModal(html) {
 function closeModal() { document.getElementById('modal').hidden = true; }
 document.getElementById('modalClose').onclick = closeModal;
 
+// The about-overlays are rendered inside a .page section, but .page has
+// will-change:transform which makes position:fixed anchor to the page (not the
+// viewport). Move the overlay out to <body> so it pins to the screen like #modal.
+function relocateOverlay(id) {
+  const node = document.getElementById(id);
+  if (!node) return;
+  document.querySelectorAll('#' + id).forEach(n => {
+    if (n !== node && n.parentElement === document.body) n.remove();
+  });
+  if (node.parentElement !== document.body) document.body.appendChild(node);
+}
+
 function renderHeader() {
   if (!ME) return;
   const name = ME.username ? '@' + ME.username : (ME.first_name || 'Player');
@@ -415,6 +427,7 @@ async function renderTasks() {
     </div>`;
   document.getElementById('checkinBtn').onclick = doCheckin;
   document.getElementById('promoBtn').onclick = doPromo;
+  relocateOverlay('tasksAboutOverlay');
 }
 
 function _lockBg(e) {
@@ -425,8 +438,6 @@ function _lockBg(e) {
 window.openTasksAbout = () => {
   const ov = document.getElementById('tasksAboutOverlay');
   if (!ov) return;
-  window.scrollTo(0, 0);
-  document.documentElement.scrollTop = 0;
   const sheet = ov.querySelector('.pvp-about-sheet');
   if (sheet) sheet.scrollTop = 0;
   ov.classList.add('show');
@@ -896,6 +907,7 @@ function renderPvP() {
     </div>`;
 
   document.getElementById('addBetBtn').onclick = doBet;
+  relocateOverlay('pvpAboutOverlay');
   if (pvpSubTab === 'roulette') loadPvP();
   else loadLottery();
   pvpTimer = setInterval(() => {
@@ -907,8 +919,6 @@ function renderPvP() {
 window.openPvpAbout = () => {
   const ov = document.getElementById('pvpAboutOverlay');
   if (!ov) return;
-  window.scrollTo(0, 0);
-  document.documentElement.scrollTop = 0;
   const sheet = ov.querySelector('.pvp-about-sheet');
   if (sheet) sheet.scrollTop = 0;
   ov.classList.add('show');
