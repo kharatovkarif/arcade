@@ -234,6 +234,27 @@ function renderMain() {
       ${monetagReady && (ME.ad5_daily_count||0) < (ME.is_pro?10:5)
         ? `<button onclick="watchAd5(this)" style="width:44px;height:44px;border-radius:50%;background:var(--blue);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`
         : `<button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`}
+    </div>
+    <div class="row">
+      <div class="info">
+        <span class="title">${t('ad_reward')} 6</span>
+        <span class="sub" style="color:var(--gold)">${t('soon')}</span>
+      </div>
+      <button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>
+    </div>
+    <div class="row">
+      <div class="info">
+        <span class="title">${t('ad_reward')} 7</span>
+        <span class="sub" style="color:var(--gold)">${t('soon')}</span>
+      </div>
+      <button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>
+    </div>
+    <div class="row">
+      <div class="info">
+        <span class="title">${t('ad_reward')} 8</span>
+        <span class="sub" style="color:var(--gold)">${t('soon')}</span>
+      </div>
+      <button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>
     </div>`;
 
   document.getElementById('page-main').innerHTML = `
