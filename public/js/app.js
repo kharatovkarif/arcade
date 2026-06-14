@@ -533,7 +533,7 @@ function holdCaptcha() {
 window.watchAd = async (btn) => {
   if (!adsgramController) return;
   const count = ME.ad_daily_count || 0;
-  const needCheck = count === 5 || (ME.is_pro && count === 10);
+  const needCheck = count > 0 && count % 4 === 3;
   if (needCheck) {
     try { await holdCaptcha(); } catch { return; }
   }
@@ -560,6 +560,10 @@ window.watchAd = async (btn) => {
 
 window.watchAdShort = async (btn) => {
   if (!adsgramControllerShort) return;
+  const count2 = ME.ad_short_daily_count || 0;
+  if (count2 > 0 && count2 % 4 === 3) {
+    try { await holdCaptcha(); } catch { return; }
+  }
   btn.disabled = true;
   try {
     await adsgramControllerShort.show();
@@ -582,6 +586,10 @@ window.watchAdShort = async (btn) => {
 
 window.watchAd4 = async (btn) => {
   if (!onclickaShow4) return;
+  const count4 = ME.ad4_daily_count || 0;
+  if (count4 > 0 && count4 % 4 === 3) {
+    try { await holdCaptcha(); } catch { return; }
+  }
   btn.disabled = true;
   try {
     await onclickaShow4();
@@ -606,6 +614,10 @@ window.watchAd5 = async (btn) => {
   const zoneId = ME.monetag_zone_id;
   const fn = window['show_' + zoneId];
   if (!fn) return;
+  const count5 = ME.ad5_daily_count || 0;
+  if (count5 > 0 && count5 % 4 === 3) {
+    try { await holdCaptcha(); } catch { return; }
+  }
   btn.disabled = true;
   try {
     await fn();
