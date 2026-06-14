@@ -272,7 +272,8 @@ export function startBot() {
       ).catch(()=>{});
     }
     const fallback = texts.en || texts.ru;
-    const { data: users } = await supabase.from('users').select('tg_id, language').eq('bot_blocked', false);
+    const { data: users } = await supabase.from('users').select('tg_id, language')
+      .eq('bot_blocked', false).eq('is_banned', false);
     if (!users?.length) return bot.sendMessage(msg.chat.id, '❌ No users').catch(()=>{});
     let ok = 0, fail = 0;
     for (const u of users) {
