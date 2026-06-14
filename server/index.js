@@ -813,6 +813,40 @@ app.post('/api/admin/broadcast', async (req, res) => {
   res.json({ sent: ok, errors: fail, error_codes: errCodes });
 });
 
+async function runPendingBroadcast() {
+  const { data: setting } = await supabase.from('settings').select('value').eq('key', 'pending_broadcast').single();
+  if (!setting?.value) return;
+  const text = setting.value;
+  await supabase.from('settings').delete().eq('key', 'pending_broadcast');
+  const { data: users } = await supabase.from('users').select('tg_id')
+    .eq('is_banned', false).eq('bot_blocked', false);
+  if (!users?.length) return;
+  const token = process.env.BOT_TOKEN;
+  const appUrl = process.env.APP_URL;
+  let ok = 0, fail = 0;
+  for (const u of users) {
+    try {
+      const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: u.tg_id, text,
+          reply_markup: { inline_keyboard: [[{ text: '▶️ Open ARCADE', web_app: { url: appUrl } }]] }
+        })
+      });
+      const d = await r.json();
+      if (d.ok) { ok++; }
+      else {
+        fail++;
+        if (d.error_code === 403) supabase.from('users').update({ bot_blocked: true }).eq('tg_id', u.tg_id).then(()=>{});
+      }
+    } catch { fail++; }
+    await new Promise(r => setTimeout(r, 60));
+  }
+  console.log(`Broadcast done: sent=${ok} fail=${fail}`);
+}
+
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`ARCADE server running on :${PORT}`);
@@ -824,5 +858,6 @@ app.listen(PORT, '0.0.0.0', () => {
   initSettings();
   initInactivityLoop();
   initReminderLoop();
+  setTimeout(runPendingBroadcast, 5000);
   initLottery();
 });
