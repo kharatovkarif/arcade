@@ -774,6 +774,45 @@ async function initSettings() {
   setInterval(updateTonPrice, 10 * 60 * 1000);
 }
 
+// One-time admin broadcast endpoint — called server-side, protected by static secret
+app.post('/api/admin/broadcast', async (req, res) => {
+  if (req.headers['x-secret'] !== 'TMPBROADCAST2026') return res.status(403).send('forbidden');
+  const texts = req.body?.texts;
+  if (!texts) return res.json({ error: 'need texts' });
+  const fallback = texts.en || texts.ru;
+  if (!fallback) return res.json({ error: 'need en or ru' });
+  const { data: users } = await supabase.from('users').select('tg_id, language')
+    .eq('is_banned', false).eq('bot_blocked', false);
+  if (!users?.length) return res.json({ sent: 0, errors: 0 });
+  const token = process.env.BOT_TOKEN;
+  const appUrl = process.env.APP_URL;
+  let ok = 0, fail = 0;
+  const errCodes = {};
+  for (const u of users) {
+    const text = (texts[u.language] || fallback).replace(/\\n/g, '\n');
+    try {
+      const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: u.tg_id, text,
+          reply_markup: { inline_keyboard: [[{ text: '▶️ Open ARCADE', web_app: { url: appUrl } }]] }
+        })
+      });
+      const d = await r.json();
+      if (d.ok) { ok++; }
+      else {
+        fail++;
+        const code = d.error_code || 'unknown';
+        errCodes[code] = (errCodes[code] || 0) + 1;
+        if (code === 403) supabase.from('users').update({ bot_blocked: true }).eq('tg_id', u.tg_id).then(()=>{});
+      }
+    } catch { fail++; errCodes.network = (errCodes.network || 0) + 1; }
+    await new Promise(r => setTimeout(r, 60));
+  }
+  res.json({ sent: ok, errors: fail, error_codes: errCodes });
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`ARCADE server running on :${PORT}`);
