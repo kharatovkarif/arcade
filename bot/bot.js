@@ -284,7 +284,12 @@ export function startBot() {
           reply_markup: { inline_keyboard: [[{ text: '▶️ Open ARCADE', web_app: { url: APP_URL } }]] },
         });
         ok++;
-      } catch { fail++; }
+      } catch (e) {
+        fail++;
+        if (e?.response?.statusCode === 403) {
+          supabase.from('users').update({ bot_blocked: true }).eq('tg_id', u.tg_id).then(()=>{});
+        }
+      }
       await new Promise(r => setTimeout(r, 50));
     }
     bot.sendMessage(msg.chat.id, `✅ Отправлено: ${ok}\n❌ Ошибок: ${fail}`).catch(()=>{});
