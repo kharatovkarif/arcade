@@ -276,23 +276,26 @@ export function startBot() {
       .eq('bot_blocked', false).eq('is_banned', false);
     if (!users?.length) return bot.sendMessage(msg.chat.id, '❌ No users').catch(()=>{});
     let ok = 0, fail = 0;
+    const errCodes = {};
     for (const u of users) {
-      const text = texts[u.language] || fallback;
+      const text = (texts[u.language] || fallback).replace(/\*/g, '');
       try {
         await bot.sendMessage(u.tg_id, text, {
-          parse_mode: 'Markdown',
           reply_markup: { inline_keyboard: [[{ text: '▶️ Open ARCADE', web_app: { url: APP_URL } }]] },
         });
         ok++;
       } catch (e) {
         fail++;
-        if (e?.response?.statusCode === 403) {
+        const code = e?.response?.statusCode || e?.code || 'unknown';
+        errCodes[code] = (errCodes[code] || 0) + 1;
+        if (code === 403) {
           supabase.from('users').update({ bot_blocked: true }).eq('tg_id', u.tg_id).then(()=>{});
         }
       }
       await new Promise(r => setTimeout(r, 50));
     }
-    bot.sendMessage(msg.chat.id, `✅ Отправлено: ${ok}\n❌ Ошибок: ${fail}`).catch(()=>{});
+    const errSummary = Object.entries(errCodes).map(([k,v]) => `${k}:${v}`).join(', ');
+    bot.sendMessage(msg.chat.id, `✅ Отправлено: ${ok}\n❌ Ошибок: ${fail}${errSummary ? '\n🔍 Коды: '+errSummary : ''}`).catch(()=>{});
   });
 
   bot.onText(/\/lbroadcast$/, (msg) => {
