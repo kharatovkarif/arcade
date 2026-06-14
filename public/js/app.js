@@ -8,6 +8,7 @@ let tonConnectUI = null;
 let adsgramController = null;
 let adsgramControllerShort = null;
 let onclickaShow4 = null;
+let monetagReady = false;
 
 async function api(path, body = {}) {
   const res = await fetch('/api' + path, {
@@ -226,8 +227,13 @@ function renderMain() {
       ${ad4Btn}
     </div>
     <div class="row">
-      <div class="info"><span class="title">${t('ad_reward')} 5</span><span class="sub">${t('soon')}</span></div>
-      <button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>
+      <div class="info">
+        <span class="title">${t('ad_reward')} 5 ${monetagReady ? `&nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + ${t('checkin_short')}</span>` : ''}</span>
+        <span class="sub">${monetagReady ? (ME.ad5_daily_count||0)+'/'+(ME.is_pro?10:5)+' '+t('today') : t('soon')}</span>
+      </div>
+      ${monetagReady && (ME.ad5_daily_count||0) < (ME.is_pro?10:5)
+        ? `<button onclick="watchAd5(this)" style="width:44px;height:44px;border-radius:50%;background:var(--blue);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`
+        : `<button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`}
     </div>`;
 
   document.getElementById('page-main').innerHTML = `
@@ -588,6 +594,30 @@ window.watchAd4 = async (btn) => {
       toast(`+${r.reward} ARC · ${r.daily_count}/${ME.is_pro ? 15 : 10}`);
     } else if (r.error === 'daily_limit') {
       ME.ad4_daily_count = r.daily_count;
+      renderMain();
+      toast(t('ad_daily_limit_short'));
+    } else {
+      btn.disabled = false;
+    }
+  } catch { btn.disabled = false; }
+};
+
+window.watchAd5 = async (btn) => {
+  const zoneId = ME.monetag_zone_id;
+  const fn = window['show_' + zoneId];
+  if (!fn) return;
+  btn.disabled = true;
+  try {
+    await fn();
+    const r = await api('/ads/watch5');
+    if (r.ok) {
+      ME.ad5_daily_count = r.daily_count;
+      ME.balance_arc = r.balance_arc;
+      renderHeader();
+      renderMain();
+      toast(`+${r.reward} ARC · ${r.daily_count}/${ME.is_pro ? 10 : 5}`);
+    } else if (r.error === 'daily_limit') {
+      ME.ad5_daily_count = r.daily_count;
       renderMain();
       toast(t('ad_daily_limit_short'));
     } else {
@@ -1814,6 +1844,19 @@ async function init() {
         .then(show => { onclickaShow4 = show; renderMain(); })
         .catch(() => {});
     } catch {}
+  }
+  if (ME.monetag_zone_id) {
+    const fn = window['show_' + ME.monetag_zone_id];
+    if (typeof fn === 'function') {
+      monetagReady = true; renderMain();
+    } else {
+      const poll = setInterval(() => {
+        if (typeof window['show_' + ME.monetag_zone_id] === 'function') {
+          clearInterval(poll); monetagReady = true; renderMain();
+        }
+      }, 500);
+      setTimeout(() => clearInterval(poll), 12000);
+    }
   }
   const urlParams = new URLSearchParams(location.search);
   if (urlParams.get('pro')) {
