@@ -67,6 +67,9 @@ export async function runInactivityCheck() {
           `Осталось: ${bal - penalty} ARC\n\n` +
           `Заходите каждый день чтобы не терять монеты 👇`
         );
+        await supabase.from('users')
+          .update({ last_penalty_at: now.toISOString() })
+          .eq('tg_id', user.tg_id);
       }
     } else {
       // day 8+: -5% each day
@@ -79,12 +82,11 @@ export async function runInactivityCheck() {
           `Осталось: ${bal - penalty} ARC\n\n` +
           `Зайдите чтобы остановить ежедневное списание 👇`
         );
+        await supabase.from('users')
+          .update({ last_penalty_at: now.toISOString() })
+          .eq('tg_id', user.tg_id);
       }
     }
-
-    await supabase.from('users')
-      .update({ last_penalty_at: now.toISOString() })
-      .eq('tg_id', user.tg_id);
   }
 }
 
