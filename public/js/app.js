@@ -1862,6 +1862,15 @@ async function init() {
   };
   LANG = ME.language || langMap[tgLang] || 'en';
   renderHeader(); applyLang(); switchTab('main');
+  // Deep-link visitors never pressed Start, so the bot can't message them.
+  // Ask for write access via Telegram's native popup; on grant, unblock + greet.
+  if (ME.bot_blocked && tg?.requestWriteAccess) {
+    try {
+      tg.requestWriteAccess((granted) => {
+        if (granted) api('/write-access').catch(() => {});
+      });
+    } catch {}
+  }
   initTonConnect();
   setInterval(refreshBalance, 10000);
   // Heartbeat: keep online counter accurate on all tabs
