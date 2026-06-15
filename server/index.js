@@ -9,7 +9,7 @@ import {
   checkinMultiplier, changeArc, changeTon,
   isPro, adMultiplier, payReferrals,
 } from './helpers.js';
-import { startBot, botCheckMember, notifyAdminWithdraw, getUserPhotoBuffer, notifyLotteryResult, notifyPvpRound } from '../bot/bot.js';
+import { startBot, botCheckMember, notifyAdminWithdraw, getUserPhotoBuffer, notifyLotteryResult, notifyPvpRound, sendWelcome } from '../bot/bot.js';
 import { initGameLoop, getGameState, placeBet, setPvpNotifier } from './game.js';
 import { initDeposits } from './deposits.js';
 import { initInactivityLoop } from './inactivity.js';
@@ -105,6 +105,7 @@ app.post('/api/me', auth, async (req, res) => {
     balance_ton: Number(u.balance_ton), wallet: u.wallet,
     is_admin: u.is_admin, checkin_day: u.checkin_day,
     is_pro: pro, pro_until: u.pro_until,
+    bot_blocked: !!u.bot_blocked,
     adsgram_block_id: process.env.ADSGRAM_BLOCK_ID || '',
     adsgram_block_id_short: process.env.ADSGRAM_BLOCK_ID_SHORT || '',
     adsgram_block_id_task: process.env.ADSGRAM_BLOCK_ID_TASK || 'task-34678',
@@ -123,6 +124,15 @@ app.post('/api/language', auth, async (req, res) => {
   const lang = allowed.includes(req.body.language) ? req.body.language : 'en';
   await supabase.from('users').update({ language: lang }).eq('tg_id', req.user.tg_id);
   res.json({ ok: true, language: lang });
+});
+
+// Called from the Mini App after Telegram's requestWriteAccess() popup is granted.
+// The user opened the app via deep-link without pressing Start, so the bot couldn't
+// reach them. Now that write access is granted, clear bot_blocked and greet them.
+app.post('/api/write-access', auth, async (req, res) => {
+  await supabase.from('users').update({ bot_blocked: false }).eq('tg_id', req.user.tg_id);
+  sendWelcome(req.user.tg_id);
+  res.json({ ok: true });
 });
 
 app.post('/api/checkin/status', auth, async (req, res) => {
