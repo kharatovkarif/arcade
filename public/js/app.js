@@ -282,6 +282,16 @@ function renderMain() {
       </div>
       <span style="color:#ffd60a;font-size:18px">›</span>
     </div>
+    <div onclick="openGameHub()" style="cursor:pointer;margin-bottom:12px;padding:13px 16px;border-radius:14px;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:40px;height:40px;border-radius:11px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:20px">🎮</div>
+        <div>
+          <div style="font-size:14px;font-weight:900;color:#fff">${t('game_hub')}</div>
+          <div style="font-size:12px;color:var(--muted2);margin-top:2px">${t('game_hub_sub')}</div>
+        </div>
+      </div>
+      <span style="color:var(--gold);font-size:18px">›</span>
+    </div>
     <div class="block">
       <div class="block-hdr">${t('about_title')}</div>
       <p class="muted">${t('about_text')}</p>
@@ -849,26 +859,10 @@ function renderProfile() {
   document.getElementById('histBtn').onclick = openTxHistory;
 }
 
-window.setPvpSub = function(tab) {
-  pvpSubTab = tab;
-  const rs = document.getElementById('pvpRouletteSection');
-  const ls = document.getElementById('pvpLotterySection');
-  if (rs) rs.hidden = (tab !== 'roulette');
-  if (ls) ls.hidden = (tab !== 'lottery');
-  document.querySelectorAll('.pvp-subtab-btn').forEach(b => b.classList.toggle('active', b.dataset.sub === tab));
-  if (tab === 'lottery') loadLottery();
-  else loadPvP();
-};
-
 function renderPvP() {
   const el = document.getElementById('page-pvp');
   el.innerHTML = `
-    <div style="display:flex;gap:6px;margin-bottom:14px">
-      <button class="pvp-subtab-btn${pvpSubTab==='roulette'?' active':''}" data-sub="roulette" onclick="setPvpSub('roulette')">⚔️ ${t('roulette_tab')}</button>
-      <button class="pvp-subtab-btn${pvpSubTab==='lottery'?' active':''}" data-sub="lottery" onclick="setPvpSub('lottery')">🎟 ${t('lottery_tab')}</button>
-    </div>
-
-    <div id="pvpRouletteSection" ${pvpSubTab!=='roulette'?'hidden':''}>
+    <div>
       <div class="pvp-top">
         <div class="pvp-logo">
           <span class="pvp-logo-icon">⚔️</span>
@@ -920,31 +914,6 @@ function renderPvP() {
       </div>
     </div>
 
-    <div id="pvpLotterySection" ${pvpSubTab!=='lottery'?'hidden':''}>
-      <div class="pvp-top">
-        <div class="pvp-logo">
-          <span class="pvp-logo-icon">🎟</span>
-          <span class="pvp-logo-text">${t('lottery_tab')}</span>
-          <span class="pvp-round" id="lotteryRoundLabel">${t('lottery_round_prefix')} #—</span>
-        </div>
-      </div>
-      <div style="text-align:center;padding:6px 0 12px;font-size:13px;color:var(--muted2)">
-        ${t('lottery_prize_7d')} &nbsp;·&nbsp; ${t('lottery_ticket_arc')}
-      </div>
-      <div id="lotterySlots" style="display:flex;gap:6px;margin-bottom:10px;justify-content:center"></div>
-      <div id="lotteryStatusLine" style="text-align:center;font-size:13px;color:var(--muted2);margin-bottom:14px;min-height:20px"></div>
-      <div id="lotteryBuyArea"></div>
-      <div id="lotteryLastWinner" style="display:none;margin-bottom:12px;padding:12px 14px;border-radius:14px;background:linear-gradient(135deg,#3a2d00,#1a1a1a);border:1px solid #ffd60a55;text-align:center"></div>
-      <div class="hash" id="lotteryHash" style="margin-top:0"></div>
-      <button class="btn btn-dark" style="margin-top:12px;width:100%" onclick="openLotteryHistory()">📋 ${t('lottery_history_btn')}</button>
-      <div id="lotteryWinnerOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:1000;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:32px">
-        <div style="font-size:56px">🎟</div>
-        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px">${t('pvp_winner_title')} ${t('lottery_tab').toUpperCase()}</div>
-        <div id="lwUsername" style="font-size:28px;font-weight:900;color:#ffd60a"></div>
-        <div style="font-size:15px;color:#fff;margin-top:4px">👑 PRO на 7 дней!</div>
-      </div>
-    </div>
-
     <div id="pvpAboutOverlay" class="pvp-about-overlay" onclick="if(event.target===this)closePvpAbout()">
       <div class="pvp-about-sheet">
         <div class="pvp-about-head">
@@ -971,12 +940,8 @@ function renderPvP() {
 
   document.getElementById('addBetBtn').onclick = doBet;
   relocateOverlay('pvpAboutOverlay');
-  if (pvpSubTab === 'roulette') loadPvP();
-  else loadLottery();
-  pvpTimer = setInterval(() => {
-    if (pvpSubTab === 'roulette') loadPvP();
-    else loadLottery();
-  }, 1500);
+  loadPvP();
+  pvpTimer = setInterval(loadPvP, 1500);
 }
 
 window.openPvpAbout = () => {
@@ -1174,7 +1139,8 @@ let spinTriggered = false;
 let winnerShown = false;
 let prevPvpStatus = null;
 
-let pvpSubTab = 'roulette';
+let hubGame = null;
+let hubTimer = null;
 let lotteryAnimTriggered = false;
 let prevLotteryRoundNo = null;
 let prevLotteryStatus = null;
@@ -1257,6 +1223,95 @@ function spinWheel(players, roll) {
   if (ava) {
     ava.style.transition = 'transform 4s cubic-bezier(.17,.67,.2,1)';
     ava.style.transform = `rotate(${finalAngle}deg)`;
+  }
+}
+
+window.openGameHub = (game = null) => {
+  hubGame = game;
+  if (!document.getElementById('gameHubOverlay')) {
+    const ov = document.createElement('div');
+    ov.id = 'gameHubOverlay';
+    ov.className = 'hub-overlay';
+    document.body.appendChild(ov);
+  }
+  renderGameHub();
+};
+window.openHubGame = (game) => { hubGame = game; renderGameHub(); };
+window.backToHub = () => { hubGame = null; renderGameHub(); };
+window.closeGameHub = () => {
+  if (hubTimer) { clearInterval(hubTimer); hubTimer = null; }
+  hubGame = null;
+  const ov = document.getElementById('gameHubOverlay');
+  if (ov) ov.remove();
+};
+
+function renderGameHub() {
+  const ov = document.getElementById('gameHubOverlay');
+  if (!ov) return;
+  if (hubTimer) { clearInterval(hubTimer); hubTimer = null; }
+
+  if (!hubGame) {
+    ov.innerHTML = `
+      <div class="hub-header">
+        <button class="hub-close" onclick="closeGameHub()">✕</button>
+        <span class="hub-title">🎮 ${t('game_hub')}</span>
+      </div>
+      <div class="hub-body">
+        <div class="hub-grid">
+          <div class="hub-card" onclick="openHubGame('lottery')">
+            <div class="hub-card-icon">🎟️</div>
+            <div class="hub-card-title">${t('lottery_tab')}</div>
+            <div class="hub-card-sub">${t('lottery_prize_7d')}</div>
+          </div>
+          <div class="hub-card hub-card-soon">
+            <span class="hub-card-badge">${t('soon')}</span>
+            <div class="hub-card-icon">🎲</div>
+            <div class="hub-card-title">???</div>
+            <div class="hub-card-sub">${t('soon')}</div>
+          </div>
+          <div class="hub-card hub-card-soon">
+            <span class="hub-card-badge">${t('soon')}</span>
+            <div class="hub-card-icon">🎯</div>
+            <div class="hub-card-title">???</div>
+            <div class="hub-card-sub">${t('soon')}</div>
+          </div>
+          <div class="hub-card hub-card-soon">
+            <span class="hub-card-badge">${t('soon')}</span>
+            <div class="hub-card-icon">🃏</div>
+            <div class="hub-card-title">???</div>
+            <div class="hub-card-sub">${t('soon')}</div>
+          </div>
+        </div>
+      </div>`;
+    return;
+  }
+
+  if (hubGame === 'lottery') {
+    ov.innerHTML = `
+      <div class="hub-header">
+        <button class="hub-close" onclick="backToHub()">←</button>
+        <span class="hub-title">🎟 ${t('lottery_tab')}</span>
+        <span class="pvp-round" id="lotteryRoundLabel" style="margin-left:auto">${t('lottery_round_prefix')} #—</span>
+      </div>
+      <div class="hub-body">
+        <div style="text-align:center;padding:0 0 12px;font-size:13px;color:var(--muted2)">
+          ${t('lottery_prize_7d')} &nbsp;·&nbsp; ${t('lottery_ticket_arc')}
+        </div>
+        <div id="lotterySlots" style="display:flex;gap:6px;margin-bottom:10px;justify-content:center"></div>
+        <div id="lotteryStatusLine" style="text-align:center;font-size:13px;color:var(--muted2);margin-bottom:14px;min-height:20px"></div>
+        <div id="lotteryBuyArea"></div>
+        <div id="lotteryLastWinner" style="display:none;margin-bottom:12px;padding:12px 14px;border-radius:14px;background:linear-gradient(135deg,#3a2d00,#1a1a1a);border:1px solid #ffd60a55;text-align:center"></div>
+        <div class="hash" id="lotteryHash" style="margin-top:0"></div>
+        <button class="btn btn-dark" style="margin-top:12px;width:100%" onclick="openLotteryHistory()">📋 ${t('lottery_history_btn')}</button>
+      </div>
+      <div id="lotteryWinnerOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:1000;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:32px">
+        <div style="font-size:56px">🎟</div>
+        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px">${t('pvp_winner_title')} ${t('lottery_tab').toUpperCase()}</div>
+        <div id="lwUsername" style="font-size:28px;font-weight:900;color:#ffd60a"></div>
+        <div style="font-size:15px;color:#fff;margin-top:4px">👑 PRO на 7 дней!</div>
+      </div>`;
+    loadLottery();
+    hubTimer = setInterval(loadLottery, 1500);
   }
 }
 
@@ -1905,8 +1960,7 @@ async function init() {
     setTimeout(() => openProModal(), 400);
   }
   if (urlParams.get('tab') === 'lottery') {
-    pvpSubTab = 'lottery';
-    setTimeout(() => switchTab('pvp'), 300);
+    setTimeout(() => openGameHub('lottery'), 300);
   }
 }
 init();
