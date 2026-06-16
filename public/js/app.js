@@ -283,27 +283,6 @@ function renderMain() {
       <span style="color:#ffd60a;font-size:18px">›</span>
     </div>
     <div class="block">
-      <div class="block-hdr">🎁 ${t('daily_chest')}</div>
-      <div class="row">
-        <div class="info">
-          <span class="title">${t('chest_free_title')}</span>
-          <span class="sub">${ME.chest_free_claimed ? t('done_label') : t('chest_free_sub')}</span>
-        </div>
-        ${ME.chest_free_claimed
-          ? `<button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--green);font-size:18px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">✓</button>`
-          : `<button onclick="claimChest(this)" style="width:44px;height:44px;border-radius:50%;background:var(--blue);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">🎁</button>`}
-      </div>
-      <div class="row">
-        <div class="info">
-          <span class="title">${t('chest_bonus_title')}</span>
-          <span class="sub">${ME.chest_bonus_claimed ? t('done_label') : (monetagReady ? t('chest_bonus_sub') : t('soon'))}</span>
-        </div>
-        ${(!ME.chest_bonus_claimed && monetagReady)
-          ? `<button onclick="claimChestBonus(this)" style="width:44px;height:44px;border-radius:50%;background:var(--blue);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">💎</button>`
-          : `<button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:${ME.chest_bonus_claimed ? 'var(--green)' : 'var(--muted)'};font-size:18px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">${ME.chest_bonus_claimed ? '✓' : '💎'}</button>`}
-      </div>
-    </div>
-    <div class="block">
       <div class="block-hdr">${t('about_title')}</div>
       <p class="muted">${t('about_text')}</p>
     </div>
@@ -674,46 +653,6 @@ window.watchAd5 = async (btn) => {
       ME.ad5_daily_count = r.daily_count;
       renderMain();
       toast(t('ad_daily_limit_short'));
-    } else {
-      btn.disabled = false;
-    }
-  } catch { btn.disabled = false; }
-};
-
-window.claimChest = async (btn) => {
-  btn.disabled = true;
-  try {
-    const r = await api('/chest/claim');
-    if (r.ok) {
-      ME.chest_free_claimed = true;
-      ME.balance_arc = r.balance_arc;
-      renderHeader();
-      renderMain();
-      toast(`🎁 +${r.reward} ARC`);
-    } else {
-      ME.chest_free_claimed = true;
-      renderMain();
-    }
-  } catch { btn.disabled = false; }
-};
-
-window.claimChestBonus = async (btn) => {
-  const zoneId = ME.monetag_zone_id;
-  const fn = window['show_' + zoneId];
-  if (!fn) return;
-  btn.disabled = true;
-  try {
-    await fn();
-    const r = await api('/chest/claim-bonus');
-    if (r.ok) {
-      ME.chest_bonus_claimed = true;
-      ME.balance_arc = r.balance_arc;
-      renderHeader();
-      renderMain();
-      toast(`💎 +${r.reward} ARC`);
-    } else if (r.error === 'already_claimed') {
-      ME.chest_bonus_claimed = true;
-      renderMain();
     } else {
       btn.disabled = false;
     }

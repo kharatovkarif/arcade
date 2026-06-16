@@ -132,9 +132,6 @@ window.I18N = {
     pro_b3: '+25% к рекламному доходу',
     pro_b4: 'Чек-ин ×1.5 автоматически',
     pro_b5: 'Доп. 5 просмотров рекламы в день',
-    daily_chest: 'Ежедневный сундук',
-    chest_free_title: '🎁 Бесплатный сундук', chest_free_sub: 'Открой раз в день',
-    chest_bonus_title: '💎 Бонус-сундук', chest_bonus_sub: 'Смотри рекламу — больше ARC',
   },
   en: {
     tab_pvp: 'PvP', tab_tasks: 'Tasks', tab_main: 'Main',
@@ -269,9 +266,6 @@ window.I18N = {
     pro_b3: '+25% ad reward bonus',
     pro_b4: 'Check-in ×1.5 automatically',
     pro_b5: '5 extra ad views per day',
-    daily_chest: 'Daily Chest',
-    chest_free_title: '🎁 Free Chest', chest_free_sub: 'Open once a day',
-    chest_bonus_title: '💎 Bonus Chest', chest_bonus_sub: 'Watch an ad for more ARC',
   },
   hi: {
     tab_pvp: 'PvP', tab_tasks: 'कार्य', tab_main: 'मुख्य',
@@ -406,9 +400,6 @@ window.I18N = {
     pro_b3: '+25% विज्ञापन बोनस',
     pro_b4: 'चेक-इन ×1.5 स्वतः',
     pro_b5: 'प्रति दिन 5 अतिरिक्त विज्ञापन',
-    daily_chest: 'दैनिक खजाना',
-    chest_free_title: '🎁 मुफ्त खजाना', chest_free_sub: 'दिन में एक बार खोलें',
-    chest_bonus_title: '💎 बोनस खजाना', chest_bonus_sub: 'अधिक ARC के लिए विज्ञापन देखें',
   },
   pt: {
     tab_pvp: 'PvP', tab_tasks: 'Tarefas', tab_main: 'Principal',
@@ -543,9 +534,6 @@ window.I18N = {
     pro_b3: '+25% bônus de anúncio',
     pro_b4: 'Check-in ×1.5 automaticamente',
     pro_b5: '5 visualizações extras por dia',
-    daily_chest: 'Baú Diário',
-    chest_free_title: '🎁 Baú Grátis', chest_free_sub: 'Abra uma vez por dia',
-    chest_bonus_title: '💎 Baú Bônus', chest_bonus_sub: 'Veja um anúncio por mais ARC',
   },
   id: {
     tab_pvp: 'PvP', tab_tasks: 'Tugas', tab_main: 'Utama',
@@ -680,9 +668,6 @@ window.I18N = {
     pro_b3: '+25% bonus iklan',
     pro_b4: 'Check-in ×1.5 otomatis',
     pro_b5: '5 tampilan iklan ekstra/hari',
-    daily_chest: 'Peti Harian',
-    chest_free_title: '🎁 Peti Gratis', chest_free_sub: 'Buka sekali sehari',
-    chest_bonus_title: '💎 Peti Bonus', chest_bonus_sub: 'Tonton iklan untuk ARC lebih banyak',
   },
   bn: {
     tab_pvp: 'PvP', tab_tasks: 'কাজ', tab_main: 'মূল',
@@ -817,9 +802,6 @@ window.I18N = {
     pro_b3: '+25% বিজ্ঞাপন বোনাস',
     pro_b4: 'চেক-ইন ×1.5 স্বয়ংক্রিয়',
     pro_b5: 'দিনে 5টি অতিরিক্ত বিজ্ঞাপন',
-    daily_chest: 'দৈনিক বাক্স',
-    chest_free_title: '🎁 ফ্রি বাক্স', chest_free_sub: 'দিনে একবার খুলুন',
-    chest_bonus_title: '💎 বোনাস বাক্স', chest_bonus_sub: 'আরও ARC এর জন্য বিজ্ঞাপন দেখুন',
   },
   vi: {
     tab_pvp: 'PvP', tab_tasks: 'Nhiệm vụ', tab_main: 'Trang chủ',
@@ -954,8 +936,5 @@ window.I18N = {
     pro_b3: '+25% thưởng quảng cáo',
     pro_b4: 'Check-in ×1.5 tự động',
     pro_b5: '5 lượt xem quảng cáo thêm mỗi ngày',
-    daily_chest: 'Rương Hàng Ngày',
-    chest_free_title: '🎁 Rương Miễn Phí', chest_free_sub: 'Mở một lần mỗi ngày',
-    chest_bonus_title: '💎 Rương Thưởng', chest_bonus_sub: 'Xem quảng cáo để nhận thêm ARC',
   },
 };
