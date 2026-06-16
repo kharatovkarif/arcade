@@ -75,7 +75,7 @@ app.get('/api/avatar/:tgId', async (req, res) => {
 
 app.post('/api/me', auth, async (req, res) => {
   const todayStart = mskDate() + 'T00:00:00+03:00';
-  const [{ data: u }, { count: adCount }, { count: adShortCount }, { count: adTaskCount }, { count: ad4Count }, { count: ad5Count }] = await Promise.all([
+  const [{ data: u }, { count: adCount }, { count: adShortCount }, { count: adTaskCount }, { count: ad4Count }, { count: ad5Count }, { count: chestFreeCount }, { count: chestBonusCount }] = await Promise.all([
     supabase.from('users').select('*').eq('tg_id', req.user.tg_id).single(),
     supabase.from('transactions').select('*', { count: 'exact', head: true })
       .eq('tg_id', req.user.tg_id).eq('type', 'ad').gte('created_at', todayStart),
@@ -87,6 +87,10 @@ app.post('/api/me', auth, async (req, res) => {
       .eq('tg_id', req.user.tg_id).eq('type', 'ad4').gte('created_at', todayStart),
     supabase.from('transactions').select('*', { count: 'exact', head: true })
       .eq('tg_id', req.user.tg_id).eq('type', 'ad5').gte('created_at', todayStart),
+    supabase.from('transactions').select('*', { count: 'exact', head: true })
+      .eq('tg_id', req.user.tg_id).eq('type', 'chest_free').gte('created_at', todayStart),
+    supabase.from('transactions').select('*', { count: 'exact', head: true })
+      .eq('tg_id', req.user.tg_id).eq('type', 'chest_bonus').gte('created_at', todayStart),
   ]);
   const pro = isPro(u);
   // While PRO is active the checkin streak is maintained automatically at max,
@@ -116,6 +120,8 @@ app.post('/api/me', auth, async (req, res) => {
     ad_task_daily_count: adTaskCount || 0,
     ad4_daily_count: ad4Count || 0,
     ad5_daily_count: ad5Count || 0,
+    chest_free_claimed: (chestFreeCount || 0) > 0,
+    chest_bonus_claimed: (chestBonusCount || 0) > 0,
   });
 });
 
@@ -340,6 +346,37 @@ app.post('/api/ads/watch5', auth, async (req, res) => {
   await payReferrals(req.user.tg_id, reward, req.user.referrer_id);
 
   res.json({ ok: true, daily_count: current + 1, reward, balance_arc: newBal });
+});
+
+function chestReward(min, max, user) {
+  return Math.round((min + Math.random() * (max - min)) * adMultiplier(user));
+}
+
+// Daily Chest — one free claim per day, plus a bigger ad-gated bonus claim per day
+app.post('/api/chest/claim', auth, async (req, res) => {
+  const todayStart = mskDate() + 'T00:00:00+03:00';
+  const { count } = await supabase.from('transactions').select('*', { count: 'exact', head: true })
+    .eq('tg_id', req.user.tg_id).eq('type', 'chest_free').gte('created_at', todayStart);
+  if ((count || 0) > 0) return res.json({ ok: false, error: 'already_claimed' });
+
+  const reward = chestReward(8, 25, req.user);
+  const newBal = await changeArc(req.user.tg_id, reward, 'chest_free', 'daily free chest');
+  await payReferrals(req.user.tg_id, reward, req.user.referrer_id);
+  res.json({ ok: true, reward, balance_arc: newBal });
+});
+
+app.post('/api/chest/claim-bonus', auth, async (req, res) => {
+  const todayStart = mskDate() + 'T00:00:00+03:00';
+  const { count } = await supabase.from('transactions').select('*', { count: 'exact', head: true })
+    .eq('tg_id', req.user.tg_id).eq('type', 'chest_bonus').gte('created_at', todayStart);
+  if ((count || 0) > 0) return res.json({ ok: false, error: 'already_claimed' });
+  if (await adCooldownActive(req.user.tg_id, 'chest_bonus'))
+    return res.json({ ok: false, error: 'cooldown' });
+
+  const reward = chestReward(25, 60, req.user);
+  const newBal = await changeArc(req.user.tg_id, reward, 'chest_bonus', 'daily bonus chest (ad)');
+  await payReferrals(req.user.tg_id, reward, req.user.referrer_id);
+  res.json({ ok: true, reward, balance_arc: newBal });
 });
 
 app.post('/api/tasks/check', auth, async (req, res) => {
