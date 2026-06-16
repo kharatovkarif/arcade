@@ -133,6 +133,9 @@ window.I18N = {
     pro_b4: 'Чек-ин ×1.5 автоматически',
     pro_b5: 'Доп. 5 просмотров рекламы в день',
     game_hub: 'Игровой хаб', game_hub_sub: 'Лотерея и другие игры', back: 'Назад',
+    coinflip_tab: 'Орёл и Решка', coinflip_sub: 'Удвой ставку ×1.92', coinflip_desc: 'Выбери сторону, поставь ARC и испытай удачу',
+    coinflip_heads: 'Орёл', coinflip_tails: 'Решка', coinflip_flip_btn: 'Бросить', coinflip_free_btn: 'Бесплатный бросок',
+    coinflip_free_hint: 'Раз в 10 минут за рекламу', coinflip_win_label: 'Победа!', coinflip_lose_label: 'Не повезло',
   },
   en: {
     tab_pvp: 'PvP', tab_tasks: 'Tasks', tab_main: 'Main',
@@ -268,6 +271,9 @@ window.I18N = {
     pro_b4: 'Check-in ×1.5 automatically',
     pro_b5: '5 extra ad views per day',
     game_hub: 'Game Hub', game_hub_sub: 'Lottery and more games', back: 'Back',
+    coinflip_tab: 'Coin Flip', coinflip_sub: 'Double your bet ×1.92', coinflip_desc: 'Pick a side, stake ARC and try your luck',
+    coinflip_heads: 'Heads', coinflip_tails: 'Tails', coinflip_flip_btn: 'Flip', coinflip_free_btn: 'Free Flip',
+    coinflip_free_hint: 'Once every 10 min, watch an ad', coinflip_win_label: 'You won!', coinflip_lose_label: 'No luck',
   },
   hi: {
     tab_pvp: 'PvP', tab_tasks: 'कार्य', tab_main: 'मुख्य',
@@ -403,6 +409,9 @@ window.I18N = {
     pro_b4: 'चेक-इन ×1.5 स्वतः',
     pro_b5: 'प्रति दिन 5 अतिरिक्त विज्ञापन',
     game_hub: 'गेम हब', game_hub_sub: 'लॉटरी और अन्य गेम', back: 'वापस',
+    coinflip_tab: 'कॉइन फ्लिप', coinflip_sub: 'दांव ×1.92 करें', coinflip_desc: 'साइड चुनें, ARC दांव लगाएं और भाग्य आज़माएं',
+    coinflip_heads: 'हेड्स', coinflip_tails: 'टेल्स', coinflip_flip_btn: 'फ्लिप करें', coinflip_free_btn: 'फ्री फ्लिप',
+    coinflip_free_hint: 'हर 10 मिनट में एक बार, विज्ञापन देखें', coinflip_win_label: 'आप जीत गए!', coinflip_lose_label: 'किस्मत नहीं',
   },
   pt: {
     tab_pvp: 'PvP', tab_tasks: 'Tarefas', tab_main: 'Principal',
@@ -538,6 +547,9 @@ window.I18N = {
     pro_b4: 'Check-in ×1.5 automaticamente',
     pro_b5: '5 visualizações extras por dia',
     game_hub: 'Central de Jogos', game_hub_sub: 'Loteria e outros jogos', back: 'Voltar',
+    coinflip_tab: 'Cara ou Coroa', coinflip_sub: 'Dobre sua aposta ×1.92', coinflip_desc: 'Escolha um lado, aposte ARC e teste sua sorte',
+    coinflip_heads: 'Cara', coinflip_tails: 'Coroa', coinflip_flip_btn: 'Jogar', coinflip_free_btn: 'Jogada gratuita',
+    coinflip_free_hint: 'Uma vez a cada 10 min, veja um anúncio', coinflip_win_label: 'Você ganhou!', coinflip_lose_label: 'Sem sorte',
   },
   id: {
     tab_pvp: 'PvP', tab_tasks: 'Tugas', tab_main: 'Utama',
@@ -673,6 +685,9 @@ window.I18N = {
     pro_b4: 'Check-in ×1.5 otomatis',
     pro_b5: '5 tampilan iklan ekstra/hari',
     game_hub: 'Pusat Game', game_hub_sub: 'Lotere dan game lainnya', back: 'Kembali',
+    coinflip_tab: 'Lempar Koin', coinflip_sub: 'Gandakan taruhan ×1.92', coinflip_desc: 'Pilih sisi, pasang ARC dan coba keberuntunganmu',
+    coinflip_heads: 'Depan', coinflip_tails: 'Belakang', coinflip_flip_btn: 'Lempar', coinflip_free_btn: 'Lempar Gratis',
+    coinflip_free_hint: 'Sekali setiap 10 menit, tonton iklan', coinflip_win_label: 'Kamu menang!', coinflip_lose_label: 'Belum beruntung',
   },
   bn: {
     tab_pvp: 'PvP', tab_tasks: 'কাজ', tab_main: 'মূল',
@@ -808,6 +823,9 @@ window.I18N = {
     pro_b4: 'চেক-ইন ×1.5 স্বয়ংক্রিয়',
     pro_b5: 'দিনে 5টি অতিরিক্ত বিজ্ঞাপন',
     game_hub: 'গেম হাব', game_hub_sub: 'লটারি এবং আরও গেম', back: 'পেছনে',
+    coinflip_tab: 'কয়েন ফ্লিপ', coinflip_sub: 'বাজি ×1.92 করুন', coinflip_desc: 'একটি দিক বেছে নিন, ARC বাজি রাখুন এবং ভাগ্য পরীক্ষা করুন',
+    coinflip_heads: 'হেডস', coinflip_tails: 'টেইলস', coinflip_flip_btn: 'ফ্লিপ করুন', coinflip_free_btn: 'ফ্রি ফ্লিপ',
+    coinflip_free_hint: 'প্রতি 10 মিনিটে একবার, বিজ্ঞাপন দেখুন', coinflip_win_label: 'আপনি জিতেছেন!', coinflip_lose_label: 'দুর্ভাগ্য',
   },
   vi: {
     tab_pvp: 'PvP', tab_tasks: 'Nhiệm vụ', tab_main: 'Trang chủ',
@@ -943,5 +961,8 @@ window.I18N = {
     pro_b4: 'Check-in ×1.5 tự động',
     pro_b5: '5 lượt xem quảng cáo thêm mỗi ngày',
     game_hub: 'Trung tâm game', game_hub_sub: 'Xổ số và các game khác', back: 'Quay lại',
+    coinflip_tab: 'Lật Xu', coinflip_sub: 'Nhân đôi cược ×1.92', coinflip_desc: 'Chọn mặt, đặt cược ARC và thử vận may',
+    coinflip_heads: 'Mặt sấp', coinflip_tails: 'Mặt ngửa', coinflip_flip_btn: 'Lật xu', coinflip_free_btn: 'Lật miễn phí',
+    coinflip_free_hint: 'Mỗi 10 phút một lần, xem quảng cáo', coinflip_win_label: 'Bạn đã thắng!', coinflip_lose_label: 'Không may',
   },
 };

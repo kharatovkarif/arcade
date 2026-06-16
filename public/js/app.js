@@ -1144,6 +1144,9 @@ let hubTimer = null;
 let lotteryAnimTriggered = false;
 let prevLotteryRoundNo = null;
 let prevLotteryStatus = null;
+let coinflipSide = 'heads';
+let coinflipFreeMsLeft = 0;
+let coinflipBusy = false;
 
 function buildWheelGradient(players) {
   let acc = 0; const stops = [];
@@ -1263,11 +1266,10 @@ function renderGameHub() {
             <div class="hub-card-title">${t('lottery_tab')}</div>
             <div class="hub-card-sub">${t('lottery_prize_7d')}</div>
           </div>
-          <div class="hub-card hub-card-soon">
-            <span class="hub-card-badge">${t('soon')}</span>
-            <div class="hub-card-icon">🎲</div>
-            <div class="hub-card-title">???</div>
-            <div class="hub-card-sub">${t('soon')}</div>
+          <div class="hub-card" onclick="openHubGame('coinflip')">
+            <div class="hub-card-icon">🪙</div>
+            <div class="hub-card-title">${t('coinflip_tab')}</div>
+            <div class="hub-card-sub">${t('coinflip_sub')}</div>
           </div>
           <div class="hub-card hub-card-soon">
             <span class="hub-card-badge">${t('soon')}</span>
@@ -1313,7 +1315,136 @@ function renderGameHub() {
     loadLottery();
     hubTimer = setInterval(loadLottery, 1500);
   }
+
+  if (hubGame === 'coinflip') {
+    ov.innerHTML = `
+      <div class="hub-header">
+        <button class="hub-close" onclick="backToHub()">←</button>
+        <span class="hub-title">🪙 ${t('coinflip_tab')}</span>
+      </div>
+      <div class="hub-body">
+        <div style="text-align:center;padding:0 0 14px;font-size:13px;color:var(--muted2)">${t('coinflip_desc')}</div>
+        <div id="coinflipCoin" style="font-size:64px;text-align:center;margin-bottom:14px;transition:transform .6s">🪙</div>
+        <div id="coinflipResult" style="text-align:center;font-size:15px;font-weight:800;min-height:22px;margin-bottom:14px"></div>
+        <div style="display:flex;gap:10px;margin-bottom:14px">
+          <div class="hub-card" id="coinflipHeadsBtn" style="padding:14px 8px" onclick="setCoinSide('heads')">
+            <div style="font-size:13px;font-weight:800">${t('coinflip_heads')}</div>
+          </div>
+          <div class="hub-card" id="coinflipTailsBtn" style="padding:14px 8px" onclick="setCoinSide('tails')">
+            <div style="font-size:13px;font-weight:800">${t('coinflip_tails')}</div>
+          </div>
+        </div>
+        <div class="pvp-input-row">
+          <input class="pvp-input" id="coinflipAmount" type="number" min="10" max="1000" placeholder="0 ARC" />
+          <button class="pvp-bet-btn" id="coinflipBetBtn" onclick="doCoinflipBet()">🪙 ${t('coinflip_flip_btn')}</button>
+        </div>
+        <div class="pvp-amts">
+          <div class="pvp-amt" onclick="setCoinAmount(10)">10</div>
+          <div class="pvp-amt" onclick="setCoinAmount(50)">50</div>
+          <div class="pvp-amt" onclick="setCoinAmount(100)">100</div>
+          <div class="pvp-amt" onclick="setCoinAmount(500)">500</div>
+        </div>
+        <div style="text-align:center;font-size:11px;color:var(--muted2);margin-top:6px">${t('coinflip_free_hint')}</div>
+        <button class="btn btn-dark" style="margin-top:10px;width:100%" id="coinflipFreeBtn" onclick="doCoinflipFree()">🎬 ${t('coinflip_free_btn')}</button>
+      </div>`;
+    setCoinSide('heads');
+    loadCoinflipState();
+    hubTimer = setInterval(tickCoinflipCountdown, 1000);
+  }
 }
+
+window.setCoinSide = (side) => {
+  coinflipSide = side;
+  document.getElementById('coinflipHeadsBtn')?.classList.toggle('side-active', side === 'heads');
+  document.getElementById('coinflipTailsBtn')?.classList.toggle('side-active', side === 'tails');
+};
+
+window.setCoinAmount = (n) => {
+  const inp = document.getElementById('coinflipAmount');
+  if (inp) inp.value = n;
+};
+
+async function loadCoinflipState() {
+  const s = await api('/coinflip/state');
+  coinflipFreeMsLeft = s.freeMsLeft || 0;
+  updateCoinflipFreeBtn();
+}
+
+function updateCoinflipFreeBtn() {
+  const btn = document.getElementById('coinflipFreeBtn');
+  if (!btn) return;
+  if (coinflipFreeMsLeft > 0) {
+    const s = Math.ceil(coinflipFreeMsLeft / 1000);
+    const mm = String(Math.floor(s / 60)).padStart(2, '0');
+    const ss = String(s % 60).padStart(2, '0');
+    btn.disabled = true;
+    btn.textContent = `⏳ ${mm}:${ss}`;
+  } else {
+    btn.disabled = false;
+    btn.textContent = `🎬 ${t('coinflip_free_btn')}`;
+  }
+}
+
+function tickCoinflipCountdown() {
+  if (coinflipFreeMsLeft > 0) {
+    coinflipFreeMsLeft = Math.max(0, coinflipFreeMsLeft - 1000);
+    updateCoinflipFreeBtn();
+  }
+}
+
+function showCoinflipResult(r) {
+  const coin = document.getElementById('coinflipCoin');
+  const resEl = document.getElementById('coinflipResult');
+  if (coin) {
+    coin.style.transform = 'rotateY(720deg)';
+    setTimeout(() => { coin.style.transform = 'none'; coin.textContent = r.win ? '🟡' : '⚪'; }, 600);
+  }
+  if (resEl) {
+    resEl.style.color = r.win ? 'var(--green)' : '#f87171';
+    resEl.textContent = r.win ? `+${r.payout} ARC 🎉` : `−${r.amount} ARC`;
+  }
+  ME.balance_arc = r.balance_arc;
+  renderHeader();
+}
+
+window.doCoinflipBet = async () => {
+  if (coinflipBusy) return;
+  const inp = document.getElementById('coinflipAmount');
+  const amount = Number(inp?.value || 0);
+  if (!amount || amount < 10) { toast(t('enter_amount')); return; }
+  coinflipBusy = true;
+  const btn = document.getElementById('coinflipBetBtn');
+  if (btn) btn.disabled = true;
+  try {
+    const r = await api('/coinflip/bet', { side: coinflipSide, amount });
+    if (r.ok) showCoinflipResult(r);
+    else toast(r.error === 'not_enough' ? t('not_enough') : t('enter_amount'));
+  } finally {
+    coinflipBusy = false;
+    if (btn) btn.disabled = false;
+  }
+};
+
+window.doCoinflipFree = async () => {
+  if (coinflipBusy || coinflipFreeMsLeft > 0) return;
+  coinflipBusy = true;
+  const btn = document.getElementById('coinflipFreeBtn');
+  if (btn) btn.disabled = true;
+  try {
+    if (typeof onclickaShow4 === 'function') { try { await onclickaShow4(); } catch {} }
+    const r = await api('/coinflip/free', { side: coinflipSide });
+    if (r.ok) {
+      showCoinflipResult(r);
+      coinflipFreeMsLeft = 10 * 60 * 1000;
+      updateCoinflipFreeBtn();
+    } else if (r.error === 'cooldown') {
+      coinflipFreeMsLeft = r.msLeft;
+      updateCoinflipFreeBtn();
+    }
+  } finally {
+    coinflipBusy = false;
+  }
+};
 
 function buildLotterySlotHTML(ticket, index, activeIndex) {
   const isEmpty = !ticket;

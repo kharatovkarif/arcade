@@ -15,6 +15,7 @@ import { initDeposits } from './deposits.js';
 import { initInactivityLoop } from './inactivity.js';
 import { initLottery, getLotteryState, buyTicket, setLotteryNotifier } from './lottery.js';
 import { initReminderLoop } from './reminders.js';
+import { flipPaid, flipFree, flipFreeStatus } from './coinflip.js';
 
 dotenv.config();
 
@@ -524,6 +525,27 @@ app.post('/api/lottery/history', auth, async (req, res) => {
     time: r.finished_at,
     tickets: (ticketsMap[r.id] || []).map(t => ({ tg_id: t.tg_id, username: t.username })),
   })));
+});
+
+app.post('/api/coinflip/state', auth, async (req, res) => {
+  const pro = isPro(req.user);
+  const status = await flipFreeStatus(req.user.tg_id);
+  res.json({ minBet: 10, maxBet: pro ? 2000 : 1000, freeAvailable: status.available, freeMsLeft: status.msLeft });
+});
+
+app.post('/api/coinflip/bet', auth, async (req, res) => {
+  const amount = Number(req.body.amount);
+  const side = req.body.side === 'tails' ? 'tails' : 'heads';
+  const max = isPro(req.user) ? 2000 : 1000;
+  if (!(amount >= 10 && amount <= max)) return res.json({ ok: false, error: 'bad_amount' });
+  const result = await flipPaid(req.user.tg_id, side, amount);
+  res.json(result);
+});
+
+app.post('/api/coinflip/free', auth, async (req, res) => {
+  const side = req.body.side === 'tails' ? 'tails' : 'heads';
+  const result = await flipFree(req.user.tg_id, side);
+  res.json(result);
 });
 
 app.post('/api/wallet/connect', auth, async (req, res) => {
