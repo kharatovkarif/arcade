@@ -132,6 +132,7 @@ window.I18N = {
     pro_b3: '+25% к рекламному доходу',
     pro_b4: 'Чек-ин ×1.5 автоматически',
     pro_b5: 'Доп. 5 просмотров рекламы в день',
+    game_hub: 'Игровой хаб', game_hub_sub: 'Лотерея и другие игры', back: 'Назад',
   },
   en: {
     tab_pvp: 'PvP', tab_tasks: 'Tasks', tab_main: 'Main',
@@ -266,6 +267,7 @@ window.I18N = {
     pro_b3: '+25% ad reward bonus',
     pro_b4: 'Check-in ×1.5 automatically',
     pro_b5: '5 extra ad views per day',
+    game_hub: 'Game Hub', game_hub_sub: 'Lottery and more games', back: 'Back',
   },
   hi: {
     tab_pvp: 'PvP', tab_tasks: 'कार्य', tab_main: 'मुख्य',
@@ -400,6 +402,7 @@ window.I18N = {
     pro_b3: '+25% विज्ञापन बोनस',
     pro_b4: 'चेक-इन ×1.5 स्वतः',
     pro_b5: 'प्रति दिन 5 अतिरिक्त विज्ञापन',
+    game_hub: 'गेम हब', game_hub_sub: 'लॉटरी और अन्य गेम', back: 'वापस',
   },
   pt: {
     tab_pvp: 'PvP', tab_tasks: 'Tarefas', tab_main: 'Principal',
@@ -534,6 +537,7 @@ window.I18N = {
     pro_b3: '+25% bônus de anúncio',
     pro_b4: 'Check-in ×1.5 automaticamente',
     pro_b5: '5 visualizações extras por dia',
+    game_hub: 'Central de Jogos', game_hub_sub: 'Loteria e outros jogos', back: 'Voltar',
   },
   id: {
     tab_pvp: 'PvP', tab_tasks: 'Tugas', tab_main: 'Utama',
@@ -668,6 +672,7 @@ window.I18N = {
     pro_b3: '+25% bonus iklan',
     pro_b4: 'Check-in ×1.5 otomatis',
     pro_b5: '5 tampilan iklan ekstra/hari',
+    game_hub: 'Pusat Game', game_hub_sub: 'Lotere dan game lainnya', back: 'Kembali',
   },
   bn: {
     tab_pvp: 'PvP', tab_tasks: 'কাজ', tab_main: 'মূল',
@@ -802,6 +807,7 @@ window.I18N = {
     pro_b3: '+25% বিজ্ঞাপন বোনাস',
     pro_b4: 'চেক-ইন ×1.5 স্বয়ংক্রিয়',
     pro_b5: 'দিনে 5টি অতিরিক্ত বিজ্ঞাপন',
+    game_hub: 'গেম হাব', game_hub_sub: 'লটারি এবং আরও গেম', back: 'পেছনে',
   },
   vi: {
     tab_pvp: 'PvP', tab_tasks: 'Nhiệm vụ', tab_main: 'Trang chủ',
@@ -936,5 +942,6 @@ window.I18N = {
     pro_b3: '+25% thưởng quảng cáo',
     pro_b4: 'Check-in ×1.5 tự động',
     pro_b5: '5 lượt xem quảng cáo thêm mỗi ngày',
+    game_hub: 'Trung tâm game', game_hub_sub: 'Xổ số và các game khác', back: 'Quay lại',
   },
 };
