@@ -207,7 +207,7 @@ app.post('/api/tasks', auth, async (req, res) => {
   const needsPvp = (tasks || []).some(t => t.type === 'pvp_milestone');
   const [refRes, adRes, pvpRes] = await Promise.all([
     needsRef ? supabase.from('users').select('*', { count: 'exact', head: true }).eq('referrer_id', req.user.tg_id) : null,
-    needsAd ? supabase.from('transactions').select('*', { count: 'exact', head: true }).eq('tg_id', req.user.tg_id).eq('type', 'ad').gte('created_at', todayStart) : null,
+    needsAd ? supabase.from('transactions').select('*', { count: 'exact', head: true }).eq('tg_id', req.user.tg_id).in('type', ['ad', 'ad_short', 'ad_task', 'ad4', 'ad5', 'ad6']).gte('created_at', todayStart) : null,
     null,
   ]);
   const refCount = refRes ? (refRes.count || 0) : null;
