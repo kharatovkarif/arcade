@@ -9,7 +9,7 @@ let adsgramController = null;
 let adsgramControllerShort = null;
 let onclickaShow4 = null;
 let monetagReady = false;
-let nygmaController = null;
+let nygmaReady = false;
 
 async function api(path, body = {}) {
   const res = await fetch('/api' + path, {
@@ -238,10 +238,10 @@ function renderMain() {
     </div>
     <div class="row">
       <div class="info">
-        <span class="title">${t('ad_reward')} 6 ${nygmaController ? `&nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + ${t('checkin_short')}</span>` : ''}</span>
-        <span class="sub">${nygmaController ? (ME.ad6_daily_count||0)+'/'+(ME.is_pro?10:5)+' '+t('today') : t('soon')}</span>
+        <span class="title">${t('ad_reward')} 6 ${nygmaReady ? `&nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + ${t('checkin_short')}</span>` : ''}</span>
+        <span class="sub">${nygmaReady ? (ME.ad6_daily_count||0)+'/'+(ME.is_pro?10:5)+' '+t('today') : t('soon')}</span>
       </div>
-      ${nygmaController && (ME.ad6_daily_count||0) < (ME.is_pro?10:5)
+      ${nygmaReady && (ME.ad6_daily_count||0) < (ME.is_pro?10:5)
         ? `<button onclick="watchAd6(this)" style="width:44px;height:44px;border-radius:50%;background:var(--blue);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`
         : `<button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`}
     </div>
@@ -2070,7 +2070,7 @@ async function init() {
     }
   }
   if (ME.nygma_block_id && window.NigmaSDK) {
-    try { nygmaController = window.NigmaSDK.init({ blockId: ME.nygma_block_id }); renderMain(); } catch {}
+    nygmaReady = true; renderMain();
   }
   const urlParams = new URLSearchParams(location.search);
   if (urlParams.get('pro')) {
