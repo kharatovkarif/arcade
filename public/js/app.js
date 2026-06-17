@@ -672,19 +672,49 @@ window.watchAd5 = async (btn) => {
   } catch { btn.disabled = false; }
 };
 
+// Surfaces the real failure reason in a Telegram popup (falls back to toast).
+// Temporary diagnostic so we can see exactly what the Nigma SDK does.
+function nygmaDiag(msg) {
+  try { if (tg?.showAlert) { tg.showAlert('NIGMA: ' + msg); return; } } catch {}
+  toast('NIGMA: ' + msg);
+}
+
 window.watchAd6 = async (btn) => {
-  if (!ME.nygma_block_id || !window.NigmaSDK) return;
+  if (!ME.nygma_block_id) { nygmaDiag('no block_id (env NYGMA_BLOCK_ID not set)'); return; }
+  if (!window.NigmaSDK) { nygmaDiag('window.NigmaSDK is undefined (SDK script not loaded)'); return; }
   const count6 = ME.ad6_daily_count || 0;
   if (count6 > 0 && count6 % 4 === 3) {
     try { await holdCaptcha(); } catch { return; }
   }
   btn.disabled = true;
+
+  // init() may be sync (returns controller) or async (returns a Promise of one).
   let ctrl;
-  try { ctrl = window.NigmaSDK.init({ blockId: ME.nygma_block_id }); }
-  catch { btn.disabled = false; toast(t('ad_unavailable')); return; }
   try {
-    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 20000));
-    await Promise.race([ctrl.show(), timeout]);
+    ctrl = window.NigmaSDK.init({ blockId: ME.nygma_block_id });
+    if (ctrl && typeof ctrl.then === 'function') ctrl = await ctrl;
+  } catch (e) {
+    btn.disabled = false;
+    nygmaDiag('init() threw: ' + (e?.message || e));
+    return;
+  }
+  if (!ctrl) { btn.disabled = false; nygmaDiag('init() returned ' + ctrl); return; }
+
+  // Find the method that actually shows the ad — name varies between SDKs.
+  const showName = ['show', 'showAd', 'play', 'open', 'start']
+    .find(n => typeof ctrl[n] === 'function');
+  if (!showName) {
+    btn.disabled = false;
+    const keys = Object.keys(ctrl).concat(
+      Object.getOwnPropertyNames(Object.getPrototypeOf(ctrl) || {})
+    ).filter(k => k !== 'constructor');
+    nygmaDiag('no show method. ctrl type=' + (typeof ctrl) + ' members=[' + keys.join(',') + ']');
+    return;
+  }
+
+  try {
+    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout 20s')), 20000));
+    await Promise.race([Promise.resolve(ctrl[showName]()), timeout]);
     const r = await api('/ads/watch6');
     if (r.ok) {
       ME.ad6_daily_count = r.daily_count;
@@ -698,8 +728,12 @@ window.watchAd6 = async (btn) => {
       toast(t('ad_daily_limit_short'));
     } else {
       btn.disabled = false;
+      nygmaDiag('backend rejected: ' + (r.error || JSON.stringify(r)));
     }
-  } catch { btn.disabled = false; toast(t('ad_unavailable')); }
+  } catch (e) {
+    btn.disabled = false;
+    nygmaDiag(showName + '() failed: ' + (e?.message || e));
+  }
 };
 
 async function renderFriends() {
