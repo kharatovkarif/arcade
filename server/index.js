@@ -37,6 +37,10 @@ app.get('/privacy', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/privacy.html'));
 });
 
+app.get('/stats', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/stats.html'));
+});
+
 function getOnlineCount() {
   const threshold = Date.now() - 15_000;
   let count = 0;
@@ -834,6 +838,55 @@ async function initSettings() {
   await updateTonPrice();
   setInterval(updateTonPrice, 10 * 60 * 1000);
 }
+
+// Admin analytics — last 30 days stats, protected by static secret
+app.get('/api/admin/analytics', async (req, res) => {
+  if (req.headers['x-admin-secret'] !== 'TMPBROADCAST2026') return res.status(403).json({ error: 'forbidden' });
+
+  const AD_TYPES = ['ad','ad_short','ad_task','ad4','ad5','ad6','coinflip_free'];
+  const BURN_TYPES = ['pvp','coinflip'];
+  const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+  const mskStr = (iso) => {
+    const d = new Date(new Date(iso).getTime() + 3 * 3600 * 1000);
+    return d.toISOString().substring(0, 10);
+  };
+
+  const [{ data: users }, { data: txs }] = await Promise.all([
+    supabase.from('users').select('created_at').gte('created_at', since),
+    supabase.from('transactions').select('created_at, tg_id, amount, type').gte('created_at', since),
+  ]);
+
+  const days = [];
+  const mskNow = new Date(Date.now() + 3 * 3600 * 1000);
+  for (let i = 29; i >= 0; i--) {
+    days.push(new Date(mskNow.getTime() - i * 24 * 3600 * 1000).toISOString().substring(0, 10));
+  }
+
+  const newMap = {}, adMap = {}, activeMap = {}, burnMap = {};
+  (users || []).forEach(u => { const d = mskStr(u.created_at); newMap[d] = (newMap[d] || 0) + 1; });
+  (txs || []).forEach(tx => {
+    const d = mskStr(tx.created_at);
+    if (!activeMap[d]) activeMap[d] = new Set();
+    activeMap[d].add(String(tx.tg_id));
+    if (AD_TYPES.includes(tx.type)) adMap[d] = (adMap[d] || 0) + 1;
+    if (BURN_TYPES.includes(tx.type) && Number(tx.amount) < 0)
+      burnMap[d] = (burnMap[d] || 0) + Math.abs(Number(tx.amount));
+  });
+
+  const [{ count: totalUsers }, { count: totalAds }] = await Promise.all([
+    supabase.from('users').select('*', { count: 'exact', head: true }),
+    supabase.from('transactions').select('*', { count: 'exact', head: true }).in('type', AD_TYPES),
+  ]);
+
+  res.json({
+    days,
+    newUsers:    days.map(d => newMap[d] || 0),
+    adViews:     days.map(d => adMap[d] || 0),
+    activeUsers: days.map(d => activeMap[d]?.size || 0),
+    arcBurned:   days.map(d => Math.round(burnMap[d] || 0)),
+    totals: { users: totalUsers, ads: totalAds },
+  });
+});
 
 // One-time admin broadcast endpoint — called server-side, protected by static secret
 app.post('/api/admin/broadcast', async (req, res) => {
