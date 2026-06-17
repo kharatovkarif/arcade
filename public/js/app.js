@@ -1215,6 +1215,7 @@ let coinflipSide = 'heads';
 let coinflipBusy = false;
 let cfFreeMsLeft = 0;       // ms left on the 10-min free-flip cooldown
 let cfFreePending = false;  // true between ad request and reward, guards against double grant
+let tadsInitStatus = 'pending'; // diagnostic: pending | no_script | init_error:.. | ok
 
 function buildWheelGradient(players) {
   let acc = 0; const stops = [];
@@ -1479,29 +1480,37 @@ async function grantCoinflipFree() {
   } catch {}
 }
 
+// Surfaces the real TADS failure reason in a Telegram popup (diagnostic).
+function tadsDiag(msg) {
+  try { if (tg?.showAlert) { tg.showAlert('TADS: ' + msg); return; } } catch {}
+  toast('TADS: ' + msg);
+}
+
 // TADS loads async — wait for window.tads, then init the rewarded controller once.
 function initTads() {
   const wid = ME.tads_widget_id;
-  if (!wid) return;
+  if (!wid) { tadsInitStatus = 'no_widget_id'; return; }
   const doInit = () => {
     if (!window.tads || typeof window.tads.init !== 'function') return false;
     if (!window.tads.controllers) window.tads.controllers = {};
-    if (window.tads.controllers[wid]) return true; // already inited
+    if (window.tads.controllers[wid]) { tadsInitStatus = 'ok'; return true; } // already inited
     try {
       const ctrl = window.tads.init({
         widgetId: wid,
         type: 'FULLSCREEN',
         debug: false,
-        onShowReward: () => grantCoinflipFree(),  // only a watched ad grants the flip
-        onAdsNotFound: () => cfAdFailed(),         // no ad → unavailable, no free flip
+        onShowReward: () => grantCoinflipFree(),       // only a watched ad grants the flip
+        onClickReward: () => grantCoinflipFree(),      // some fullscreen units reward on click
+        onAdsNotFound: () => { tadsDiag('нет рекламы (виджет на модерации или нет фила под гео)'); cfAdFailed(); },
       });
       window.tads.controllers[wid] = ctrl;
+      tadsInitStatus = ctrl ? 'ok' : 'init_returned_null';
       return true;
-    } catch { return false; }
+    } catch (e) { tadsInitStatus = 'init_error:' + (e?.message || e); return false; }
   };
   if (doInit()) return;
   const poll = setInterval(() => { if (doInit()) clearInterval(poll); }, 500);
-  setTimeout(() => clearInterval(poll), 15000);
+  setTimeout(() => { clearInterval(poll); if (tadsInitStatus === 'pending') tadsInitStatus = 'no_script'; }, 15000);
 }
 
 // Ad couldn't be shown (no fill / not ready / rejected) — keep the free flip
@@ -1510,16 +1519,18 @@ function cfAdFailed() {
   if (!cfFreePending) return;
   cfFreePending = false;
   renderCfFreeBtn();
-  toast(t('ad_unavailable'));
 }
 
 window.doCoinflipFree = () => {
   if (cfFreeMsLeft > 0 || coinflipBusy || cfFreePending) return;
   const wid = ME.tads_widget_id;
   const ctrl = wid && window.tads && window.tads.controllers && window.tads.controllers[wid];
-  if (!ctrl || typeof ctrl.showAd !== 'function') {
-    // SDK not loaded / widget still on moderation — ad is required, so block.
-    toast(t('ad_unavailable'));
+  if (!ctrl) {
+    tadsDiag('контроллер не готов. widgetId=' + wid + ' window.tads=' + !!window.tads + ' status=' + tadsInitStatus);
+    return;
+  }
+  if (typeof ctrl.showAd !== 'function') {
+    tadsDiag('нет метода showAd. методы=[' + Object.keys(ctrl).join(',') + ']');
     return;
   }
   const resEl = document.getElementById('coinflipResult');
@@ -1529,7 +1540,11 @@ window.doCoinflipFree = () => {
   if (btn) btn.disabled = true;
   // Reward is granted only via onShowReward (a fully watched ad).
   // A rejected showAd or onAdsNotFound routes to cfAdFailed — no free flip.
-  ctrl.showAd().catch(() => cfAdFailed());
+  let res;
+  try { res = ctrl.showAd(); } catch (e) { tadsDiag('showAd() threw: ' + (e?.message || e)); cfAdFailed(); return; }
+  if (res && typeof res.catch === 'function') {
+    res.catch(e => { tadsDiag('showAd() отклонён: ' + (e?.message || e)); cfAdFailed(); });
+  }
 };
 
 window.setCoinSide = (side) => {
