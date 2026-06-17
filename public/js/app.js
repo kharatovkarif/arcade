@@ -1213,6 +1213,8 @@ let prevLotteryRoundNo = null;
 let prevLotteryStatus = null;
 let coinflipSide = 'heads';
 let coinflipBusy = false;
+let cfFreeMsLeft = 0;       // ms left on the 10-min free-flip cooldown
+let cfFreePending = false;  // true between ad request and reward, guards against double grant
 
 function buildWheelGradient(players) {
   let acc = 0; const stops = [];
@@ -1423,11 +1425,101 @@ function renderGameHub() {
           <div class="pvp-amt" onclick="setCoinAmount(100)">100</div>
           <div class="pvp-amt" onclick="setCoinAmount(500)">500</div>
         </div>
-        <button class="btn btn-dark" style="margin-top:10px;width:100%;opacity:.5" disabled>🎬 ${t('soon')}</button>
+        <button class="btn btn-dark" id="cfFreeBtn" style="margin-top:10px;width:100%" onclick="doCoinflipFree(this)">🎬 ${t('coinflip_free_btn')}</button>
+        <div style="text-align:center;font-size:12px;color:var(--muted2);margin-top:6px">${t('coinflip_free_hint')}</div>
       </div>`;
     setCoinSide('heads');
+    loadCoinflipState();
+    hubTimer = setInterval(() => {
+      if (cfFreeMsLeft > 0) { cfFreeMsLeft = Math.max(0, cfFreeMsLeft - 1000); renderCfFreeBtn(); }
+    }, 1000);
   }
 }
+
+async function loadCoinflipState() {
+  try {
+    const s = await api('/coinflip/state');
+    cfFreeMsLeft = s.freeAvailable ? 0 : (s.freeMsLeft || 0);
+    renderCfFreeBtn();
+  } catch {}
+}
+
+function renderCfFreeBtn() {
+  const btn = document.getElementById('cfFreeBtn');
+  if (!btn) return;
+  if (cfFreeMsLeft > 0) {
+    const sec = Math.ceil(cfFreeMsLeft / 1000);
+    const mm = String(Math.floor(sec / 60)).padStart(2, '0');
+    const ss = String(sec % 60).padStart(2, '0');
+    btn.disabled = true;
+    btn.style.opacity = '.5';
+    btn.innerHTML = `🎬 ${t('coinflip_free_btn')} · ${mm}:${ss}`;
+  } else {
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.innerHTML = `🎬 ${t('coinflip_free_btn')}`;
+  }
+}
+
+// User watched the TADS ad (or no ad was available) — grant the free flip.
+// Guarded by cfFreePending so we only act once per requested ad.
+async function grantCoinflipFree() {
+  if (!cfFreePending) return;
+  cfFreePending = false;
+  try {
+    const r = await api('/coinflip/free', { side: coinflipSide });
+    if (r.ok) {
+      showCoinflipResult(r);
+      cfFreeMsLeft = 10 * 60 * 1000;
+      renderCfFreeBtn();
+    } else if (r.error === 'cooldown') {
+      cfFreeMsLeft = r.msLeft || cfFreeMsLeft;
+      renderCfFreeBtn();
+    }
+  } catch {}
+}
+
+// TADS loads async — wait for window.tads, then init the rewarded controller once.
+function initTads() {
+  const wid = ME.tads_widget_id;
+  if (!wid) return;
+  const doInit = () => {
+    if (!window.tads || typeof window.tads.init !== 'function') return false;
+    if (!window.tads.controllers) window.tads.controllers = {};
+    if (window.tads.controllers[wid]) return true; // already inited
+    try {
+      const ctrl = window.tads.init({
+        widgetId: wid,
+        type: 'FULLSCREEN',
+        debug: false,
+        onShowReward: () => grantCoinflipFree(),
+        onAdsNotFound: () => grantCoinflipFree(), // no fill — don't block the player
+      });
+      window.tads.controllers[wid] = ctrl;
+      return true;
+    } catch { return false; }
+  };
+  if (doInit()) return;
+  const poll = setInterval(() => { if (doInit()) clearInterval(poll); }, 500);
+  setTimeout(() => clearInterval(poll), 15000);
+}
+
+window.doCoinflipFree = () => {
+  if (cfFreeMsLeft > 0 || coinflipBusy || cfFreePending) return;
+  const resEl = document.getElementById('coinflipResult');
+  if (resEl) resEl.innerHTML = '';
+  cfFreePending = true;
+  const wid = ME.tads_widget_id;
+  const ctrl = wid && window.tads && window.tads.controllers && window.tads.controllers[wid];
+  if (ctrl && typeof ctrl.showAd === 'function') {
+    // onShowReward / onAdsNotFound (set at init) will call grantCoinflipFree.
+    // The .catch fallback covers a rejected showAd with no callback firing.
+    ctrl.showAd().catch(() => grantCoinflipFree());
+  } else {
+    // SDK not ready / no controller — don't block the player.
+    grantCoinflipFree();
+  }
+};
 
 window.setCoinSide = (side) => {
   coinflipSide = side;
@@ -2126,6 +2218,7 @@ async function init() {
   if (ME.nygma_block_id && window.NigmaSDK) {
     nygmaReady = true; renderMain();
   }
+  initTads();
   const urlParams = new URLSearchParams(location.search);
   if (urlParams.get('pro')) {
     setTimeout(() => openProModal(), 400);

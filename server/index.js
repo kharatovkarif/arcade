@@ -120,6 +120,7 @@ app.post('/api/me', auth, async (req, res) => {
     onclicka_spot_id: process.env.ONCLICKA_SPOT_ID || '', // ad slot 4 — OnClickA TMA Rewarded
     monetag_zone_id: process.env.MONETAG_ZONE_ID || '',   // ad slot 5 — Monetag Rewarded Interstitial
     nygma_block_id: process.env.NYGMA_BLOCK_ID || '',     // ad slot 6 — Nygma Rewarded
+    tads_widget_id: process.env.TADS_WIDGET_ID || '9980', // Coin Flip free spin — TADS fullscreen rewarded
     ad_daily_count: adCount || 0,
     ad_short_daily_count: adShortCount || 0,
     ad_task_daily_count: adTaskCount || 0,
