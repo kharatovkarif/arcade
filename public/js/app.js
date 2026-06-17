@@ -673,14 +673,18 @@ window.watchAd5 = async (btn) => {
 };
 
 window.watchAd6 = async (btn) => {
-  if (!nygmaController) return;
+  if (!ME.nygma_block_id || !window.NigmaSDK) return;
   const count6 = ME.ad6_daily_count || 0;
   if (count6 > 0 && count6 % 4 === 3) {
     try { await holdCaptcha(); } catch { return; }
   }
   btn.disabled = true;
+  let ctrl;
+  try { ctrl = window.NigmaSDK.init({ blockId: ME.nygma_block_id }); }
+  catch { btn.disabled = false; toast(t('ad_unavailable')); return; }
   try {
-    await nygmaController.show();
+    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 20000));
+    await Promise.race([ctrl.show(), timeout]);
     const r = await api('/ads/watch6');
     if (r.ok) {
       ME.ad6_daily_count = r.daily_count;
@@ -695,7 +699,7 @@ window.watchAd6 = async (btn) => {
     } else {
       btn.disabled = false;
     }
-  } catch { btn.disabled = false; }
+  } catch { btn.disabled = false; toast(t('ad_unavailable')); }
 };
 
 async function renderFriends() {
