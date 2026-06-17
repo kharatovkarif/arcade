@@ -32,6 +32,11 @@ app.use(express.static(path.join(__dirname, '../public'), {
 
 const onlineUsers = new Map(); // tgId → timestamp of last request
 
+// Public legal page (Terms of Use + Privacy Policy) — link this URL in BotFather.
+app.get('/privacy', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/privacy.html'));
+});
+
 function getOnlineCount() {
   const threshold = Date.now() - 15_000;
   let count = 0;
