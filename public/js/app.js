@@ -1390,14 +1390,27 @@ function renderGameHub() {
       </div>
       <div class="hub-body">
         <div style="text-align:center;padding:0 0 14px;font-size:13px;color:var(--muted2)">${t('coinflip_desc')}</div>
-        <div id="coinflipCoin" style="font-size:64px;text-align:center;margin-bottom:14px;transition:transform .6s">🪙</div>
+        <div style="perspective:320px;width:150px;height:150px;margin:0 auto 14px">
+          <div id="cfCoinInner" style="width:150px;height:150px;position:relative;transform-style:preserve-3d;-webkit-transform-style:preserve-3d;transform:rotateY(0deg);will-change:transform">
+            <div style="position:absolute;inset:0;border-radius:50%;backface-visibility:hidden;-webkit-backface-visibility:hidden;background:radial-gradient(circle at 38% 35%,#fff5b0,#f0c820,#c8960a);border:5px solid #ffd60a;box-shadow:0 0 24px #ffd60a66,inset 0 2px 8px #fff9,inset 0 -2px 6px #0005;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">
+              <div style="font-size:56px;line-height:1;filter:drop-shadow(0 2px 4px #0006)">🦅</div>
+              <div style="font-size:11px;font-weight:900;letter-spacing:2.5px;color:#6b3e00;margin-top:2px">ОРЁЛ</div>
+            </div>
+            <div style="position:absolute;inset:0;border-radius:50%;backface-visibility:hidden;-webkit-backface-visibility:hidden;transform:rotateY(180deg);background:radial-gradient(circle at 38% 35%,#b8c8d8,#4a6070,#2a3d50);border:5px solid #8aabbf;box-shadow:0 0 24px #8aabbf55,inset 0 2px 8px #fff5,inset 0 -2px 6px #0005;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">
+              <div style="font-size:56px;line-height:1;filter:drop-shadow(0 2px 4px #0006)">👑</div>
+              <div style="font-size:11px;font-weight:900;letter-spacing:2.5px;color:#d0dde8;margin-top:2px">РЕШКА</div>
+            </div>
+          </div>
+        </div>
         <div id="coinflipResult" style="text-align:center;font-size:15px;font-weight:800;line-height:1.5;min-height:44px;margin-bottom:14px"></div>
         <div style="display:flex;gap:10px;margin-bottom:14px">
-          <div class="hub-card" id="coinflipHeadsBtn" style="padding:14px 8px" onclick="setCoinSide('heads')">
-            <div style="font-size:13px;font-weight:800">${t('coinflip_heads')}</div>
+          <div class="hub-card" id="coinflipHeadsBtn" style="padding:12px 8px;text-align:center;flex:1" onclick="setCoinSide('heads')">
+            <div style="font-size:30px;line-height:1;margin-bottom:5px">🦅</div>
+            <div style="font-size:12px;font-weight:900">${t('coinflip_heads')}</div>
           </div>
-          <div class="hub-card" id="coinflipTailsBtn" style="padding:14px 8px" onclick="setCoinSide('tails')">
-            <div style="font-size:13px;font-weight:800">${t('coinflip_tails')}</div>
+          <div class="hub-card" id="coinflipTailsBtn" style="padding:12px 8px;text-align:center;flex:1" onclick="setCoinSide('tails')">
+            <div style="font-size:30px;line-height:1;margin-bottom:5px">👑</div>
+            <div style="font-size:12px;font-weight:900">${t('coinflip_tails')}</div>
           </div>
         </div>
         <div class="pvp-input-row">
@@ -1428,19 +1441,24 @@ window.setCoinAmount = (n) => {
 };
 
 function showCoinflipResult(r) {
-  const coin = document.getElementById('coinflipCoin');
+  const inner = document.getElementById('cfCoinInner');
   const resEl = document.getElementById('coinflipResult');
   const landedSide = r.win ? r.side : (r.side === 'heads' ? 'tails' : 'heads');
-  if (coin) {
-    coin.style.transform = 'rotateY(720deg)';
-    setTimeout(() => { coin.style.transform = 'none'; coin.textContent = landedSide === 'heads' ? '🦅' : '🔘'; }, 600);
+  if (inner) {
+    inner.style.transition = 'none';
+    inner.style.transform = 'rotateY(0deg)';
+    inner.getBoundingClientRect(); // force reflow so reset applies before animation
+    inner.style.transition = 'transform 2.4s cubic-bezier(0.15, 0.85, 0.45, 1)';
+    inner.style.transform = `rotateY(${1800 + (landedSide === 'tails' ? 180 : 0)}deg)`;
   }
-  if (resEl) {
-    resEl.style.color = r.win ? 'var(--green)' : '#f87171';
-    const sideLabel = landedSide === 'heads' ? t('coinflip_heads') : t('coinflip_tails');
-    const outcomeLabel = r.win ? t('coinflip_win_label') : t('coinflip_lose_label');
-    resEl.innerHTML = `${sideLabel} — ${outcomeLabel}<br>${r.win ? `+${r.payout} ARC 🎉` : `−${r.amount} ARC`}`;
-  }
+  setTimeout(() => {
+    if (resEl) {
+      resEl.style.color = r.win ? 'var(--green)' : '#f87171';
+      const sideLabel = landedSide === 'heads' ? t('coinflip_heads') : t('coinflip_tails');
+      const outcomeLabel = r.win ? t('coinflip_win_label') : t('coinflip_lose_label');
+      resEl.innerHTML = `${sideLabel} — ${outcomeLabel}<br>${r.win ? `+${r.payout} ARC 🎉` : `−${r.amount} ARC`}`;
+    }
+  }, 2400);
   ME.balance_arc = r.balance_arc;
   renderHeader();
 }
@@ -1453,6 +1471,8 @@ window.doCoinflipBet = async () => {
   coinflipBusy = true;
   const btn = document.getElementById('coinflipBetBtn');
   if (btn) btn.disabled = true;
+  const resEl2 = document.getElementById('coinflipResult');
+  if (resEl2) resEl2.innerHTML = '';
   try {
     const r = await api('/coinflip/bet', { side: coinflipSide, amount });
     if (r.ok) showCoinflipResult(r);

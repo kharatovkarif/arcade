@@ -133,7 +133,7 @@ window.I18N = {
     pro_b4: 'Чек-ин ×1.5 автоматически',
     pro_b5: 'Доп. 5 просмотров рекламы в день',
     game_hub: 'Игровой хаб', game_hub_sub: 'Лотерея и другие игры', back: 'Назад',
-    coinflip_tab: 'Орёл и Решка', coinflip_sub: 'Удвой ставку ×1.92', coinflip_desc: 'Выбери сторону, поставь ARC и испытай удачу',
+    coinflip_tab: 'Coin Flip', coinflip_sub: 'Удвой ставку ×1.92', coinflip_desc: 'Выбери сторону, поставь ARC и испытай удачу',
     coinflip_heads: 'Орёл', coinflip_tails: 'Решка', coinflip_flip_btn: 'Бросить', coinflip_free_btn: 'Бесплатный бросок',
     coinflip_free_hint: 'Раз в 10 минут за рекламу', coinflip_win_label: 'Победа!', coinflip_lose_label: 'Не повезло',
   },
