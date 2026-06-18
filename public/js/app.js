@@ -1302,8 +1302,8 @@ function drawWheel(players) {
 }
 
 function showWinnerOverlay(winner) {
-  // Remove existing if any
   document.getElementById('winnerOverlay')?.remove();
+  document.getElementById('winnerConfetti')?.remove();
 
   const username = '@' + (winner.username || '...');
   const chance   = winner.chance + t('pvp_win_chance');
@@ -1312,65 +1312,42 @@ function showWinnerOverlay(winner) {
 
   const ov = document.createElement('div');
   ov.id = 'winnerOverlay';
-  ov.style.cssText = [
-    'position:fixed','inset:0','z-index:99999',
-    'background:rgba(0,0,0,.92)',
-    'display:flex','flex-direction:column',
-    'align-items:center','justify-content:center',
-    'text-align:center','padding:28px 24px',
-    'animation:pvpFadeIn .3s ease'
-  ].join(';');
+  ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.93);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px 24px;animation:pvpFadeIn .3s ease';
 
   ov.innerHTML = `
-    <div style="position:relative;width:190px;height:190px;margin:0 auto 12px;animation:pvpBob 2.2s ease-in-out infinite">
-      <div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);
-        width:155px;height:62px;
-        background:linear-gradient(160deg,#ff8ec0,#ff3a8c);
-        border-radius:50%;
-        box-shadow:0 6px 22px rgba(255,58,140,.55)">
-        <div style="position:absolute;inset:15px 22px;background:rgba(0,0,0,.22);border-radius:50%"></div>
+    <div style="animation:pvpBob 2s ease-in-out infinite;display:flex;flex-direction:column;align-items:center;margin-bottom:16px">
+      <div style="font-size:96px;line-height:1;filter:drop-shadow(0 6px 18px rgba(0,220,80,.5));margin-bottom:-10px">🐸</div>
+      <div style="position:relative;width:170px;height:70px">
+        <div style="position:absolute;inset:0;background:linear-gradient(170deg,#ffaacc,#ff2d80);border-radius:50%;box-shadow:0 8px 28px rgba(255,45,128,.6)"></div>
+        <div style="position:absolute;top:14px;left:28px;right:28px;bottom:14px;background:#1a0010;border-radius:50%"></div>
+        <div style="position:absolute;bottom:-14px;left:50%;width:160px;height:16px;border:2.5px solid rgba(100,210,255,.6);border-radius:50%;animation:pvpRipple 1.5s ease-out infinite;transform:translateX(-50%)"></div>
+        <div style="position:absolute;bottom:-14px;left:50%;width:125px;height:11px;border:2px solid rgba(100,210,255,.4);border-radius:50%;animation:pvpRipple 1.5s ease-out infinite;animation-delay:.75s;transform:translateX(-50%)"></div>
       </div>
-      <div style="position:absolute;bottom:42px;left:50%;transform:translateX(-50%);
-        font-size:82px;line-height:1;user-select:none;
-        filter:drop-shadow(0 4px 14px rgba(0,200,80,.45))">🐸</div>
-      <div style="position:absolute;bottom:-10px;left:50%;transform:translateX(-50%);
-        width:155px;height:18px;
-        border:2.5px solid rgba(120,210,255,.55);border-radius:50%;
-        animation:pvpRipple 1.6s ease-out infinite"></div>
-      <div style="position:absolute;bottom:-10px;left:50%;transform:translateX(-50%);
-        width:120px;height:13px;
-        border:2px solid rgba(120,210,255,.4);border-radius:50%;
-        animation:pvpRipple 1.6s ease-out infinite;animation-delay:.8s"></div>
     </div>
     <div style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">${title}</div>
-    <div style="font-size:26px;font-weight:900;color:#fff;margin-bottom:3px;word-break:break-all">${username}</div>
-    <div style="font-size:13px;color:#666;margin-bottom:18px">${chance}</div>
-    <div style="font-size:46px;font-weight:900;color:#ffd60a;
-      text-shadow:0 0 28px rgba(255,214,10,.55);
-      animation:pvpPrizePop .5s .25s both;
-      margin-bottom:24px">${prize}</div>
-    <button onclick="document.getElementById('winnerOverlay').remove()"
-      style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
-        color:#fff;font-size:14px;font-weight:700;padding:12px 40px;
-        border-radius:14px;cursor:pointer">✕ &nbsp;Закрыть</button>
+    <div style="font-size:26px;font-weight:900;color:#fff;margin-bottom:2px;word-break:break-all">${username}</div>
+    <div style="font-size:13px;color:#555;margin-bottom:20px">${chance}</div>
+    <div style="font-size:50px;font-weight:900;color:#ffd60a;text-shadow:0 0 32px rgba(255,214,10,.6);animation:pvpPrizePop .5s .2s both;margin-bottom:28px">${prize}</div>
+    <button onclick="document.getElementById('winnerOverlay').remove();document.getElementById('winnerConfetti')?.remove()"
+      style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:#fff;font-size:15px;font-weight:700;padding:14px 44px;border-radius:16px;cursor:pointer">✕ &nbsp;Закрыть</button>
   `;
 
-  // Confetti layer
-  const emojis = ['🎉','✨','💰','🏆','⭐','💫','🎊'];
+  // Confetti — падают сверху вниз
   const cf = document.createElement('div');
-  cf.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:100000;overflow:hidden';
-  cf.innerHTML = Array.from({length:24}, (_,i) => {
+  cf.id = 'winnerConfetti';
+  cf.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:100000;overflow:hidden';
+  const emojis = ['🎉','✨','💰','🏆','⭐','💫','🎊','🪙'];
+  cf.innerHTML = Array.from({length:20}, (_,i) => {
     const em    = emojis[i % emojis.length];
-    const left  = (Math.random()*98).toFixed(1);
-    const dur   = (2.2 + Math.random()*1.8).toFixed(2);
-    const delay = (Math.random()*1).toFixed(2);
-    return `<span style="position:absolute;top:-10px;left:${left}%;font-size:20px;animation:pvpConfetti ${dur}s ${delay}s linear both">${em}</span>`;
+    const left  = (4 + Math.random()*92).toFixed(1);
+    const dur   = (2.5 + Math.random()*2).toFixed(2);
+    const delay = (Math.random()*1.2).toFixed(2);
+    return `<span style="position:absolute;top:0;left:${left}%;font-size:22px;animation:pvpConfetti ${dur}s ${delay}s linear forwards">${em}</span>`;
   }).join('');
 
   document.body.appendChild(ov);
   document.body.appendChild(cf);
-
-  setTimeout(() => { ov.remove(); cf.remove(); }, 5500);
+  setTimeout(() => { ov.remove(); cf.remove(); }, 6000);
 }
 
 function spinWheel(players, roll) {
