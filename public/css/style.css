@@ -509,124 +509,24 @@ input.field:focus { border-color: rgba(255,214,10,.4); }
 .sep { height: 1px; background: #1a1a22; margin: 14px 0; }
 
 /* ── PvP WIN ANIMATION ── */
-@keyframes floatBob {
-  0%,100% { transform: translateY(0px) rotate(-2deg); }
-  50%      { transform: translateY(-14px) rotate(2deg); }
+@keyframes pvpBob {
+  0%,100% { transform: translateY(0px) rotate(-1.5deg); }
+  50%      { transform: translateY(-16px) rotate(1.5deg); }
 }
-@keyframes ripple {
-  0%   { transform: scaleX(1); opacity:.6; }
-  100% { transform: scaleX(1.35); opacity:0; }
+@keyframes pvpRipple {
+  0%   { transform: translateX(-50%) scaleX(1); opacity:.55; }
+  100% { transform: translateX(-50%) scaleX(1.6); opacity:0; }
 }
-@keyframes winFadeIn {
-  from { opacity:0; transform:scale(.85); }
-  to   { opacity:1; transform:scale(1); }
+@keyframes pvpFadeIn {
+  from { opacity:0; }
+  to   { opacity:1; }
 }
-@keyframes prizePop {
-  0%   { transform:scale(.5); opacity:0; }
-  70%  { transform:scale(1.12); }
+@keyframes pvpPrizePop {
+  0%   { transform:scale(.4); opacity:0; }
+  65%  { transform:scale(1.15); }
   100% { transform:scale(1); opacity:1; }
 }
-@keyframes confettiFall {
-  0%   { transform:translateY(-10px) rotate(0deg); opacity:1; }
-  100% { transform:translateY(110vh) rotate(720deg); opacity:0; }
-}
-.win-overlay {
-  display:none; position:fixed; inset:0;
-  background:rgba(0,0,0,.88);
-  z-index:1000; flex-direction:column;
-  align-items:center; justify-content:center;
-  gap:0; text-align:center; padding:24px;
-  animation: winFadeIn .35s ease;
-}
-.win-overlay.show { display:flex; }
-.win-char-wrap {
-  position:relative; width:200px; height:200px;
-  margin-bottom:8px;
-  animation: floatBob 2.2s ease-in-out infinite;
-}
-.win-float {
-  position:absolute; bottom:18px; left:50%;
-  transform:translateX(-50%);
-  width:160px; height:68px;
-  background: radial-gradient(ellipse at 50% 40%, #ff8fab, #ff4d88);
-  border-radius:50%;
-  box-shadow: 0 6px 24px rgba(255,77,136,.45);
-}
-.win-float::before {
-  content:''; position:absolute; inset:18px 22px;
-  background: rgba(0,0,0,.18); border-radius:50%;
-}
-.win-float-neck {
-  position:absolute; bottom:54px; left:50%;
-  transform:translateX(-50%);
-  width:28px; height:22px;
-  background:#ff4d88; border-radius:4px 4px 0 0;
-}
-.win-float-head {
-  position:absolute; bottom:68px; left:50%;
-  transform:translateX(-50%);
-  width:54px; height:42px;
-  background:#ff6ba8;
-  border-radius:50% 50% 40% 40%;
-}
-.win-float-eye-l, .win-float-eye-r {
-  position:absolute; top:8px;
-  width:16px; height:16px;
-  background:#fff; border-radius:50%;
-}
-.win-float-eye-l { left:8px; }
-.win-float-eye-r { right:8px; }
-.win-float-eye-l::after, .win-float-eye-r::after {
-  content:''; position:absolute; inset:3px;
-  background:#222; border-radius:50%;
-}
-.win-frog {
-  position:absolute; bottom:62px; left:50%;
-  transform:translateX(-50%);
-  width:80px; height:80px; font-size:68px;
-  line-height:1; user-select:none;
-  filter: drop-shadow(0 4px 12px rgba(0,200,80,.35));
-}
-.win-ripple {
-  position:absolute; bottom:8px; left:50%;
-  transform:translateX(-50%);
-  width:140px; height:20px;
-  border:2.5px solid rgba(100,220,255,.55);
-  border-radius:50%;
-  animation: ripple 1.6s ease-out infinite;
-}
-.win-ripple2 {
-  animation-delay:.8s;
-  width:110px;
-}
-.win-title {
-  font-size:13px; font-weight:700; color:var(--muted2);
-  text-transform:uppercase; letter-spacing:1.5px; margin-bottom:6px;
-}
-.win-username {
-  font-size:26px; font-weight:900; color:#fff;
-  margin-bottom:2px; word-break:break-all;
-}
-.win-chance {
-  font-size:13px; color:var(--muted2); margin-bottom:14px;
-}
-.win-prize {
-  font-size:44px; font-weight:900; color:var(--gold);
-  text-shadow: 0 0 24px rgba(255,214,10,.5);
-  animation: prizePop .5s .2s both;
-  margin-bottom:16px;
-}
-.win-close-btn {
-  background:rgba(255,255,255,.08); border:none; color:#fff;
-  font-size:14px; font-weight:700; padding:12px 36px;
-  border-radius:14px; cursor:pointer;
-}
-.win-confetti {
-  position:fixed; pointer-events:none; z-index:1001;
-  top:0; left:0; width:100%; height:0; overflow:visible;
-}
-.win-confetti span {
-  position:absolute; top:-10px;
-  font-size:18px;
-  animation: confettiFall linear both;
+@keyframes pvpConfetti {
+  0%   { transform:translateY(-20px) rotate(0deg); opacity:1; }
+  100% { transform:translateY(110vh) rotate(600deg); opacity:0; }
 }

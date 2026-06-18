@@ -1012,26 +1012,6 @@ function renderPvP() {
       <div id="playersList"></div>
       <div class="hash" id="hashLine"></div>
       <button class="btn btn-dark" style="margin-top:12px;width:100%" onclick="openPvPHistory()">📋 ${t('pvp_history_btn')}</button>
-      <div id="winnerOverlay" class="win-overlay">
-        <div class="win-char-wrap">
-          <div class="win-float">
-            <div class="win-float-neck"></div>
-            <div class="win-float-head">
-              <div class="win-float-eye-l"></div>
-              <div class="win-float-eye-r"></div>
-            </div>
-          </div>
-          <div class="win-frog">🐸</div>
-          <div class="win-ripple"></div>
-          <div class="win-ripple win-ripple2"></div>
-        </div>
-        <div class="win-title">${t('pvp_winner_title')}</div>
-        <div id="woUsername" class="win-username"></div>
-        <div id="woChance" class="win-chance"></div>
-        <div id="woPrize" class="win-prize"></div>
-        <button class="win-close-btn" onclick="document.getElementById('winnerOverlay').classList.remove('show')">✕ &nbsp;${t('close') || 'Закрыть'}</button>
-      </div>
-      <div id="winConfetti" class="win-confetti"></div>
     </div>
 
     <div id="pvpAboutOverlay" class="pvp-about-overlay" onclick="if(event.target===this)closePvpAbout()">
@@ -1322,26 +1302,75 @@ function drawWheel(players) {
 }
 
 function showWinnerOverlay(winner) {
-  const ov = document.getElementById('winnerOverlay');
-  if (!ov) return;
-  document.getElementById('woUsername').textContent = '@' + (winner.username || '...');
-  document.getElementById('woChance').textContent = winner.chance + t('pvp_win_chance');
-  document.getElementById('woPrize').textContent = '+' + parseFloat(winner.prize).toLocaleString() + ' ARC';
-  ov.classList.add('show');
-  // confetti burst
-  const cf = document.getElementById('winConfetti');
-  if (cf) {
-    const emojis = ['🎉','✨','💰','🏆','⭐','💫','🎊'];
-    cf.innerHTML = Array.from({length:22}, (_,i) => {
-      const em = emojis[i % emojis.length];
-      const left = Math.random()*100;
-      const dur  = 2.2 + Math.random()*1.8;
-      const delay= Math.random()*0.8;
-      return `<span style="left:${left}%;animation-duration:${dur}s;animation-delay:${delay}s">${em}</span>`;
-    }).join('');
-    setTimeout(() => { cf.innerHTML = ''; }, 4500);
-  }
-  setTimeout(() => { ov.classList.remove('show'); }, 5000);
+  // Remove existing if any
+  document.getElementById('winnerOverlay')?.remove();
+
+  const username = '@' + (winner.username || '...');
+  const chance   = winner.chance + t('pvp_win_chance');
+  const prize    = '+' + parseFloat(winner.prize).toLocaleString() + ' ARC';
+  const title    = t('pvp_winner_title');
+
+  const ov = document.createElement('div');
+  ov.id = 'winnerOverlay';
+  ov.style.cssText = [
+    'position:fixed','inset:0','z-index:99999',
+    'background:rgba(0,0,0,.92)',
+    'display:flex','flex-direction:column',
+    'align-items:center','justify-content:center',
+    'text-align:center','padding:28px 24px',
+    'animation:pvpFadeIn .3s ease'
+  ].join(';');
+
+  ov.innerHTML = `
+    <div style="position:relative;width:190px;height:190px;margin:0 auto 12px;animation:pvpBob 2.2s ease-in-out infinite">
+      <div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);
+        width:155px;height:62px;
+        background:linear-gradient(160deg,#ff8ec0,#ff3a8c);
+        border-radius:50%;
+        box-shadow:0 6px 22px rgba(255,58,140,.55)">
+        <div style="position:absolute;inset:15px 22px;background:rgba(0,0,0,.22);border-radius:50%"></div>
+      </div>
+      <div style="position:absolute;bottom:42px;left:50%;transform:translateX(-50%);
+        font-size:82px;line-height:1;user-select:none;
+        filter:drop-shadow(0 4px 14px rgba(0,200,80,.45))">🐸</div>
+      <div style="position:absolute;bottom:-10px;left:50%;transform:translateX(-50%);
+        width:155px;height:18px;
+        border:2.5px solid rgba(120,210,255,.55);border-radius:50%;
+        animation:pvpRipple 1.6s ease-out infinite"></div>
+      <div style="position:absolute;bottom:-10px;left:50%;transform:translateX(-50%);
+        width:120px;height:13px;
+        border:2px solid rgba(120,210,255,.4);border-radius:50%;
+        animation:pvpRipple 1.6s ease-out infinite;animation-delay:.8s"></div>
+    </div>
+    <div style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">${title}</div>
+    <div style="font-size:26px;font-weight:900;color:#fff;margin-bottom:3px;word-break:break-all">${username}</div>
+    <div style="font-size:13px;color:#666;margin-bottom:18px">${chance}</div>
+    <div style="font-size:46px;font-weight:900;color:#ffd60a;
+      text-shadow:0 0 28px rgba(255,214,10,.55);
+      animation:pvpPrizePop .5s .25s both;
+      margin-bottom:24px">${prize}</div>
+    <button onclick="document.getElementById('winnerOverlay').remove()"
+      style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
+        color:#fff;font-size:14px;font-weight:700;padding:12px 40px;
+        border-radius:14px;cursor:pointer">✕ &nbsp;Закрыть</button>
+  `;
+
+  // Confetti layer
+  const emojis = ['🎉','✨','💰','🏆','⭐','💫','🎊'];
+  const cf = document.createElement('div');
+  cf.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:100000;overflow:hidden';
+  cf.innerHTML = Array.from({length:24}, (_,i) => {
+    const em    = emojis[i % emojis.length];
+    const left  = (Math.random()*98).toFixed(1);
+    const dur   = (2.2 + Math.random()*1.8).toFixed(2);
+    const delay = (Math.random()*1).toFixed(2);
+    return `<span style="position:absolute;top:-10px;left:${left}%;font-size:20px;animation:pvpConfetti ${dur}s ${delay}s linear both">${em}</span>`;
+  }).join('');
+
+  document.body.appendChild(ov);
+  document.body.appendChild(cf);
+
+  setTimeout(() => { ov.remove(); cf.remove(); }, 5500);
 }
 
 function spinWheel(players, roll) {
