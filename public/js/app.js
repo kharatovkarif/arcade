@@ -10,6 +10,7 @@ let adsgramControllerShort = null;
 let onclickaShow4 = null;
 let monetagReady = false;
 let nygmaReady = false;
+let telegaReady = false;
 
 async function api(path, body = {}) {
   const res = await fetch('/api' + path, {
@@ -247,10 +248,12 @@ function renderMain() {
     </div>
     <div class="row">
       <div class="info">
-        <span class="title">${t('ad_reward')} 7</span>
-        <span class="sub" style="color:var(--gold)">${t('soon')}</span>
+        <span class="title">${t('ad_reward')} 7 ${telegaReady ? `&nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + ${t('checkin_short')}</span>` : ''}</span>
+        <span class="sub">${telegaReady ? (ME.ad7_daily_count||0)+'/'+(ME.is_pro?15:10)+' '+t('today') : t('soon')}</span>
       </div>
-      <button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>
+      ${telegaReady && (ME.ad7_daily_count||0) < (ME.is_pro?15:10)
+        ? `<button onclick="watchAd7(this)" style="width:44px;height:44px;border-radius:50%;background:var(--blue);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`
+        : `<button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`}
     </div>
     <div class="row">
       <div class="info">
@@ -733,6 +736,38 @@ window.watchAd6 = async (btn) => {
   } catch (e) {
     btn.disabled = false;
     nygmaDiag(showName + '() failed: ' + (e?.message || e));
+  }
+};
+
+// Ad 7 — Telega.io Rewarded. SDK is initialised in index.html as window.telegaAds.
+window.watchAd7 = async (btn) => {
+  const ctrl = window.telegaAds;
+  if (!ctrl || typeof ctrl.ad_show !== 'function') return;
+  const uuid = ME.telega_block_uuid;
+  if (!uuid) return;
+  const count7 = ME.ad7_daily_count || 0;
+  const limit7 = ME.is_pro ? 15 : 10;
+  if (count7 >= limit7) return;
+  btn.disabled = true;
+  try {
+    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout 30s')), 30000));
+    await Promise.race([Promise.resolve(ctrl.ad_show({ adBlockUuid: uuid })), timeout]);
+    const r = await api('/ads/watch7');
+    if (r.ok) {
+      ME.ad7_daily_count = r.daily_count;
+      ME.balance_arc = r.balance_arc;
+      renderHeader();
+      renderMain();
+      toast(`+${r.reward} ARC · ${r.daily_count}/${limit7}`);
+    } else if (r.error === 'daily_limit') {
+      ME.ad7_daily_count = r.daily_count;
+      renderMain();
+      toast(t('ad_daily_limit_short'));
+    } else {
+      btn.disabled = false;
+    }
+  } catch (e) {
+    btn.disabled = false;
   }
 };
 
@@ -2243,6 +2278,18 @@ async function init() {
   }
   if (ME.nygma_block_id && window.NigmaSDK) {
     nygmaReady = true; renderMain();
+  }
+  if (ME.telega_block_uuid) {
+    if (window.telegaAds && typeof window.telegaAds.ad_show === 'function') {
+      telegaReady = true; renderMain();
+    } else {
+      const pollT = setInterval(() => {
+        if (window.telegaAds && typeof window.telegaAds.ad_show === 'function') {
+          clearInterval(pollT); telegaReady = true; renderMain();
+        }
+      }, 500);
+      setTimeout(() => clearInterval(pollT), 12000);
+    }
   }
   initTads();
   const urlParams = new URLSearchParams(location.search);
