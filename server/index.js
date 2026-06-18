@@ -212,7 +212,7 @@ app.post('/api/tasks', auth, async (req, res) => {
   const needsPvp = (tasks || []).some(t => t.type === 'pvp_milestone');
   const [refRes, adRes, pvpRes] = await Promise.all([
     needsRef ? supabase.from('users').select('*', { count: 'exact', head: true }).eq('referrer_id', req.user.tg_id) : null,
-    needsAd ? supabase.from('transactions').select('*', { count: 'exact', head: true }).eq('tg_id', req.user.tg_id).in('type', ['ad', 'ad_short', 'ad_task', 'ad4', 'ad5', 'ad6']).gte('created_at', todayStart) : null,
+    needsAd ? supabase.from('transactions').select('*', { count: 'exact', head: true }).eq('tg_id', req.user.tg_id).in('type', ['ad', 'ad_short', 'ad_task', 'ad4', 'ad5', 'ad6', 'ad7']).gte('created_at', todayStart) : null,
     null,
   ]);
   const refCount = refRes ? (refRes.count || 0) : null;
@@ -431,7 +431,7 @@ app.post('/api/tasks/check', auth, async (req, res) => {
   if (task.type === 'ad_milestone') {
     const required = Number(task.target || 0);
     const { count } = await supabase.from('transactions').select('*', { count: 'exact', head: true })
-      .eq('tg_id', req.user.tg_id).in('type', ['ad', 'ad_short', 'ad_task', 'ad4', 'ad5', 'ad6']).gte('created_at', todayStart);
+      .eq('tg_id', req.user.tg_id).in('type', ['ad', 'ad_short', 'ad_task', 'ad4', 'ad5', 'ad6', 'ad7']).gte('created_at', todayStart);
     if ((count || 0) < required) return res.json({ ok: false, error: 'not_enough_views', need: required, have: count || 0 });
   }
   if (task.type === 'pvp_milestone') {

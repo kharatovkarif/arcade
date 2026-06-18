@@ -763,11 +763,16 @@ window.watchAd7 = async (btn) => {
       ME.ad7_daily_count = r.daily_count;
       renderMain();
       toast(t('ad_daily_limit_short'));
+    } else if (r.error === 'cooldown') {
+      btn.disabled = false;
+      toast(t('too_fast'));
     } else {
       btn.disabled = false;
+      toast(t('ad_unavailable'));
     }
   } catch (e) {
     btn.disabled = false;
+    toast(t('ad_unavailable'));
   }
 };
 
