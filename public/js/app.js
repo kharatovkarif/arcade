@@ -1585,24 +1585,18 @@ function initTads() {
   setTimeout(() => { clearInterval(poll); if (tadsInitStatus === 'pending') tadsInitStatus = 'no_script'; }, 15000);
 }
 
-// Ad couldn't be shown (no fill / not ready / rejected) — keep the free flip
-// locked, re-enable the button and tell the player. No cooldown consumed.
+// Ad couldn't be shown (no fill / not ready / rejected) — grant free flip anyway.
 function cfAdFailed() {
-  if (!cfFreePending) return;
-  cfFreePending = false;
-  renderCfFreeBtn();
+  grantCoinflipFree();
 }
 
 window.doCoinflipFree = () => {
   if (cfFreeMsLeft > 0 || coinflipBusy || cfFreePending) return;
   const wid = ME.tads_widget_id;
   const ctrl = wid && window.tads && window.tads.controllers && window.tads.controllers[wid];
-  if (!ctrl) {
-    tadsDiag('контроллер не готов. widgetId=' + wid + ' window.tads=' + !!window.tads + ' status=' + tadsInitStatus);
-    return;
-  }
-  if (typeof ctrl.showAd !== 'function') {
-    tadsDiag('нет метода showAd. методы=[' + Object.keys(ctrl).join(',') + ']');
+  if (!ctrl || typeof ctrl.showAd !== 'function') {
+    cfFreePending = true;
+    grantCoinflipFree();
     return;
   }
   const resEl = document.getElementById('coinflipResult');
