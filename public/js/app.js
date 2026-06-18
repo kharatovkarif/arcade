@@ -1585,18 +1585,23 @@ function initTads() {
   setTimeout(() => { clearInterval(poll); if (tadsInitStatus === 'pending') tadsInitStatus = 'no_script'; }, 15000);
 }
 
-// Ad couldn't be shown (no fill / not ready / rejected) — grant free flip anyway.
+// Ad couldn't be shown (no fill / not ready / rejected) — no flip, re-enable button.
 function cfAdFailed() {
-  grantCoinflipFree();
+  if (!cfFreePending) return;
+  cfFreePending = false;
+  renderCfFreeBtn();
 }
 
 window.doCoinflipFree = () => {
   if (cfFreeMsLeft > 0 || coinflipBusy || cfFreePending) return;
   const wid = ME.tads_widget_id;
   const ctrl = wid && window.tads && window.tads.controllers && window.tads.controllers[wid];
-  if (!ctrl || typeof ctrl.showAd !== 'function') {
-    cfFreePending = true;
-    grantCoinflipFree();
+  if (!ctrl) {
+    tadsDiag('контроллер не готов. widgetId=' + wid + ' window.tads=' + !!window.tads + ' status=' + tadsInitStatus);
+    return;
+  }
+  if (typeof ctrl.showAd !== 'function') {
+    tadsDiag('нет метода showAd. методы=[' + Object.keys(ctrl).join(',') + ']');
     return;
   }
   const resEl = document.getElementById('coinflipResult');
@@ -1604,12 +1609,16 @@ window.doCoinflipFree = () => {
   cfFreePending = true;
   const btn = document.getElementById('cfFreeBtn');
   if (btn) btn.disabled = true;
-  // Reward is granted only via onShowReward (a fully watched ad).
-  // A rejected showAd or onAdsNotFound routes to cfAdFailed — no free flip.
+  // Safety timeout — if TADS hangs and never calls any callback, unblock button after 20s
+  const tadsTimeout = setTimeout(() => {
+    if (cfFreePending) { cfFreePending = false; renderCfFreeBtn(); toast('Реклама недоступна'); }
+  }, 20000);
+  const origFailed = cfAdFailed;
+  const wrap = () => { clearTimeout(tadsTimeout); cfAdFailed(); };
   let res;
-  try { res = ctrl.showAd(); } catch (e) { tadsDiag('showAd() threw: ' + (e?.message || e)); cfAdFailed(); return; }
+  try { res = ctrl.showAd(); } catch (e) { clearTimeout(tadsTimeout); tadsDiag('showAd() threw: ' + (e?.message || e)); cfAdFailed(); return; }
   if (res && typeof res.catch === 'function') {
-    res.catch(e => { tadsDiag('showAd() отклонён: ' + (e?.message || e)); cfAdFailed(); });
+    res.catch(e => { clearTimeout(tadsTimeout); tadsDiag('showAd() отклонён: ' + (e?.message || e)); cfAdFailed(); });
   }
 };
 
