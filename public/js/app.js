@@ -1012,13 +1012,26 @@ function renderPvP() {
       <div id="playersList"></div>
       <div class="hash" id="hashLine"></div>
       <button class="btn btn-dark" style="margin-top:12px;width:100%" onclick="openPvPHistory()">📋 ${t('pvp_history_btn')}</button>
-      <div id="winnerOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:1000;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:32px">
-        <div style="font-size:56px">🏆</div>
-        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px">${t('pvp_winner_title')}</div>
-        <div id="woUsername" style="font-size:28px;font-weight:900;color:#fff"></div>
-        <div id="woChance" style="font-size:14px;color:var(--muted2);margin-top:-4px"></div>
-        <div id="woPrize" style="font-size:40px;font-weight:900;color:#ffd60a;margin-top:4px"></div>
+      <div id="winnerOverlay" class="win-overlay">
+        <div class="win-char-wrap">
+          <div class="win-float">
+            <div class="win-float-neck"></div>
+            <div class="win-float-head">
+              <div class="win-float-eye-l"></div>
+              <div class="win-float-eye-r"></div>
+            </div>
+          </div>
+          <div class="win-frog">🐸</div>
+          <div class="win-ripple"></div>
+          <div class="win-ripple win-ripple2"></div>
+        </div>
+        <div class="win-title">${t('pvp_winner_title')}</div>
+        <div id="woUsername" class="win-username"></div>
+        <div id="woChance" class="win-chance"></div>
+        <div id="woPrize" class="win-prize"></div>
+        <button class="win-close-btn" onclick="document.getElementById('winnerOverlay').classList.remove('show')">✕ &nbsp;${t('close') || 'Закрыть'}</button>
       </div>
+      <div id="winConfetti" class="win-confetti"></div>
     </div>
 
     <div id="pvpAboutOverlay" class="pvp-about-overlay" onclick="if(event.target===this)closePvpAbout()">
@@ -1314,8 +1327,21 @@ function showWinnerOverlay(winner) {
   document.getElementById('woUsername').textContent = '@' + (winner.username || '...');
   document.getElementById('woChance').textContent = winner.chance + t('pvp_win_chance');
   document.getElementById('woPrize').textContent = '+' + parseFloat(winner.prize).toLocaleString() + ' ARC';
-  ov.style.display = 'flex';
-  setTimeout(() => { ov.style.display = 'none'; }, 3000);
+  ov.classList.add('show');
+  // confetti burst
+  const cf = document.getElementById('winConfetti');
+  if (cf) {
+    const emojis = ['🎉','✨','💰','🏆','⭐','💫','🎊'];
+    cf.innerHTML = Array.from({length:22}, (_,i) => {
+      const em = emojis[i % emojis.length];
+      const left = Math.random()*100;
+      const dur  = 2.2 + Math.random()*1.8;
+      const delay= Math.random()*0.8;
+      return `<span style="left:${left}%;animation-duration:${dur}s;animation-delay:${delay}s">${em}</span>`;
+    }).join('');
+    setTimeout(() => { cf.innerHTML = ''; }, 4500);
+  }
+  setTimeout(() => { ov.classList.remove('show'); }, 5000);
 }
 
 function spinWheel(players, roll) {
