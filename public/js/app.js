@@ -782,8 +782,12 @@ async function renderFriends() {
   const r = await api('/referrals');
   const totalInvited = r.level1.length + r.level2.length;
   const totalEarned = [...r.level1, ...r.level2].reduce((s, u) => s + (u.earned || 0), 0);
+  const totalTon = [...r.level1, ...r.level2].reduce((s, u) => s + (u.earned_ton || 0), 0);
   const col = (arr) => arr.length
-    ? arr.map(u => `<div class="ref-item"><span class="ru">@${u.username || '...'}</span><span class="re">${fmt(u.earned,0)} ARC</span></div>`).join('')
+    ? arr.map(u => {
+        const ton = (u.earned_ton || 0) > 0 ? `<span class="re" style="color:#4f8ef7">+${fmt(u.earned_ton,2)} TON</span>` : '';
+        return `<div class="ref-item"><span class="ru">@${u.username || '...'}</span><span style="display:flex;gap:8px;align-items:center"><span class="re">${fmt(u.earned,0)} ARC</span>${ton}</span></div>`;
+      }).join('')
     : `<p class="muted" style="font-size:13px">${t('no_referrals')}</p>`;
   el.innerHTML = `
     <div class="ref-card">
@@ -792,6 +796,7 @@ async function renderFriends() {
       <div class="ref-stats">
         <div class="ref-stat"><div class="rv">${totalInvited}</div><div class="rl">${t('invited_label')}</div></div>
         <div class="ref-stat"><div class="rv">${fmt(totalEarned,0)}</div><div class="rl">${t('arc_earned_label')}</div></div>
+        <div class="ref-stat"><div class="rv" style="color:#4f8ef7">${fmt(totalTon,2)}</div><div class="rl">TON</div></div>
       </div>
       <input class="field" id="refLink" value="${r.link}" readonly style="margin-bottom:8px" />
       <div style="display:flex;gap:8px">
@@ -800,15 +805,13 @@ async function renderFriends() {
       </div>
     </div>
     <div class="block">
-      <div class="ref-cols">
-        <div class="ref-col">
-          <div class="ref-col-hdr">${t('level1')} · 20%</div>
-          ${col(r.level1)}
-        </div>
-        <div class="ref-col">
-          <div class="ref-col-hdr">${t('level2')} · 10%</div>
-          ${col(r.level2)}
-        </div>
+      <div class="ref-col" style="margin-bottom:14px">
+        <div class="ref-col-hdr">${t('level1')} · 20% ARC + 10% TON</div>
+        ${col(r.level1)}
+      </div>
+      <div class="ref-col">
+        <div class="ref-col-hdr">${t('level2')} · 10% ARC</div>
+        ${col(r.level2)}
       </div>
     </div>`;
   document.getElementById('copyBtn').onclick = () => { navigator.clipboard?.writeText(r.link); toast(t('copied')); };

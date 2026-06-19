@@ -477,20 +477,25 @@ app.post('/api/referrals', auth, async (req, res) => {
     lvl2 = data || [];
   }
   const earnings = await referralEarnings(req.user.tg_id);
+  const pick = (id) => earnings[id] || { arc: 0, ton: 0 };
   res.json({
     link: `https://t.me/${process.env.BOT_USERNAME || 'arc_tonbot'}?startapp=${req.user.tg_id}`,
-    level1: (lvl1 || []).map(u => ({ username: u.username, earned: earnings[u.tg_id] || 0 })),
-    level2: lvl2.map(u => ({ username: u.username, earned: earnings[u.tg_id] || 0 })),
+    level1: (lvl1 || []).map(u => ({ username: u.username, earned: pick(u.tg_id).arc, earned_ton: pick(u.tg_id).ton })),
+    level2: lvl2.map(u => ({ username: u.username, earned: pick(u.tg_id).arc, earned_ton: pick(u.tg_id).ton })),
   });
 });
 
+// Sums referral payouts per source user, split by currency (ARC and TON).
+// ARC comes from ad/task referral shares; TON comes from PRO purchase commissions.
 async function referralEarnings(tgId) {
   const { data } = await supabase.from('transactions')
-    .select('amount, note').eq('tg_id', tgId).eq('type', 'referral');
+    .select('amount, note, currency').eq('tg_id', tgId).eq('type', 'referral');
   const map = {};
   (data || []).forEach(t => {
-    const from = (t.note || '').replace('from ', '');
-    map[from] = (map[from] || 0) + Number(t.amount);
+    const from = (t.note || '').replace('pro from ', '').replace('from ', '');
+    if (!map[from]) map[from] = { arc: 0, ton: 0 };
+    if (t.currency === 'TON') map[from].ton += Number(t.amount);
+    else map[from].arc += Number(t.amount);
   });
   return map;
 }
@@ -518,6 +523,7 @@ app.post('/api/pvp/bet', auth, async (req, res) => {
 // in a single DB statement, so PRO can never appear without payment.
 const PRO_PRICE_TON = 0.2;
 const PRO_DAYS = 7;
+const PRO_REF_COMMISSION = 0.10; // level-1 inviter earns 10% of the PRO price in TON
 
 app.post('/api/pro/buy', auth, async (req, res) => {
   const { data: newUntil, error } = await supabase.rpc('try_buy_pro', {
@@ -529,6 +535,14 @@ app.post('/api/pro/buy', auth, async (req, res) => {
     tg_id: req.user.tg_id, type: 'pro', currency: 'TON', amount: -PRO_PRICE_TON,
     note: `PRO +${PRO_DAYS}d`,
   });
+  // Level-1 referral commission: the direct inviter gets 10% of the price in TON.
+  if (req.user.referrer_id) {
+    const commission = Number((PRO_PRICE_TON * PRO_REF_COMMISSION).toFixed(4));
+    if (commission > 0) {
+      await changeTon(req.user.referrer_id, commission, 'referral', `pro from ${req.user.tg_id}`)
+        .catch(e => console.log('pro ref commission error:', e.message));
+    }
+  }
   const { data: u } = await supabase.from('users').select('balance_ton').eq('tg_id', req.user.tg_id).single();
   res.json({ ok: true, pro_until: newUntil, balance_ton: Number(u.balance_ton) });
 });
