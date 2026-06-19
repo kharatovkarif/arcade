@@ -311,14 +311,58 @@ export function startBot() {
     ).catch(()=>{});
   });
 
-  // Photo broadcast: admin sends a photo with caption starting with /photocast.
-  // Format: /photocast text ;;; postUrl ;;; buttonText ;;; appQuery
-  // (";;;" — Telegram auto-converts "||" pairs into spoiler markup, so pipes can't be used)
-  // appQuery is appended to the Mini App URL (e.g. "pro=1" opens the PRO purchase modal).
+  // Localized photo broadcast: send photo to @arc_tonbot with caption:
+  // /lphotocast ru:текст;;;en:text;;;postUrl:https://t.me/arcare_ton
+  // Language sections separated by ";;;", each starting with "lang:".
+  // "postUrl:URL" section sets the channel button URL (optional).
+  // Missing languages fall back to "en".
   bot.on('message', async (msg) => {
     if (msg.from.id !== ADMIN_ID) return;
     if (!msg.photo) return;
     const caption = msg.caption || '';
+    if (caption.startsWith('/lphotocast')) {
+      const raw = caption.slice('/lphotocast'.length).trim();
+      const texts = {};
+      let postUrl = 'https://t.me/arcare_ton';
+      for (const part of raw.split(';;;')) {
+        const colon = part.indexOf(':');
+        if (colon === -1) continue;
+        const key = part.slice(0, colon).trim();
+        const val = part.slice(colon + 1).replace(/\\n/g, '\n').trim();
+        if (key === 'postUrl') postUrl = val;
+        else texts[key] = val;
+      }
+      const fallback = texts.en || texts.ru;
+      if (!fallback) return bot.sendMessage(msg.chat.id, '❌ Нужен хотя бы ru: или en:').catch(() => {});
+      const fileId = msg.photo[msg.photo.length - 1].file_id;
+      const { data: users } = await supabase.from('users').select('tg_id, language')
+        .eq('bot_blocked', false).eq('is_banned', false);
+      if (!users?.length) return bot.sendMessage(msg.chat.id, '❌ No users').catch(() => {});
+      let ok = 0, fail = 0;
+      for (const u of users) {
+        const text = texts[u.language] || fallback;
+        try {
+          await bot.sendPhoto(u.tg_id, fileId, {
+            caption: text,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '▶️ Играть в ARCADE', web_app: { url: APP_URL } }],
+                [{ text: '📢 Канал', url: postUrl }],
+              ],
+            },
+          });
+          ok++;
+        } catch (e) {
+          fail++;
+          if (e?.response?.statusCode === 403) {
+            supabase.from('users').update({ bot_blocked: true }).eq('tg_id', u.tg_id).then(() => {});
+          }
+        }
+        await new Promise(r => setTimeout(r, 50));
+      }
+      return bot.sendMessage(msg.chat.id, `✅ Отправлено: ${ok}\n❌ Ошибок: ${fail}`).catch(() => {});
+    }
     if (!caption.startsWith('/photocast')) return;
     const raw = caption.slice('/photocast'.length).trim();
     const parts = raw.split(/\|\|\||;;;/).map(s => s.trim());
