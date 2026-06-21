@@ -799,7 +799,7 @@ window.watchAd8 = async (btn) => {
       if (typeof G.init === 'function') {
         adPromise = new Promise((resolve, reject) => {
           const ret = G.init({
-            widget_id: wid,
+            widgetId: wid,
             onReward: resolve,
             onComplete: resolve,
             onSuccess: resolve,
