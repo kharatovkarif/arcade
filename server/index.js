@@ -79,7 +79,7 @@ app.get('/api/avatar/:tgId', async (req, res) => {
 
 app.post('/api/me', auth, async (req, res) => {
   const todayStart = mskDate() + 'T00:00:00+03:00';
-  const [{ data: u }, { count: adCount }, { count: adShortCount }, { count: adTaskCount }, { count: ad4Count }, { count: ad5Count }, { count: ad6Count }, { count: ad7Count }] = await Promise.all([
+  const [{ data: u }, { count: adCount }, { count: adShortCount }, { count: adTaskCount }, { count: ad4Count }, { count: ad5Count }, { count: ad6Count }, { count: ad7Count }, { count: ad8Count }] = await Promise.all([
     supabase.from('users').select('*').eq('tg_id', req.user.tg_id).single(),
     supabase.from('transactions').select('*', { count: 'exact', head: true })
       .eq('tg_id', req.user.tg_id).eq('type', 'ad').gte('created_at', todayStart),
@@ -95,6 +95,8 @@ app.post('/api/me', auth, async (req, res) => {
       .eq('tg_id', req.user.tg_id).eq('type', 'ad6').gte('created_at', todayStart),
     supabase.from('transactions').select('*', { count: 'exact', head: true })
       .eq('tg_id', req.user.tg_id).eq('type', 'ad7').gte('created_at', todayStart),
+    supabase.from('transactions').select('*', { count: 'exact', head: true })
+      .eq('tg_id', req.user.tg_id).eq('type', 'ad8').gte('created_at', todayStart),
   ]);
   const pro = isPro(u);
   // While PRO is active the checkin streak is maintained automatically at max,
@@ -121,6 +123,7 @@ app.post('/api/me', auth, async (req, res) => {
     monetag_zone_id: process.env.MONETAG_ZONE_ID || '',   // ad slot 5 — Monetag Rewarded Interstitial
     nygma_block_id: process.env.NYGMA_BLOCK_ID || '',     // ad slot 6 — Nygma Rewarded
     telega_block_uuid: process.env.TELEGA_BLOCK_UUID || 'f51182c6-1e3a-46b8-9a20-3068ed5f1be8', // ad slot 7 — Telega.io Rewarded
+    tads_widget_id: process.env.TADS_WIDGET_ID || '',   // ad slot 8 — TADS Rewarded
     ad_daily_count: adCount || 0,
     ad_short_daily_count: adShortCount || 0,
     ad_task_daily_count: adTaskCount || 0,
@@ -128,6 +131,7 @@ app.post('/api/me', auth, async (req, res) => {
     ad5_daily_count: ad5Count || 0,
     ad6_daily_count: ad6Count || 0,
     ad7_daily_count: ad7Count || 0,
+    ad8_daily_count: ad8Count || 0,
   });
 });
 
@@ -387,6 +391,25 @@ app.post('/api/ads/watch7', auth, async (req, res) => {
 
   const reward = Math.round(5 * adMultiplier(req.user));
   const newBal = await changeArc(req.user.tg_id, reward, 'ad7', 'telega watch');
+  await payReferrals(req.user.tg_id, reward, req.user.referrer_id);
+
+  res.json({ ok: true, daily_count: current + 1, reward, balance_arc: newBal });
+});
+
+// Ad 8 — TADS Rewarded, client-triggered with auth + daily limit
+app.post('/api/ads/watch8', auth, async (req, res) => {
+  const todayStart = mskDate() + 'T00:00:00+03:00';
+  const limit = isPro(req.user) ? 10 : 5;
+
+  const { count } = await supabase.from('transactions').select('*', { count: 'exact', head: true })
+    .eq('tg_id', req.user.tg_id).eq('type', 'ad8').gte('created_at', todayStart);
+  const current = count || 0;
+  if (current >= limit) return res.json({ ok: false, error: 'daily_limit', daily_count: limit });
+  if (await adCooldownActive(req.user.tg_id, 'ad8'))
+    return res.json({ ok: false, error: 'cooldown', daily_count: current });
+
+  const reward = Math.round(5 * adMultiplier(req.user));
+  const newBal = await changeArc(req.user.tg_id, reward, 'ad8', 'tads watch');
   await payReferrals(req.user.tg_id, reward, req.user.referrer_id);
 
   res.json({ ok: true, daily_count: current + 1, reward, balance_arc: newBal });

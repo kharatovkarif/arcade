@@ -11,6 +11,7 @@ let onclickaShow4 = null;
 let monetagReady = false;
 let nygmaReady = false;
 let telegaReady = false;
+let tadsWidgetReady = false;
 
 async function api(path, body = {}) {
   const res = await fetch('/api' + path, {
@@ -257,10 +258,12 @@ function renderMain() {
     </div>
     <div class="row">
       <div class="info">
-        <span class="title">${t('ad_reward')} 8</span>
-        <span class="sub" style="color:var(--gold)">${t('soon')}</span>
+        <span class="title">${t('ad_reward')} 8 ${tadsWidgetReady ? `&nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + ${t('checkin_short')}</span>` : ''}</span>
+        <span class="sub">${tadsWidgetReady ? (ME.ad8_daily_count||0)+'/'+(ME.is_pro?10:5)+' '+t('today') : t('soon')}</span>
       </div>
-      <button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>
+      ${tadsWidgetReady && (ME.ad8_daily_count||0) < (ME.is_pro?10:5)
+        ? `<button onclick="watchAd8(this)" style="width:44px;height:44px;border-radius:50%;background:var(--blue);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`
+        : `<button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`}
     </div>`;
 
   document.getElementById('page-main').innerHTML = `
@@ -756,6 +759,39 @@ window.watchAd7 = async (btn) => {
     } else if (r.error === 'cooldown') {
       btn.disabled = false;
       toast(t('too_fast'));
+    } else {
+      btn.disabled = false;
+      toast(t('ad_unavailable'));
+    }
+  } catch (e) {
+    btn.disabled = false;
+    toast(t('ad_unavailable'));
+  }
+};
+
+// Ad 8 — TADS Rewarded
+window.watchAd8 = async (btn) => {
+  if (!ME.tads_widget_id) return;
+  if (!window.Tads) { toast(t('ad_unavailable')); return; }
+  const count8 = ME.ad8_daily_count || 0;
+  const limit8 = ME.is_pro ? 10 : 5;
+  if (count8 >= limit8) return;
+  btn.disabled = true;
+  try {
+    const tadsInst = new window.Tads({ widget_id: Number(ME.tads_widget_id) });
+    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout 30s')), 30000));
+    await Promise.race([tadsInst.show(), timeout]);
+    const r = await api('/ads/watch8');
+    if (r.ok) {
+      ME.ad8_daily_count = r.daily_count;
+      ME.balance_arc = r.balance_arc;
+      renderHeader();
+      renderMain();
+      toast(`+${r.reward} ARC · ${r.daily_count}/${limit8}`);
+    } else if (r.error === 'daily_limit') {
+      ME.ad8_daily_count = r.daily_count;
+      renderMain();
+      toast(t('ad_daily_limit_short'));
     } else {
       btn.disabled = false;
       toast(t('ad_unavailable'));
@@ -1767,6 +1803,18 @@ async function init() {
         }
       }, 500);
       setTimeout(() => clearInterval(pollT), 12000);
+    }
+  }
+  if (ME.tads_widget_id) {
+    if (window.Tads) {
+      tadsWidgetReady = true; renderMain();
+    } else {
+      const pollTads = setInterval(() => {
+        if (window.Tads) {
+          clearInterval(pollTads); tadsWidgetReady = true; renderMain();
+        }
+      }, 500);
+      setTimeout(() => clearInterval(pollTads), 12000);
     }
   }
   const urlParams = new URLSearchParams(location.search);
