@@ -9,13 +9,11 @@ import {
   checkinMultiplier, changeArc, changeTon,
   isPro, adMultiplier, payReferrals,
 } from './helpers.js';
-import { startBot, botCheckMember, notifyAdminWithdraw, getUserPhotoBuffer, notifyLotteryResult, notifyPvpRound, sendWelcome } from '../bot/bot.js';
+import { startBot, botCheckMember, notifyAdminWithdraw, getUserPhotoBuffer, notifyPvpRound, sendWelcome } from '../bot/bot.js';
 import { initGameLoop, getGameState, placeBet, setPvpNotifier } from './game.js';
 import { initDeposits } from './deposits.js';
 import { initInactivityLoop } from './inactivity.js';
-import { initLottery, getLotteryState, buyTicket, setLotteryNotifier } from './lottery.js';
 import { initReminderLoop } from './reminders.js';
-import { flipPaid, flipFree, flipFreeStatus } from './coinflip.js';
 
 dotenv.config();
 
@@ -123,7 +121,6 @@ app.post('/api/me', auth, async (req, res) => {
     monetag_zone_id: process.env.MONETAG_ZONE_ID || '',   // ad slot 5 — Monetag Rewarded Interstitial
     nygma_block_id: process.env.NYGMA_BLOCK_ID || '',     // ad slot 6 — Nygma Rewarded
     telega_block_uuid: process.env.TELEGA_BLOCK_UUID || 'f51182c6-1e3a-46b8-9a20-3068ed5f1be8', // ad slot 7 — Telega.io Rewarded
-    tads_widget_id: process.env.TADS_WIDGET_ID || '9980', // Coin Flip free spin — TADS fullscreen rewarded
     ad_daily_count: adCount || 0,
     ad_short_daily_count: adShortCount || 0,
     ad_task_daily_count: adTaskCount || 0,
@@ -547,73 +544,6 @@ app.post('/api/pro/buy', auth, async (req, res) => {
   res.json({ ok: true, pro_until: newUntil, balance_ton: Number(u.balance_ton) });
 });
 
-app.post('/api/lottery/state', auth, async (req, res) => {
-  res.json(await getLotteryState());
-});
-
-app.post('/api/lottery/buy', auth, async (req, res) => {
-  const result = await buyTicket(req.user.tg_id, req.user.username, req.user.first_name);
-  res.json(result);
-});
-
-app.post('/api/lottery/history', auth, async (req, res) => {
-  const { data: rounds } = await supabase.from('lottery_rounds')
-    .select('id, round_no, winner_tg_id, result_index, result_roll, server_seed, server_seed_hash, finished_at')
-    .eq('status', 'done').not('winner_tg_id', 'is', null)
-    .order('finished_at', { ascending: false }).limit(20);
-
-  const winnerIds = [...new Set((rounds || []).map(r => r.winner_tg_id).filter(Boolean))];
-  let userMap = {};
-  if (winnerIds.length) {
-    const { data: us } = await supabase.from('users').select('tg_id, username').in('tg_id', winnerIds);
-    (us || []).forEach(u => { userMap[u.tg_id] = u.username; });
-  }
-
-  const roundIds = (rounds || []).map(r => r.id);
-  let ticketsMap = {};
-  if (roundIds.length) {
-    const { data: tks } = await supabase.from('lottery_tickets')
-      .select('round_id, tg_id, username').in('round_id', roundIds);
-    (tks || []).forEach(t => {
-      if (!ticketsMap[t.round_id]) ticketsMap[t.round_id] = [];
-      ticketsMap[t.round_id].push(t);
-    });
-  }
-
-  res.json((rounds || []).map(r => ({
-    round_no: r.round_no,
-    winner: userMap[r.winner_tg_id] || '...',
-    winner_tg_id: r.winner_tg_id,
-    winner_index: r.result_index,
-    result_roll: r.result_roll,
-    seed_hash: r.server_seed_hash,
-    server_seed: r.server_seed,
-    time: r.finished_at,
-    tickets: (ticketsMap[r.id] || []).map(t => ({ tg_id: t.tg_id, username: t.username })),
-  })));
-});
-
-app.post('/api/coinflip/state', auth, async (req, res) => {
-  const pro = isPro(req.user);
-  const status = await flipFreeStatus(req.user.tg_id);
-  res.json({ minBet: 10, maxBet: pro ? 2000 : 1000, freeAvailable: status.available, freeMsLeft: status.msLeft });
-});
-
-app.post('/api/coinflip/bet', auth, async (req, res) => {
-  const amount = Number(req.body.amount);
-  const side = req.body.side === 'tails' ? 'tails' : 'heads';
-  const max = isPro(req.user) ? 2000 : 1000;
-  if (!(amount >= 10 && amount <= max)) return res.json({ ok: false, error: 'bad_amount' });
-  const result = await flipPaid(req.user.tg_id, side, amount);
-  res.json(result);
-});
-
-app.post('/api/coinflip/free', auth, async (req, res) => {
-  const side = req.body.side === 'tails' ? 'tails' : 'heads';
-  const result = await flipFree(req.user.tg_id, side);
-  res.json(result);
-});
-
 app.post('/api/wallet/connect', auth, async (req, res) => {
   const wallet = (req.body.wallet || '').trim();
   if (!wallet) return res.json({ ok: false });
@@ -949,7 +879,6 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`ARCADE server running on :${PORT}`);
   startBot();
-  setLotteryNotifier(notifyLotteryResult);
   setPvpNotifier(notifyPvpRound);
   initGameLoop();
   initDeposits();
@@ -957,5 +886,4 @@ app.listen(PORT, '0.0.0.0', () => {
   initInactivityLoop();
   initReminderLoop();
   setTimeout(runPendingBroadcast, 5000);
-  initLottery();
 });
