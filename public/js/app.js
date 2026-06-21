@@ -788,15 +788,21 @@ window.watchAd8 = async (btn) => {
     let adPromise;
     if (typeof G === 'function') {
       const inst = new G({ widget_id: wid });
-      const keys = Object.getOwnPropertyNames(Object.getPrototypeOf(inst)||{}).filter(k=>k!=='constructor');
-      const showFn = inst.show || inst.showAd || inst.play;
-      if (typeof showFn !== 'function') { btn.disabled=false; tadsDiag('class instance, no show. methods='+keys.join(',')); return; }
+      const showFn = inst.show || inst.showAd || inst.play || inst.init;
+      if (typeof showFn !== 'function') {
+        const keys = Object.getOwnPropertyNames(Object.getPrototypeOf(inst)||{}).filter(k=>k!=='constructor');
+        btn.disabled=false; tadsDiag('class: no method. methods='+keys.join(',')); return;
+      }
       adPromise = showFn.call(inst);
     } else {
-      const keys = Object.keys(G);
-      const showFn = G.show || G.showAd || G.play;
-      if (typeof showFn !== 'function') { btn.disabled=false; tadsDiag('object, no show. keys='+keys.join(',')); return; }
-      adPromise = showFn.call(G, wid);
+      // TADS SDK exposes object with init method
+      if (typeof G.init === 'function') {
+        adPromise = G.init({ widget_id: wid });
+      } else {
+        const showFn = G.show || G.showAd || G.play;
+        if (typeof showFn !== 'function') { btn.disabled=false; tadsDiag('object keys='+Object.keys(G).join(',')); return; }
+        adPromise = showFn.call(G, wid);
+      }
     }
     const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout 30s')), 30000));
     await Promise.race([adPromise, timeout]);
