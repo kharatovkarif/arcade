@@ -772,15 +772,25 @@ window.watchAd7 = async (btn) => {
 // Ad 8 — TADS Rewarded
 window.watchAd8 = async (btn) => {
   if (!ME.tads_widget_id) return;
-  if (!window.Tads) { toast(t('ad_unavailable')); return; }
+  const G = window.Tads || window.tads || window.TadsWidget;
+  if (!G) { toast(t('ad_unavailable')); return; }
   const count8 = ME.ad8_daily_count || 0;
   const limit8 = ME.is_pro ? 10 : 5;
   if (count8 >= limit8) return;
   btn.disabled = true;
   try {
-    const tadsInst = new window.Tads({ widget_id: Number(ME.tads_widget_id) });
+    const wid = Number(ME.tads_widget_id);
+    let adPromise;
+    if (typeof G === 'function') {
+      const inst = new G({ widget_id: wid });
+      const showFn = inst.show || inst.showAd || inst.play;
+      adPromise = typeof showFn === 'function' ? showFn.call(inst) : Promise.reject(new Error('no show method'));
+    } else {
+      const showFn = G.show || G.showAd || G.play;
+      adPromise = typeof showFn === 'function' ? showFn.call(G, wid) : Promise.reject(new Error('no show method'));
+    }
     const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout 30s')), 30000));
-    await Promise.race([tadsInst.show(), timeout]);
+    await Promise.race([adPromise, timeout]);
     const r = await api('/ads/watch8');
     if (r.ok) {
       ME.ad8_daily_count = r.daily_count;
@@ -1806,11 +1816,12 @@ async function init() {
     }
   }
   if (ME.tads_widget_id) {
-    if (window.Tads) {
+    function tadsGlobal() { return window.Tads || window.tads || window.TadsWidget || null; }
+    if (tadsGlobal()) {
       tadsWidgetReady = true; renderMain();
     } else {
       const pollTads = setInterval(() => {
-        if (window.Tads) {
+        if (tadsGlobal()) {
           clearInterval(pollTads); tadsWidgetReady = true; renderMain();
         }
       }, 500);
