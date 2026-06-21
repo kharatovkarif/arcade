@@ -769,11 +769,16 @@ window.watchAd7 = async (btn) => {
   }
 };
 
+function tadsDiag(msg) {
+  try { if (tg?.showAlert) { tg.showAlert('TADS: ' + msg); return; } } catch {}
+  toast('TADS: ' + msg);
+}
+
 // Ad 8 — TADS Rewarded
 window.watchAd8 = async (btn) => {
-  if (!ME.tads_widget_id) return;
+  if (!ME.tads_widget_id) { tadsDiag('no widget_id'); return; }
   const G = window.Tads || window.tads || window.TadsWidget;
-  if (!G) { toast(t('ad_unavailable')); return; }
+  if (!G) { tadsDiag('SDK not found. window keys=' + Object.keys(window).filter(k=>k.toLowerCase().includes('tad')).join(',')); return; }
   const count8 = ME.ad8_daily_count || 0;
   const limit8 = ME.is_pro ? 10 : 5;
   if (count8 >= limit8) return;
@@ -783,11 +788,15 @@ window.watchAd8 = async (btn) => {
     let adPromise;
     if (typeof G === 'function') {
       const inst = new G({ widget_id: wid });
+      const keys = Object.getOwnPropertyNames(Object.getPrototypeOf(inst)||{}).filter(k=>k!=='constructor');
       const showFn = inst.show || inst.showAd || inst.play;
-      adPromise = typeof showFn === 'function' ? showFn.call(inst) : Promise.reject(new Error('no show method'));
+      if (typeof showFn !== 'function') { btn.disabled=false; tadsDiag('class instance, no show. methods='+keys.join(',')); return; }
+      adPromise = showFn.call(inst);
     } else {
+      const keys = Object.keys(G);
       const showFn = G.show || G.showAd || G.play;
-      adPromise = typeof showFn === 'function' ? showFn.call(G, wid) : Promise.reject(new Error('no show method'));
+      if (typeof showFn !== 'function') { btn.disabled=false; tadsDiag('object, no show. keys='+keys.join(',')); return; }
+      adPromise = showFn.call(G, wid);
     }
     const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout 30s')), 30000));
     await Promise.race([adPromise, timeout]);
@@ -804,11 +813,11 @@ window.watchAd8 = async (btn) => {
       toast(t('ad_daily_limit_short'));
     } else {
       btn.disabled = false;
-      toast(t('ad_unavailable'));
+      tadsDiag('backend: ' + (r.error || JSON.stringify(r)));
     }
   } catch (e) {
     btn.disabled = false;
-    toast(t('ad_unavailable'));
+    tadsDiag('show() threw: ' + (e?.message || e));
   }
 };
 
