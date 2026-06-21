@@ -769,72 +769,45 @@ window.watchAd7 = async (btn) => {
   }
 };
 
-function tadsDiag(msg) {
-  try { if (tg?.showAlert) { tg.showAlert('TADS: ' + msg); return; } } catch {}
-  toast('TADS: ' + msg);
-}
-
 // Ad 8 — TADS Rewarded
 window.watchAd8 = async (btn) => {
-  if (!ME.tads_widget_id) { tadsDiag('no widget_id'); return; }
+  const wid = ME.tads_widget_id ? Number(ME.tads_widget_id) : 0;
+  if (!wid) return;
   const G = window.Tads || window.tads || window.TadsWidget;
-  if (!G) { tadsDiag('SDK not found. window keys=' + Object.keys(window).filter(k=>k.toLowerCase().includes('tad')).join(',')); return; }
+  if (!G || typeof G.init !== 'function') return;
   const count8 = ME.ad8_daily_count || 0;
   const limit8 = ME.is_pro ? 10 : 5;
   if (count8 >= limit8) return;
   btn.disabled = true;
   try {
-    const wid = Number(ME.tads_widget_id);
-    let adPromise;
-    if (typeof G === 'function') {
-      const inst = new G({ widget_id: wid });
-      const showFn = inst.show || inst.showAd || inst.play || inst.init;
-      if (typeof showFn !== 'function') {
-        const keys = Object.getOwnPropertyNames(Object.getPrototypeOf(inst)||{}).filter(k=>k!=='constructor');
-        btn.disabled=false; tadsDiag('class: no method. methods='+keys.join(',')); return;
-      }
-      adPromise = showFn.call(inst);
-    } else {
-      // TADS SDK: object with init method, may be callback-based or Promise-based
-      if (typeof G.init === 'function') {
-        adPromise = new Promise((resolve, reject) => {
-          const ret = G.init({
-            widgetId: wid,
-            onReward: resolve,
-            onComplete: resolve,
-            onSuccess: resolve,
-            onError: (e) => reject(new Error(typeof e === 'string' ? e : 'tads_error')),
-            onClose: () => reject(new Error('closed')),
-          });
-          // if init() also returns a Promise, race with it
-          if (ret && typeof ret.then === 'function') {
-            ret.then(resolve).catch(reject);
-          }
-        });
-      } else {
-        btn.disabled = false; tadsDiag('object keys='+Object.keys(G).join(',')); return;
-      }
-    }
-    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout 30s')), 30000));
-    await Promise.race([adPromise, timeout]);
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('timeout')), 30000);
+      const done = (ok) => { clearTimeout(timer); ok ? resolve() : reject(new Error('no_reward')); };
+      const ret = G.init({
+        widgetId: wid,
+        onReward: () => done(true),
+        onComplete: () => done(true),
+        onSuccess: () => done(true),
+        onClose: () => done(false),
+        onError: () => done(false),
+      });
+      if (ret && typeof ret.then === 'function') ret.then(() => done(true)).catch(() => done(false));
+    });
     const r = await api('/ads/watch8');
     if (r.ok) {
       ME.ad8_daily_count = r.daily_count;
       ME.balance_arc = r.balance_arc;
-      renderHeader();
-      renderMain();
+      renderHeader(); renderMain();
       toast(`+${r.reward} ARC · ${r.daily_count}/${limit8}`);
     } else if (r.error === 'daily_limit') {
-      ME.ad8_daily_count = r.daily_count;
-      renderMain();
+      ME.ad8_daily_count = r.daily_count; renderMain();
       toast(t('ad_daily_limit_short'));
     } else {
       btn.disabled = false;
-      tadsDiag('backend: ' + (r.error || JSON.stringify(r)));
     }
-  } catch (e) {
+  } catch {
     btn.disabled = false;
-    tadsDiag('show() threw: ' + (e?.message || e));
+    toast(t('ad_unavailable'));
   }
 };
 
