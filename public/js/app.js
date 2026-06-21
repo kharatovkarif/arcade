@@ -795,13 +795,24 @@ window.watchAd8 = async (btn) => {
       }
       adPromise = showFn.call(inst);
     } else {
-      // TADS SDK exposes object with init method
+      // TADS SDK: object with init method, may be callback-based or Promise-based
       if (typeof G.init === 'function') {
-        adPromise = G.init({ widget_id: wid });
+        adPromise = new Promise((resolve, reject) => {
+          const ret = G.init({
+            widget_id: wid,
+            onReward: resolve,
+            onComplete: resolve,
+            onSuccess: resolve,
+            onError: (e) => reject(new Error(typeof e === 'string' ? e : 'tads_error')),
+            onClose: () => reject(new Error('closed')),
+          });
+          // if init() also returns a Promise, race with it
+          if (ret && typeof ret.then === 'function') {
+            ret.then(resolve).catch(reject);
+          }
+        });
       } else {
-        const showFn = G.show || G.showAd || G.play;
-        if (typeof showFn !== 'function') { btn.disabled=false; tadsDiag('object keys='+Object.keys(G).join(',')); return; }
-        adPromise = showFn.call(G, wid);
+        btn.disabled = false; tadsDiag('object keys='+Object.keys(G).join(',')); return;
       }
     }
     const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout 30s')), 30000));
