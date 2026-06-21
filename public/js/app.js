@@ -779,10 +779,12 @@ window.watchAd8 = async (btn) => {
   const limit8 = ME.is_pro ? 10 : 5;
   if (count8 >= limit8) return;
   btn.disabled = true;
+  toast('⏳');
+  let rewarded = false;
   try {
     await new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('timeout')), 30000);
-      const done = (ok) => { clearTimeout(timer); ok ? resolve() : reject(new Error('no_reward')); };
+      const timer = setTimeout(() => resolve(), 8000); // resolve after 8s regardless
+      const done = (ok) => { clearTimeout(timer); rewarded = ok; resolve(); };
       const ret = G.init({
         widgetId: wid,
         onReward: () => done(true),
@@ -793,6 +795,7 @@ window.watchAd8 = async (btn) => {
       });
       if (ret && typeof ret.then === 'function') ret.then(() => done(true)).catch(() => done(false));
     });
+    if (!rewarded) { btn.disabled = false; toast(t('ad_unavailable')); return; }
     const r = await api('/ads/watch8');
     if (r.ok) {
       ME.ad8_daily_count = r.daily_count;
