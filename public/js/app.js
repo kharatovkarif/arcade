@@ -769,8 +769,42 @@ window.watchAd7 = async (btn) => {
   }
 };
 
-// Ad 8 — TADS Rewarded
+// Ad 8 — TADS Rewarded (diagnostic: inspect what init returns)
+function tadsDiag(msg) {
+  try { if (tg?.showAlert) { tg.showAlert(String(msg).slice(0,300)); return; } } catch {}
+  toast(String(msg).slice(0,120));
+}
+function describe(v) {
+  if (v === null) return 'null';
+  if (v === undefined) return 'undefined';
+  const ty = typeof v;
+  if (ty !== 'object' && ty !== 'function') return ty + ':' + String(v);
+  const own = Object.keys(v);
+  const proto = Object.getOwnPropertyNames(Object.getPrototypeOf(v) || {}).filter(k => k !== 'constructor');
+  return ty + ' own=[' + own.join(',') + '] proto=[' + proto.join(',') + ']';
+}
 window.watchAd8 = async (btn) => {
+  const wid = ME.tads_widget_id ? Number(ME.tads_widget_id) : 0;
+  if (!wid) { tadsDiag('no widget_id'); return; }
+  const G = window.Tads || window.tads || window.TadsWidget;
+  if (!G) { tadsDiag('no SDK'); return; }
+  if (typeof G.init !== 'function') { tadsDiag('G=' + describe(G)); return; }
+  btn.disabled = true;
+  try {
+    const ret = G.init({ widgetId: wid });
+    let resolved = ret;
+    if (ret && typeof ret.then === 'function') {
+      tadsDiag('init() returned Promise, awaiting...');
+      resolved = await ret;
+    }
+    tadsDiag('init RET => ' + describe(resolved));
+    btn.disabled = false;
+  } catch (e) {
+    btn.disabled = false;
+    tadsDiag('init threw: ' + (e?.message || e));
+  }
+};
+window.watchAd8_OLD = async (btn) => {
   const wid = ME.tads_widget_id ? Number(ME.tads_widget_id) : 0;
   if (!wid) return;
   const G = window.Tads || window.tads || window.TadsWidget;
