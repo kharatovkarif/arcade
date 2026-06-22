@@ -225,7 +225,7 @@ export function startBot() {
     const postUrl = sepIdx !== -1 ? raw.slice(sepIdx + 3).trim() : 'https://t.me/arcare_ton';
     const { data: users } = await supabase.from('users').select('tg_id');
     if (!users?.length) return bot.sendMessage(msg.chat.id, '❌ No users').catch(()=>{});
-    let ok = 0, fail = 0;
+    let ok = 0, fail = 0, firstErr = '';
     for (const u of users) {
       try {
         await bot.sendMessage(u.tg_id, text, {
@@ -238,10 +238,10 @@ export function startBot() {
           },
         });
         ok++;
-      } catch { fail++; }
+      } catch (e) { fail++; if (!firstErr) firstErr = e?.message || String(e); }
       await new Promise(r => setTimeout(r, 50));
     }
-    bot.sendMessage(msg.chat.id, `✅ Отправлено: ${ok}\n❌ Ошибок: ${fail}`).catch(()=>{});
+    bot.sendMessage(msg.chat.id, `✅ Отправлено: ${ok}\n❌ Ошибок: ${fail}${firstErr ? '\n\nПервая ошибка: ' + firstErr : ''}`).catch(()=>{});
   });
 
   bot.onText(/\/broadcast$/, (msg) => {
