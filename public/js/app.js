@@ -650,14 +650,20 @@ window.watchAd5 = async (btn) => {
   }
   btn.disabled = true;
 
-  // Detect if user visited the advertiser site (left app for ≥1s while ad played)
   let hiddenAt = null;
   let visitedAway = false;
+  let resolveVisit;
+  // Resolves as soon as user confirmed visited (away ≥1s and returned)
+  const visitPromise = new Promise(resolve => { resolveVisit = resolve; });
+
   const onVis = () => {
     if (document.visibilityState === 'hidden') {
       hiddenAt = Date.now();
     } else if (hiddenAt !== null) {
-      if (Date.now() - hiddenAt >= 1000) visitedAway = true;
+      if (Date.now() - hiddenAt >= 1000) {
+        visitedAway = true;
+        resolveVisit();
+      }
       hiddenAt = null;
     }
   };
@@ -666,24 +672,16 @@ window.watchAd5 = async (btn) => {
   try {
     await fn();
 
-    // Monetag fn() may resolve at the moment user taps "Continue" — BEFORE the app
-    // actually goes to background. If we're currently hidden, wait for the return.
-    if (document.visibilityState === 'hidden') {
-      await new Promise(resolve => {
-        const waitReturn = () => {
-          if (document.visibilityState === 'visible') {
-            document.removeEventListener('visibilitychange', waitReturn);
-            resolve();
-          }
-        };
-        document.addEventListener('visibilitychange', waitReturn);
-        setTimeout(() => { document.removeEventListener('visibilitychange', waitReturn); resolve(); }, 20000);
-      });
+    // fn() resolves when user taps "Continue" — BEFORE the page actually goes hidden.
+    // Wait up to 20s for the user to leave and come back from the advertiser site.
+    if (!visitedAway) {
+      await Promise.race([
+        visitPromise,
+        new Promise(resolve => setTimeout(resolve, 20000))
+      ]);
     }
 
     document.removeEventListener('visibilitychange', onVis);
-    // Final check: fn() resolved right as user was leaving (hiddenAt set but return not yet fired)
-    if (!visitedAway && hiddenAt !== null && Date.now() - hiddenAt >= 1000) visitedAway = true;
 
     if (!visitedAway) {
       toast(t('ad_visit_required'));
@@ -705,6 +703,11 @@ window.watchAd5 = async (btn) => {
     } else {
       btn.disabled = false;
     }
+  } catch {
+    document.removeEventListener('visibilitychange', onVis);
+    btn.disabled = false;
+  }
+};
   } catch {
     document.removeEventListener('visibilitychange', onVis);
     btn.disabled = false;
