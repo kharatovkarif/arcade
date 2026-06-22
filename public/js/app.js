@@ -649,8 +649,32 @@ window.watchAd5 = async (btn) => {
     try { await holdCaptcha(); } catch { return; }
   }
   btn.disabled = true;
+
+  // Detect if user visited the advertiser site (left app for ≥2.5s while ad played)
+  let hiddenAt = null;
+  let visitedAway = false;
+  const onVis = () => {
+    if (document.visibilityState === 'hidden') {
+      hiddenAt = Date.now();
+    } else if (hiddenAt !== null) {
+      if (Date.now() - hiddenAt >= 2500) visitedAway = true;
+      hiddenAt = null;
+    }
+  };
+  document.addEventListener('visibilitychange', onVis);
+
   try {
     await fn();
+    document.removeEventListener('visibilitychange', onVis);
+    // Edge case: fn() resolved while user was still away
+    if (!visitedAway && hiddenAt !== null && Date.now() - hiddenAt >= 2500) visitedAway = true;
+
+    if (!visitedAway) {
+      toast(t('ad_visit_required'));
+      btn.disabled = false;
+      return;
+    }
+
     const r = await api('/ads/watch5');
     if (r.ok) {
       ME.ad5_daily_count = r.daily_count;
@@ -665,7 +689,10 @@ window.watchAd5 = async (btn) => {
     } else {
       btn.disabled = false;
     }
-  } catch { btn.disabled = false; }
+  } catch {
+    document.removeEventListener('visibilitychange', onVis);
+    btn.disabled = false;
+  }
 };
 
 // Surfaces the real failure reason in a Telegram popup (falls back to toast).
