@@ -649,46 +649,8 @@ window.watchAd5 = async (btn) => {
     try { await holdCaptcha(); } catch { return; }
   }
   btn.disabled = true;
-
-  let hiddenAt = null;
-  let visitedAway = false;
-  let resolveVisit;
-  // Resolves as soon as user confirmed visited (away ≥1s and returned)
-  const visitPromise = new Promise(resolve => { resolveVisit = resolve; });
-
-  const onVis = () => {
-    if (document.visibilityState === 'hidden') {
-      hiddenAt = Date.now();
-    } else if (hiddenAt !== null) {
-      if (Date.now() - hiddenAt >= 1000) {
-        visitedAway = true;
-        resolveVisit();
-      }
-      hiddenAt = null;
-    }
-  };
-  document.addEventListener('visibilitychange', onVis);
-
   try {
     await fn();
-
-    // fn() resolves when user taps "Continue" — BEFORE the page actually goes hidden.
-    // Wait up to 20s for the user to leave and come back from the advertiser site.
-    if (!visitedAway) {
-      await Promise.race([
-        visitPromise,
-        new Promise(resolve => setTimeout(resolve, 20000))
-      ]);
-    }
-
-    document.removeEventListener('visibilitychange', onVis);
-
-    if (!visitedAway) {
-      toast(t('ad_visit_required'));
-      btn.disabled = false;
-      return;
-    }
-
     const r = await api('/ads/watch5');
     if (r.ok) {
       ME.ad5_daily_count = r.daily_count;
@@ -703,10 +665,7 @@ window.watchAd5 = async (btn) => {
     } else {
       btn.disabled = false;
     }
-  } catch {
-    document.removeEventListener('visibilitychange', onVis);
-    btn.disabled = false;
-  }
+  } catch { btn.disabled = false; }
 };
   } catch {
     document.removeEventListener('visibilitychange', onVis);
