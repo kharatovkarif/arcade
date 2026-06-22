@@ -1820,8 +1820,17 @@ async function init() {
       setTimeout(() => clearInterval(poll), 12000);
     }
   }
-  if (ME.nygma_block_id && window.NigmaSDK) {
-    nygmaReady = true; renderMain();
+  if (ME.nygma_block_id) {
+    if (window.NigmaSDK) {
+      nygmaReady = true; renderMain();
+    } else {
+      const pollN = setInterval(() => {
+        if (window.NigmaSDK) {
+          clearInterval(pollN); nygmaReady = true; renderMain();
+        }
+      }, 500);
+      setTimeout(() => clearInterval(pollN), 12000);
+    }
   }
   if (ME.telega_block_uuid) {
     if (window.telegaAds && typeof window.telegaAds.ad_show === 'function') {
