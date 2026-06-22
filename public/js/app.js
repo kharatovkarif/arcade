@@ -667,11 +667,6 @@ window.watchAd5 = async (btn) => {
     }
   } catch { btn.disabled = false; }
 };
-  } catch {
-    document.removeEventListener('visibilitychange', onVis);
-    btn.disabled = false;
-  }
-};
 
 // Surfaces the real failure reason in a Telegram popup (falls back to toast).
 // Temporary diagnostic so we can see exactly what the Nigma SDK does.
