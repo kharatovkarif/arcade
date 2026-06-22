@@ -769,67 +769,29 @@ window.watchAd7 = async (btn) => {
   }
 };
 
-// Ad 8 — TADS Rewarded (diagnostic: inspect what init returns)
-function tadsDiag(msg) {
-  try { if (tg?.showAlert) { tg.showAlert(String(msg).slice(0,300)); return; } } catch {}
-  toast(String(msg).slice(0,120));
-}
-function describe(v) {
-  if (v === null) return 'null';
-  if (v === undefined) return 'undefined';
-  const ty = typeof v;
-  if (ty !== 'object' && ty !== 'function') return ty + ':' + String(v);
-  const own = Object.keys(v);
-  const proto = Object.getOwnPropertyNames(Object.getPrototypeOf(v) || {}).filter(k => k !== 'constructor');
-  return ty + ' own=[' + own.join(',') + '] proto=[' + proto.join(',') + ']';
-}
+// Ad 8 — TADS Rewarded. API: tads.init({widgetId,type,callbacks}) -> ctrl.loadAd().then(ctrl.showAd())
 window.watchAd8 = async (btn) => {
   const wid = ME.tads_widget_id ? Number(ME.tads_widget_id) : 0;
-  if (!wid) { tadsDiag('no widget_id'); return; }
-  const G = window.Tads || window.tads || window.TadsWidget;
-  if (!G) { tadsDiag('no SDK'); return; }
-  if (typeof G.init !== 'function') { tadsDiag('G=' + describe(G)); return; }
-  btn.disabled = true;
-  try {
-    const ret = G.init({ widgetId: wid });
-    let resolved = ret;
-    if (ret && typeof ret.then === 'function') {
-      tadsDiag('init() returned Promise, awaiting...');
-      resolved = await ret;
-    }
-    tadsDiag('init RET => ' + describe(resolved));
-    btn.disabled = false;
-  } catch (e) {
-    btn.disabled = false;
-    tadsDiag('init threw: ' + (e?.message || e));
-  }
-};
-window.watchAd8_OLD = async (btn) => {
-  const wid = ME.tads_widget_id ? Number(ME.tads_widget_id) : 0;
   if (!wid) return;
-  const G = window.Tads || window.tads || window.TadsWidget;
-  if (!G || typeof G.init !== 'function') return;
+  const G = window.tads || window.Tads || window.TadsWidget;
+  if (!G || typeof G.init !== 'function') { toast(t('ad_unavailable')); return; }
   const count8 = ME.ad8_daily_count || 0;
   const limit8 = ME.is_pro ? 10 : 5;
   if (count8 >= limit8) return;
   btn.disabled = true;
-  toast('⏳');
-  let rewarded = false;
-  try {
-    await new Promise((resolve, reject) => {
-      const timer = setTimeout(() => resolve(), 8000); // resolve after 8s regardless
-      const done = (ok) => { clearTimeout(timer); rewarded = ok; resolve(); };
-      const ret = G.init({
-        widgetId: wid,
-        onReward: () => done(true),
-        onComplete: () => done(true),
-        onSuccess: () => done(true),
-        onClose: () => done(false),
-        onError: () => done(false),
-      });
-      if (ret && typeof ret.then === 'function') ret.then(() => done(true)).catch(() => done(false));
-    });
-    if (!rewarded) { btn.disabled = false; toast(t('ad_unavailable')); return; }
+
+  // TADS renders into a container element
+  let cont = document.getElementById('tads-container-' + wid);
+  if (!cont) {
+    cont = document.createElement('div');
+    cont.id = 'tads-container-' + wid;
+    cont.style.display = 'none';
+    document.body.appendChild(cont);
+  }
+
+  let done = false;
+  const grant = async () => {
+    if (done) return; done = true;
     const r = await api('/ads/watch8');
     if (r.ok) {
       ME.ad8_daily_count = r.daily_count;
@@ -842,9 +804,27 @@ window.watchAd8_OLD = async (btn) => {
     } else {
       btn.disabled = false;
     }
-  } catch {
-    btn.disabled = false;
-    toast(t('ad_unavailable'));
+  };
+
+  try {
+    const ctrl = G.init({
+      widgetId: wid,
+      type: 'fullscreen',
+      onShowReward: grant,
+      onClickReward: grant,
+      onReward: grant,
+      onAdsNotFound: () => { if (!done) { btn.disabled = false; toast(t('ad_unavailable')); } },
+    });
+    if (ctrl && typeof ctrl.loadAd === 'function') {
+      await ctrl.loadAd();
+      if (typeof ctrl.showAd === 'function') await ctrl.showAd();
+    } else {
+      btn.disabled = false; toast(t('ad_unavailable')); return;
+    }
+    // re-enable the button if user closed without reward
+    setTimeout(() => { if (!done) btn.disabled = false; }, 1500);
+  } catch (e) {
+    if (!done) { btn.disabled = false; toast(t('ad_unavailable')); }
   }
 };
 
