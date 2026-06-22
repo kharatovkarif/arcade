@@ -806,7 +806,6 @@ window.watchAd8 = async (btn) => {
     }
   };
 
-  const diag = (m) => { try { tg?.showAlert ? tg.showAlert('TADS: ' + m) : toast('TADS: ' + m); } catch { toast('TADS: ' + m); } };
   try {
     const ctrl = G.init({
       widgetId: wid,
@@ -814,23 +813,22 @@ window.watchAd8 = async (btn) => {
       onShowReward: grant,
       onClickReward: grant,
       onReward: grant,
-      onAdsNotFound: () => { if (!done) { btn.disabled = false; diag('onAdsNotFound (нет рекламы под гео/виджет)'); } },
+      onAdsNotFound: () => { if (!done) { btn.disabled = false; toast(t('ad_unavailable')); } },
     });
-    const cKeys = ctrl ? Object.keys(ctrl).concat(Object.getOwnPropertyNames(Object.getPrototypeOf(ctrl)||{}).filter(k=>k!=='constructor')) : [];
     if (ctrl && typeof ctrl.loadAd === 'function') {
       try {
         await ctrl.loadAd();
       } catch (le) {
-        if (!done) { btn.disabled = false; diag('loadAd reject: ' + (le?.message || JSON.stringify(le) || le)); }
+        if (!done) { btn.disabled = false; toast(t('ad_unavailable')); }
         return;
       }
       if (typeof ctrl.showAd === 'function') await ctrl.showAd();
       setTimeout(() => { if (!done) btn.disabled = false; }, 1500);
     } else {
-      btn.disabled = false; diag('ctrl has no loadAd. ctrl=' + (typeof ctrl) + ' keys=[' + cKeys.join(',') + ']'); return;
+      btn.disabled = false; toast(t('ad_unavailable')); return;
     }
   } catch (e) {
-    if (!done) { btn.disabled = false; diag('init/show threw: ' + (e?.message || e)); }
+    if (!done) { btn.disabled = false; toast(t('ad_unavailable')); }
   }
 };
 
