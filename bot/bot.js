@@ -229,7 +229,6 @@ export function startBot() {
     for (const u of users) {
       try {
         await bot.sendMessage(u.tg_id, text, {
-          parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [
               [{ text: '▶️ Играть в ARCADE', web_app: { url: APP_URL } }],
