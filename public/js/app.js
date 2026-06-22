@@ -650,14 +650,14 @@ window.watchAd5 = async (btn) => {
   }
   btn.disabled = true;
 
-  // Detect if user visited the advertiser site (left app for ≥2.5s while ad played)
+  // Detect if user visited the advertiser site (left app for ≥1s while ad played)
   let hiddenAt = null;
   let visitedAway = false;
   const onVis = () => {
     if (document.visibilityState === 'hidden') {
       hiddenAt = Date.now();
     } else if (hiddenAt !== null) {
-      if (Date.now() - hiddenAt >= 2500) visitedAway = true;
+      if (Date.now() - hiddenAt >= 1000) visitedAway = true;
       hiddenAt = null;
     }
   };
@@ -665,9 +665,25 @@ window.watchAd5 = async (btn) => {
 
   try {
     await fn();
+
+    // Monetag fn() may resolve at the moment user taps "Continue" — BEFORE the app
+    // actually goes to background. If we're currently hidden, wait for the return.
+    if (document.visibilityState === 'hidden') {
+      await new Promise(resolve => {
+        const waitReturn = () => {
+          if (document.visibilityState === 'visible') {
+            document.removeEventListener('visibilitychange', waitReturn);
+            resolve();
+          }
+        };
+        document.addEventListener('visibilitychange', waitReturn);
+        setTimeout(() => { document.removeEventListener('visibilitychange', waitReturn); resolve(); }, 20000);
+      });
+    }
+
     document.removeEventListener('visibilitychange', onVis);
-    // Edge case: fn() resolved while user was still away
-    if (!visitedAway && hiddenAt !== null && Date.now() - hiddenAt >= 2500) visitedAway = true;
+    // Final check: fn() resolved right as user was leaving (hiddenAt set but return not yet fired)
+    if (!visitedAway && hiddenAt !== null && Date.now() - hiddenAt >= 1000) visitedAway = true;
 
     if (!visitedAway) {
       toast(t('ad_visit_required'));
