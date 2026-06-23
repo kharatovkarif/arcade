@@ -1520,7 +1520,6 @@ function openLeaderboard() {
     </div>
     <div style="display:flex;gap:8px;padding:12px 16px 0">
       <button id="lbTabArc" onclick="lbShowTab('arc')" style="flex:1;padding:8px;border-radius:10px;border:none;background:var(--gold);color:#000;font-weight:800;cursor:pointer;font-size:13px">💰 ARC</button>
-      <button id="lbTabRefs" onclick="lbShowTab('refs')" style="flex:1;padding:8px;border-radius:10px;border:none;background:#1a1a1a;color:#fff;font-weight:700;cursor:pointer;font-size:13px">👥 ${t('lb_tab_refs')}</button>
     </div>
     <div id="lbContent" style="flex:1;overflow-y:auto;padding:12px 16px 24px">
       <div class="pvp-empty" style="padding:20px">${t('loading')}</div>
