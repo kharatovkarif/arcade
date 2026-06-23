@@ -64,6 +64,15 @@ export function startBot() {
     bot.sendMessage(msg.chat.id, 'build: notify-v1').catch(() => {});
   });
 
+  // Reports the current chat's ID — run it inside a group to learn its ID.
+  bot.onText(/\/chatid/, (msg) => {
+    if (msg.from.id !== ADMIN_ID) return;
+    bot.sendMessage(msg.chat.id,
+      `chat id: \`${msg.chat.id}\`\ntype: ${msg.chat.type}\ntitle: ${msg.chat.title || '—'}`,
+      { parse_mode: 'Markdown' }
+    ).catch(() => {});
+  });
+
   bot.onText(/\/admin/, (msg) => {
     if (msg.from.id !== ADMIN_ID) return;
     bot.sendMessage(msg.chat.id,
