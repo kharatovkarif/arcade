@@ -9,8 +9,8 @@ import {
   checkinMultiplier, changeArc, changeTon,
   isPro, adMultiplier, payReferrals,
 } from './helpers.js';
-import { startBot, botCheckMember, notifyAdminWithdraw, getUserPhotoBuffer, notifyPvpRound, sendWelcome } from '../bot/bot.js';
-import { initGameLoop, getGameState, placeBet, setPvpNotifier } from './game.js';
+import { startBot, botCheckMember, notifyAdminWithdraw, getUserPhotoBuffer, notifyPvpRound, notifyPvpResult, sendWelcome } from '../bot/bot.js';
+import { initGameLoop, getGameState, placeBet, setPvpNotifier, setPvpResultNotifier } from './game.js';
 import { initDeposits } from './deposits.js';
 import { initInactivityLoop } from './inactivity.js';
 import { initReminderLoop } from './reminders.js';
@@ -903,6 +903,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`ARCADE server running on :${PORT}`);
   startBot();
   setPvpNotifier(notifyPvpRound);
+  setPvpResultNotifier(notifyPvpResult);
   initGameLoop();
   initDeposits();
   initSettings();

@@ -559,6 +559,20 @@ export async function notifyPvpRound(roundNo, playerIds, pot) {
   }
 }
 
+const PVP_CHAT_ID = process.env.PVP_CHAT_ID ? Number(process.env.PVP_CHAT_ID) : null;
+
+export async function notifyPvpResult({ roundNo, players, username, prize, chance }) {
+  if (!bot || !PVP_CHAT_ID) return;
+  const text =
+    `⚔️ PvP Round #${roundNo}\n\n` +
+    `👥 Игроков: ${players}\n` +
+    `🏆 Победитель: @${username}\n` +
+    `💰 Выигрыш: ${prize} ARC\n` +
+    `🎯 Шанс: ${chance}%\n\n` +
+    `🎮 Играть → @arc_tonbot`;
+  bot.sendMessage(PVP_CHAT_ID, text).catch(() => {});
+}
+
 export async function notifyAdminWithdraw(tgId, username, amount, wallet, newBal, datetime) {
   if (!bot || !ADMIN_ID) return;
   pendingWithdrawals.set(tgId, { amount, wallet });

@@ -22,8 +22,10 @@ let current = null;
 let loopTimer = null;
 let waitingStartedAt = null;
 let notifyRoundFn = null; // injected from index.js to avoid importing the bot here
+let notifyResultFn = null; // called after each finished round with result data
 
 export function setPvpNotifier(fn) { notifyRoundFn = fn; }
+export function setPvpResultNotifier(fn) { notifyResultFn = fn; }
 
 async function newRound() {
   const roundNo = Number(await getSetting('round_counter')) || 1;
@@ -142,6 +144,16 @@ async function finishRound() {
   current.spinEndsAt = Date.now() + SPIN_DURATION * 1000;
 
   await changeArc(winner.tg_id, prize, 'pvp', `win round ${current.roundNo}${special ? ' (special +' + SPECIAL_BONUS + ')' : ''}`);
+
+  if (notifyResultFn) {
+    Promise.resolve(notifyResultFn({
+      roundNo: current.roundNo,
+      players: current.bets.length,
+      username: winner.username || winner.first_name || '???',
+      prize: Math.floor(prize),
+      chance: parseFloat(chance.toFixed(1)),
+    })).catch(() => {});
+  }
 
   // Special round: every loser gets their stake back
   if (special) {
