@@ -46,6 +46,10 @@ export function startBot() {
   bot.on('polling_error', (e) => console.log('polling_error:', e.message));
   console.log('Bot started');
 
+  // One-shot: congratulate referral-contest winners. Guarded by a settings
+  // flag so bot restarts/redeploys never re-send.
+  sendContestCongrats().catch(e => console.log('congrats error:', e.message));
+
 
 
 
@@ -495,6 +499,38 @@ export async function notifyUser(tgId, text) {
 }
 
 // Sends a message with an "open the app" button; returns false when undeliverable.
+// One-time congratulations to the referral contest winners (prizes already
+// credited to balances via DB). Flag in settings prevents re-sending.
+async function sendContestCongrats() {
+  if (!bot) return;
+  const { data: flag } = await supabase.from('settings')
+    .select('value').eq('key', 'contest1_congrats_sent').single();
+  if (flag && flag.value === '1') return;
+  // Set the flag up front so a crash mid-send can't trigger a second wave.
+  await supabase.from('settings').upsert({ key: 'contest1_congrats_sent', value: '1' });
+
+  const winners = [
+    { tg: 7561110270, prize: '1', rank: 1 },
+    { tg: 7472083264, prize: '0.5', rank: 2 },
+    { tg: 1664168733, prize: '0.3', rank: 3 },
+    { tg: 175760569,  prize: '0.2', rank: 4 },
+    { tg: 558439563,  prize: '0.2', rank: 5 },
+    { tg: 1401862118, prize: '0.1', rank: 6 },
+  ];
+
+  for (const w of winners) {
+    const { data: u } = await supabase.from('users')
+      .select('language').eq('tg_id', w.tg).single();
+    const ru = (u?.language === 'ru');
+    const text = ru
+      ? `🎉 Поздравляем!\n\nТы занял ${w.rank}-е место в конкурсе приглашений друзей! 🏆\n\n💎 Твой приз: ${w.prize} TON уже зачислен на баланс в приложении.\n\nСпасибо, что приглашал активных друзей! 🚀`
+      : `🎉 Congratulations!\n\nYou finished #${w.rank} in the referral contest! 🏆\n\n💎 Your prize: ${w.prize} TON has been credited to your in-app balance.\n\nThanks for inviting active friends! 🚀`;
+    await sendAppMessage(w.tg, text, ru ? '▶️ Открыть ARCADE' : '▶️ Open ARCADE');
+    await new Promise(r => setTimeout(r, 80));
+  }
+  console.log('Contest congrats sent to', winners.length, 'winners');
+}
+
 export async function sendAppMessage(tgId, text, btnText = '▶️ ARCADE') {
   if (!bot) return false;
   try {
