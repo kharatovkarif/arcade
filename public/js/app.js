@@ -1568,12 +1568,14 @@ window.lbShowTab = function(tab) {
           <span style="color:var(--gold);font-size:11px">${t('ref_prizes')}</span>
         </div>`;
       const rows = (data.top || []).map(p => {
-        const prize = prizes[p.rank-1] ? `<span style="color:#4af;font-size:11px;font-weight:700">${prizes[p.rank-1]}</span>` : '';
+        const eligible = p.refs >= 2;
+        const prize = (eligible && prizes[p.rank-1]) ? `<span style="color:#4af;font-size:11px;font-weight:700">${prizes[p.rank-1]}</span>` : '';
+        const refColor = eligible ? 'var(--gold)' : '#ff4444';
         return `
         <div class="player-card" style="justify-content:space-between;margin-bottom:6px${p.tg_id === ME.tg_id ? ';border:1px solid var(--gold)' : ''}">
           <span style="font-size:18px;min-width:32px">${medals[p.rank-1] || `<span style='color:var(--muted2);font-weight:700'>#${p.rank}</span>`}</span>
           <span class="pname" style="flex:1">@${p.username}</span>
-          <div style="text-align:right">${prize}<div style="color:var(--gold);font-weight:700">${p.refs} ${t('unit_friends')}</div></div>
+          <div style="text-align:right">${prize}<div style="color:${refColor};font-weight:700">${p.refs} ${t('unit_friends')}</div></div>
         </div>`;
       }).join('') || `<div class="pvp-empty" style="padding:10px">${t('lb_no_refs')}</div>`;
       const myRow = data.myRank && data.myRank.rank > 3 ? `
@@ -1581,7 +1583,7 @@ window.lbShowTab = function(tab) {
         <div class="player-card" style="justify-content:space-between;border:1px solid var(--gold)">
           <span style="color:var(--gold);font-weight:700;min-width:32px">#${data.myRank.rank}</span>
           <span class="pname" style="flex:1">@${ME.username || '...'}</span>
-          <span style="color:var(--gold);font-weight:700">${data.myRank.refs} ${t('unit_friends')}</span>
+          <span style="color:${data.myRank.refs >= 2 ? 'var(--gold)' : '#ff4444'};font-weight:700">${data.myRank.refs} ${t('unit_friends')}</span>
         </div>` : '';
       document.getElementById('lbContent').innerHTML = header + rows + myRow;
     });
