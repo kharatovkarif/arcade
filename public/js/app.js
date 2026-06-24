@@ -1560,7 +1560,7 @@ window.lbShowTab = function(tab) {
         </div>` : '';
       document.getElementById('lbContent').innerHTML = rows + myRow;
     });
-  } else {
+  } else if (tab === 'refs') {
     api('/leaderboard/refs').then(data => {
       if (!document.getElementById('lbContent')) return;
       const prizes = ['1 TON','0.5 TON','0.3 TON','0.2 TON','0.2 TON','0.1 TON','0.1 TON','0.1 TON','0.1 TON','0.1 TON'];
