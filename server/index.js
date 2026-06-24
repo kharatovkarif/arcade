@@ -704,19 +704,28 @@ app.post('/api/leaderboard/arc', auth, async (req, res) => {
 
 app.post('/api/leaderboard/pvp', auth, async (req, res) => {
   const CONTEST_START = '2026-06-24T00:00:00+03:00';
-  const CONTEST_END   = '2026-07-07T00:00:00+03:00';
+  const CONTEST_END   = '2026-07-04T00:00:00+03:00';
 
-  const { data: bets } = await supabase.from('transactions')
-    .select('tg_id, amount')
-    .eq('type', 'pvp')
-    .lt('amount', 0)
+  // Only count bets from rounds that actually completed with 2+ players —
+  // solo rounds get refunded so their bets should not affect the ranking.
+  const { data: completedGames } = await supabase.from('games')
+    .select('id')
+    .eq('status', 'done')
+    .not('winner_tg_id', 'is', null)
     .gte('created_at', CONTEST_START)
     .lt('created_at', CONTEST_END);
 
-  if (!bets?.length) return res.json({ top: [], myRank: null, contestEnd: '2026-07-07' });
+  if (!completedGames?.length) return res.json({ top: [], myRank: null, contestEnd: '2026-07-04' });
+
+  const gameIds = completedGames.map(g => g.id);
+  const { data: bets } = await supabase.from('game_bets')
+    .select('tg_id, amount_arc')
+    .in('game_id', gameIds);
+
+  if (!bets?.length) return res.json({ top: [], myRank: null, contestEnd: '2026-07-04' });
 
   const staked = {};
-  for (const b of bets) staked[b.tg_id] = (staked[b.tg_id] || 0) + Math.abs(Number(b.amount));
+  for (const b of bets) staked[b.tg_id] = (staked[b.tg_id] || 0) + Number(b.amount_arc);
 
   const userIds = Object.keys(staked).map(Number);
   const { data: users } = await supabase.from('users')
@@ -737,7 +746,7 @@ app.post('/api/leaderboard/pvp', auth, async (req, res) => {
     if (me) myRank = { rank: myRankNum, username: me.username || '...', staked: myStaked, pro: isPro(me) };
   }
 
-  res.json({ top, myRank, contestEnd: '2026-07-07' });
+  res.json({ top, myRank, contestEnd: '2026-07-04' });
 });
 
 app.post('/api/leaderboard/refs', auth, async (req, res) => {
