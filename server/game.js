@@ -27,6 +27,14 @@ let notifyResultFn = null; // called after each finished round with result data
 export function setPvpNotifier(fn) { notifyRoundFn = fn; }
 export function setPvpResultNotifier(fn) { notifyResultFn = fn; }
 
+// Bets are serialized through this chain so the "find existing player" check
+// and the push/merge inside placeBetInner are never interleaved across the
+// `await` (DB call) in the middle. Without it, several near-simultaneous bets
+// from the SAME user each see no existing entry and push duplicate phantom
+// players — which falsely starts the round and charges commission on what is
+// really a single-player round.
+let betLock = Promise.resolve();
+
 async function newRound() {
   const roundNo = Number(await getSetting('round_counter')) || 1;
   const serverSeed = crypto.randomBytes(32).toString('hex');
@@ -52,7 +60,14 @@ async function newRound() {
   };
 }
 
-export async function placeBet(tgId, username, firstName, amount, pro = false) {
+export function placeBet(tgId, username, firstName, amount, pro = false) {
+  const result = betLock.then(() => placeBetInner(tgId, username, firstName, amount, pro));
+  // Keep the chain alive even if a bet rejects, so one failure doesn't stall the queue.
+  betLock = result.then(() => {}, () => {});
+  return result;
+}
+
+async function placeBetInner(tgId, username, firstName, amount, pro = false) {
   if (!current) await newRound();
   if (current.status === 'spinning' || current.status === 'done')
     return { ok: false, error: 'round_closed' };
@@ -104,10 +119,14 @@ export async function placeBet(tgId, username, firstName, amount, pro = false) {
 async function finishRound() {
   if (current.status !== 'counting') return;
 
-  // Special round ended with a single player: refund and restart same round
-  if (isSpecial(current.roundNo) && current.bets.length < 2) {
-    const bet = current.bets[0];
-    if (bet) await changeArc(bet.tg_id, bet.amount, 'pvp_refund', `refund round ${current.roundNo}`);
+  // Fewer than 2 distinct players (each entry is one distinct tg_id thanks to
+  // the bet lock) — refund every stake in full, take NO commission, restart the
+  // round. Covers both the special round and any normal round that somehow
+  // reached counting with a single player.
+  if (current.bets.length < 2) {
+    for (const b of current.bets) {
+      await changeArc(b.tg_id, b.amount, 'pvp_refund', `refund round ${current.roundNo}`);
+    }
     await supabase.from('games').update({ status: 'done' }).eq('id', current.gameId);
     await newRound();
     return;
