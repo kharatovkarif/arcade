@@ -702,6 +702,44 @@ app.post('/api/leaderboard/arc', auth, async (req, res) => {
   res.json({ top, myRank });
 });
 
+app.post('/api/leaderboard/pvp', auth, async (req, res) => {
+  const CONTEST_START = '2026-06-24T00:00:00+03:00';
+  const CONTEST_END   = '2026-07-07T00:00:00+03:00';
+
+  const { data: bets } = await supabase.from('transactions')
+    .select('tg_id, amount')
+    .eq('type', 'pvp')
+    .lt('amount', 0)
+    .gte('created_at', CONTEST_START)
+    .lt('created_at', CONTEST_END);
+
+  if (!bets?.length) return res.json({ top: [], myRank: null, contestEnd: '2026-07-07' });
+
+  const staked = {};
+  for (const b of bets) staked[b.tg_id] = (staked[b.tg_id] || 0) + Math.abs(Number(b.amount));
+
+  const userIds = Object.keys(staked).map(Number);
+  const { data: users } = await supabase.from('users')
+    .select('tg_id, username, pro_until').in('tg_id', userIds);
+
+  const top = (users || [])
+    .map(u => ({ tg_id: u.tg_id, username: u.username || '...', staked: staked[u.tg_id] || 0, pro: isPro(u) }))
+    .sort((a, b) => b.staked - a.staked)
+    .map((u, i) => ({ ...u, rank: i + 1 }))
+    .slice(0, 50);
+
+  const myEntry = top.find(u => u.tg_id === req.user.tg_id);
+  let myRank = myEntry || null;
+  if (!myRank) {
+    const myStaked = staked[req.user.tg_id] || 0;
+    const myRankNum = Object.values(staked).filter(s => s > myStaked).length + 1;
+    const { data: me } = await supabase.from('users').select('username, pro_until').eq('tg_id', req.user.tg_id).single();
+    if (me) myRank = { rank: myRankNum, username: me.username || '...', staked: myStaked, pro: isPro(me) };
+  }
+
+  res.json({ top, myRank, contestEnd: '2026-07-07' });
+});
+
 app.post('/api/leaderboard/refs', auth, async (req, res) => {
   const CONTEST_START = '2026-06-09T00:00:00+03:00';
   // Get new users since contest start

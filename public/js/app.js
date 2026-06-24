@@ -1520,6 +1520,7 @@ function openLeaderboard() {
     </div>
     <div style="display:flex;gap:8px;padding:12px 16px 0">
       <button id="lbTabArc" onclick="lbShowTab('arc')" style="flex:1;padding:8px;border-radius:10px;border:none;background:var(--gold);color:#000;font-weight:800;cursor:pointer;font-size:13px">💰 ARC</button>
+      <button id="lbTabPvp" onclick="lbShowTab('pvp')" style="flex:1;padding:8px;border-radius:10px;border:none;background:#1a1a1a;color:#fff;font-weight:800;cursor:pointer;font-size:13px">⚔️ ${t('lb_tab_pvp')}</button>
     </div>
     <div id="lbContent" style="flex:1;overflow-y:auto;padding:12px 16px 24px">
       <div class="pvp-empty" style="padding:20px">${t('loading')}</div>
@@ -1531,10 +1532,12 @@ function openLeaderboard() {
 window.lbShowTab = function(tab) {
   const arcBtn = document.getElementById('lbTabArc');
   const refsBtn = document.getElementById('lbTabRefs');
+  const pvpBtn = document.getElementById('lbTabPvp');
   const content = document.getElementById('lbContent');
   if (!content) return;
   if (arcBtn) { arcBtn.style.background = tab==='arc' ? 'var(--gold)' : '#1a1a1a'; arcBtn.style.color = tab==='arc' ? '#000' : '#fff'; }
   if (refsBtn) { refsBtn.style.background = tab==='refs' ? 'var(--gold)' : '#1a1a1a'; refsBtn.style.color = tab==='refs' ? '#000' : '#fff'; }
+  if (pvpBtn) { pvpBtn.style.background = tab==='pvp' ? 'var(--gold)' : '#1a1a1a'; pvpBtn.style.color = tab==='pvp' ? '#000' : '#fff'; }
   content.innerHTML = `<div class="pvp-empty" style="padding:20px">${t('loading')}</div>`;
 
   const medals = ['🥇','🥈','🥉'];
@@ -1583,6 +1586,34 @@ window.lbShowTab = function(tab) {
           <span style="color:var(--gold);font-weight:700;min-width:32px">#${data.myRank.rank}</span>
           <span class="pname" style="flex:1">@${ME.username || '...'}</span>
           <span style="color:${data.myRank.refs >= 2 ? 'var(--gold)' : '#ff4444'};font-weight:700">${data.myRank.refs} ${t('unit_friends')}</span>
+        </div>` : '';
+      document.getElementById('lbContent').innerHTML = header + rows + myRow;
+    });
+  } else if (tab === 'pvp') {
+    api('/leaderboard/pvp').then(data => {
+      if (!document.getElementById('lbContent')) return;
+      const prizes = ['2 TON','0.5 TON','0.3 TON','PRO','PRO'];
+      const proStyle = ';background:linear-gradient(90deg,#5c4700,#8a6d00 50%,#5c4700);border:1px solid #ffd60a';
+      const header = `
+        <div style="background:#111;border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--muted)">
+          ⚔️ ${t('lb_pvp_contest')}<br>
+          <span style="color:var(--gold);font-size:11px">${t('lb_pvp_prizes')}</span>
+        </div>`;
+      const rows = (data.top || []).map(p => {
+        const prize = prizes[p.rank-1] ? `<span style="color:#4af;font-size:11px;font-weight:700">${prizes[p.rank-1]}</span>` : '';
+        return `
+        <div class="player-card" style="justify-content:space-between;margin-bottom:6px${p.pro ? proStyle : (p.tg_id === ME.tg_id ? ';border:1px solid var(--gold)' : '')}">
+          <span style="font-size:18px;min-width:32px">${['🥇','🥈','🥉'][p.rank-1] || `<span style='color:var(--muted2);font-weight:700'>#${p.rank}</span>`}</span>
+          <span class="pname" style="flex:1">@${p.username}${p.pro ? ' 👑' : ''}</span>
+          <div style="text-align:right">${prize}<div style="color:var(--gold);font-weight:700">${fmt(p.staked, 0)} ${t('lb_pvp_unit')}</div></div>
+        </div>`;
+      }).join('') || `<div class="pvp-empty" style="padding:10px">${t('lb_pvp_empty')}</div>`;
+      const myRow = data.myRank && data.myRank.rank > 3 ? `
+        <div style="margin-top:12px;padding:8px 0;border-top:1px solid #2a2a2a;color:var(--muted2);font-size:12px;text-align:center">${t('my_rank_label')}</div>
+        <div class="player-card" style="justify-content:space-between;${data.myRank.pro ? proStyle.slice(1) : 'border:1px solid var(--gold)'}">
+          <span style="color:var(--gold);font-weight:700;min-width:32px">#${data.myRank.rank}</span>
+          <span class="pname" style="flex:1">@${ME.username || '...'}${data.myRank.pro ? ' 👑' : ''}</span>
+          <span style="color:var(--gold);font-weight:700">${fmt(data.myRank.staked, 0)} ${t('lb_pvp_unit')}</span>
         </div>` : '';
       document.getElementById('lbContent').innerHTML = header + rows + myRow;
     });
