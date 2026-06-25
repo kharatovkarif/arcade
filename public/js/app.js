@@ -375,7 +375,7 @@ async function renderTasks() {
     if (tk.completed) return `<div class="row"${style}>
       <div class="info"><span class="title">${title}</span><span class="sub">+${tk.reward_arc} ARC</span></div>
       <div style="text-align:center;flex-shrink:0"><div style="color:var(--green);font-size:12px;font-weight:700">${t('done_label')}</div><div style="color:var(--muted);font-size:11px">${t('today')}</div></div></div>`;
-    if (tk.type==='subscribe' && tk.target) {
+    if ((tk.type==='subscribe' || tk.type==='link') && tk.target) {
       const url = 'https://t.me/'+tk.target.replace('@','');
       return `<div class="row">
         <div class="info"><span class="title">${title}</span><span class="sub">+${tk.reward_arc} ARC</span></div>
