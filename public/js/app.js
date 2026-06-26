@@ -1813,7 +1813,11 @@ async function init() {
     'vi': 'vi',
   };
   LANG = ME.language || langMap[tgLang] || 'en';
-  renderHeader(); applyLang(); switchTab('main');
+  // Deep-link param: ?startapp=pvp opens the PvP tab directly (used by the
+  // round-result button posted in the PvP chat). Otherwise default to main.
+  const startParam = (window.Telegram?.WebApp?.initDataUnsafe?.start_param || '').toLowerCase();
+  const startTab = startParam === 'pvp' ? 'pvp' : 'main';
+  renderHeader(); applyLang(); switchTab(startTab);
   // Deep-link visitors never pressed Start, so the bot can't message them.
   // Ask for write access via Telegram's native popup; on grant, unblock + greet.
   if (ME.bot_blocked && tg?.requestWriteAccess) {

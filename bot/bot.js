@@ -604,9 +604,14 @@ export async function notifyPvpResult({ roundNo, players, username, prize, chanc
     `👥 Игроков: ${players}\n` +
     `🏆 Победитель: @${username}\n` +
     `💰 Выигрыш: ${prize} ARC\n` +
-    `🎯 Шанс: ${chance}%\n\n` +
-    `🎮 Играть → @arc_tonbot`;
-  bot.sendMessage(PVP_CHAT_ID, text).catch(() => {});
+    `🎯 Шанс: ${chance}%`;
+  bot.sendMessage(PVP_CHAT_ID, text, {
+    reply_markup: {
+      inline_keyboard: [[
+        { text: '🎮 Играть', url: `https://t.me/${process.env.BOT_USERNAME || 'arc_tonbot'}?startapp=pvp` }
+      ]]
+    }
+  }).catch(() => {});
 }
 
 export async function notifyAdminWithdraw(tgId, username, amount, wallet, newBal, datetime) {
