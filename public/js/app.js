@@ -193,39 +193,25 @@ function renderMain() {
   const adRows = `
     <div class="row">
       <div class="info">
-        <span class="title">${t('ad_reward')} 1 ${telegaReady ? `&nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + ${t('checkin_short')}</span>` : ''}</span>
-        <span class="sub">${telegaReady ? (ME.ad7_daily_count||0)+'/'+(ME.is_pro?15:10)+' '+t('today') : t('soon')}</span>
+        <span class="title">${t('ad_reward')} 1 &nbsp;<span style="color:var(--gold);font-size:13px">+10 ARC + ${t('checkin_short')}</span></span>
+        <span class="sub">${dailyCount}/${adLimit1} ${t('today')}</span>
       </div>
-      ${telegaReady && (ME.ad7_daily_count||0) < (ME.is_pro?15:10)
-        ? `<button onclick="watchAd7(this)" style="width:44px;height:44px;border-radius:50%;background:var(--blue);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`
-        : `<button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`}
+      ${ad1Btn}
     </div>
     <div class="row">
       <div class="info">
-        <span class="title">${t('ad_reward')} 2 ${nygmaReady ? `&nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + ${t('checkin_short')}</span>` : ''}</span>
-        <span class="sub">${nygmaReady ? (ME.ad6_daily_count||0)+'/'+(ME.is_pro?10:5)+' '+t('today') : t('soon')}</span>
+        <span class="title">${t('ad_reward')} 2 &nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + ${t('checkin_short')}</span></span>
+        <span class="sub">${activeShort ? dailyShortCount+'/'+adLimit2+' '+t('today') : t('soon')}</span>
       </div>
-      ${nygmaReady && (ME.ad6_daily_count||0) < (ME.is_pro?10:5)
-        ? `<button onclick="watchAd6(this)" style="width:44px;height:44px;border-radius:50%;background:var(--blue);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`
-        : `<button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`}
+      ${ad2Btn}
     </div>
-    ${(ME.ad_task_daily_count||0) >= 5
-      ? `<div class="row">
-          <div class="info">
-            <span class="title">${t('ad_reward')} 3 &nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + ${t('checkin_short')}</span></span>
-            <span class="sub">${t('done_label')+' · '+ME.ad_task_daily_count+'/5'}</span>
-          </div>
-          <button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--green);font-size:18px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">✓</button>
-        </div>`
-      : `<div class="row" id="ad3Fallback">
-          <div class="info"><span class="title">${t('ad_reward')} 3</span><span class="sub">${t('soon')}</span></div>
-          <button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>
-        </div>
-        <adsgram-task data-block-id="${ME.adsgram_block_id_task||''}" style="display:none;margin-top:8px;background:#141414;border-radius:14px;padding:12px;color:#fff;-adsgram-task-font-size:14px;-adsgram-task-icon-size:40px">
-          <span slot="reward" style="color:var(--gold);font-weight:700;font-size:13px">+5 ARC + ${t('checkin_short')}</span>
-          <div slot="button" style="background:var(--blue);color:#fff;border-radius:10px;padding:8px 16px;font-weight:700;font-size:13px;cursor:pointer">GO</div>
-          <div slot="done" style="background:#2a2a2a;color:var(--muted);border-radius:10px;padding:8px 16px;font-weight:700;font-size:13px">✓</div>
-        </adsgram-task>`}
+    <div class="row">
+      <div class="info">
+        <span class="title">${t('ad_reward')} 3 ${active4 ? `&nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + ${t('checkin_short')}</span>` : ''}</span>
+        <span class="sub">${active4 ? daily4Count+'/'+adLimit4+' '+t('today') : t('soon')}</span>
+      </div>
+      ${ad4Btn}
+    </div>
     <div class="row">
       <div class="info">
         <span class="title">${t('ad_reward')} 4 ${monetagReady ? `&nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + ${t('checkin_short')}</span>` : ''}</span>
@@ -235,34 +221,48 @@ function renderMain() {
         ? `<button onclick="watchAd5(this)" style="width:44px;height:44px;border-radius:50%;background:var(--blue);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`
         : `<button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`}
     </div>
+    ${(ME.ad_task_daily_count||0) >= 5
+      ? `<div class="row">
+          <div class="info">
+            <span class="title">${t('ad_reward')} 5 &nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + ${t('checkin_short')}</span></span>
+            <span class="sub">${t('done_label')+' · '+ME.ad_task_daily_count+'/5'}</span>
+          </div>
+          <button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--green);font-size:18px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">✓</button>
+        </div>`
+      : `<div class="row" id="ad3Fallback">
+          <div class="info"><span class="title">${t('ad_reward')} 5</span><span class="sub">${t('soon')}</span></div>
+          <button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>
+        </div>
+        <adsgram-task data-block-id="${ME.adsgram_block_id_task||''}" style="display:none;margin-top:8px;background:#141414;border-radius:14px;padding:12px;color:#fff;-adsgram-task-font-size:14px;-adsgram-task-icon-size:40px">
+          <span slot="reward" style="color:var(--gold);font-weight:700;font-size:13px">+5 ARC + ${t('checkin_short')}</span>
+          <div slot="button" style="background:var(--blue);color:#fff;border-radius:10px;padding:8px 16px;font-weight:700;font-size:13px;cursor:pointer">GO</div>
+          <div slot="done" style="background:#2a2a2a;color:var(--muted);border-radius:10px;padding:8px 16px;font-weight:700;font-size:13px">✓</div>
+        </adsgram-task>`}
     <div class="row">
       <div class="info">
-        <span class="title">${t('ad_reward')} 5 ${active4 ? `&nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + ${t('checkin_short')}</span>` : ''}</span>
-        <span class="sub">${active4 ? daily4Count+'/'+adLimit4+' '+t('today') : t('soon')}</span>
+        <span class="title">${t('ad_reward')} 6 ${nygmaReady ? `&nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + ${t('checkin_short')}</span>` : ''}</span>
+        <span class="sub">${nygmaReady ? (ME.ad6_daily_count||0)+'/'+(ME.is_pro?10:5)+' '+t('today') : t('soon')}</span>
       </div>
-      ${ad4Btn}
+      ${nygmaReady && (ME.ad6_daily_count||0) < (ME.is_pro?10:5)
+        ? `<button onclick="watchAd6(this)" style="width:44px;height:44px;border-radius:50%;background:var(--blue);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`
+        : `<button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`}
     </div>
     <div class="row">
       <div class="info">
-        <span class="title">${t('ad_reward')} 6 &nbsp;<span style="color:var(--gold);font-size:13px">+10 ARC + ${t('checkin_short')}</span></span>
-        <span class="sub">${dailyCount}/${adLimit1} ${t('today')}</span>
-      </div>
-      ${ad1Btn}
-    </div>
-    <div class="row">
-      <div class="info">
-        <span class="title">${t('ad_reward')} 7 &nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + ${t('checkin_short')}</span></span>
-        <span class="sub">${activeShort ? dailyShortCount+'/'+adLimit2+' '+t('today') : t('soon')}</span>
-      </div>
-      ${ad2Btn}
-    </div>
-    <div class="row">
-      <div class="info">
-        <span class="title">${t('ad_reward')} 8 ${tadsWidgetReady ? `&nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + ${t('checkin_short')}</span>` : ''}</span>
+        <span class="title">${t('ad_reward')} 7 ${tadsWidgetReady ? `&nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + ${t('checkin_short')}</span>` : ''}</span>
         <span class="sub">${tadsWidgetReady ? (ME.ad8_daily_count||0)+'/'+(ME.is_pro?10:5)+' '+t('today') : t('soon')}</span>
       </div>
       ${tadsWidgetReady && (ME.ad8_daily_count||0) < (ME.is_pro?10:5)
         ? `<button onclick="watchAd8(this)" style="width:44px;height:44px;border-radius:50%;background:var(--blue);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`
+        : `<button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`}
+    </div>
+    <div class="row">
+      <div class="info">
+        <span class="title">${t('ad_reward')} 8 ${telegaReady ? `&nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + ${t('checkin_short')}</span>` : ''}</span>
+        <span class="sub">${telegaReady ? (ME.ad7_daily_count||0)+'/'+(ME.is_pro?15:10)+' '+t('today') : t('soon')}</span>
+      </div>
+      ${telegaReady && (ME.ad7_daily_count||0) < (ME.is_pro?15:10)
+        ? `<button onclick="watchAd7(this)" style="width:44px;height:44px;border-radius:50%;background:var(--blue);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`
         : `<button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`}
     </div>`;
 
