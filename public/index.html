@@ -536,10 +536,23 @@ input.field:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(255,255,255
 </script>
 <script src="https://inapp.telega.io/sdk/v1/sdk.js"></script>
 <script>
-  try {
-    window.telegaAds = window.TelegaIn.AdsController.create_miniapp({
-      token: 'ea58d46f-a2b0-4bfb-9260-f3224fa10080' });
-  } catch (e) {}
+  // The SDK script may not be parsed yet when this runs, so a single attempt
+  // can silently fail and leave Telega ad (slot 8) stuck on "Скоро". Retry
+  // until window.TelegaIn is available, then create the controller once.
+  (function initTelega() {
+    let tries = 0;
+    const timer = setInterval(() => {
+      if (window.telegaAds) { clearInterval(timer); return; }
+      try {
+        if (window.TelegaIn && window.TelegaIn.AdsController) {
+          window.telegaAds = window.TelegaIn.AdsController.create_miniapp({
+            token: 'ea58d46f-a2b0-4bfb-9260-f3224fa10080' });
+          clearInterval(timer);
+        }
+      } catch (e) {}
+      if (++tries > 40) clearInterval(timer); // give up after ~20s
+    }, 500);
+  })();
 </script>
 </body>
 </html>
