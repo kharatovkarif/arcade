@@ -1,5 +1,10 @@
 const tg = window.Telegram?.WebApp;
-if (tg) { tg.ready(); tg.expand(); }
+if (tg) {
+  tg.ready(); tg.expand();
+  // Newer Telegram clients treat a vertical swipe as "minimise app", which
+  // steals the gesture from in-page scrolling. Disable it so the feed scrolls.
+  try { tg.disableVerticalSwipes?.(); } catch {}
+}
 const INIT_DATA = tg?.initData || '';
 let LANG = 'ru';
 let ME = null;
