@@ -219,10 +219,10 @@ function renderMain() {
     </div>
     <div class="row">
       <div class="info">
-        <span class="title">${t('ad_reward')} 4 ${monetagReady ? `&nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + ${t('checkin_short')}</span>` : ''}</span>
-        <span class="sub">${monetagReady ? (ME.ad5_daily_count||0)+'/'+(ME.is_pro?10:5)+' '+t('today') : t('soon')}</span>
+        <span class="title">${t('ad_reward')} 4 &nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + ${t('checkin_short')}</span></span>
+        <span class="sub">${(ME.ad5_daily_count||0)}/${ME.is_pro?10:5} ${t('today')}</span>
       </div>
-      ${monetagReady && (ME.ad5_daily_count||0) < (ME.is_pro?10:5)
+      ${(ME.ad5_daily_count||0) < (ME.is_pro?10:5)
         ? `<button onclick="watchAd5(this)" style="width:44px;height:44px;border-radius:50%;background:var(--blue);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`
         : `<button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`}
     </div>
@@ -254,10 +254,10 @@ function renderMain() {
     </div>
     <div class="row">
       <div class="info">
-        <span class="title">${t('ad_reward')} 7 ${tadsWidgetReady ? `&nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + ${t('checkin_short')}</span>` : ''}</span>
-        <span class="sub">${tadsWidgetReady ? (ME.ad8_daily_count||0)+'/'+(ME.is_pro?10:5)+' '+t('today') : t('soon')}</span>
+        <span class="title">${t('ad_reward')} 7 &nbsp;<span style="color:var(--gold);font-size:13px">+5 ARC + ${t('checkin_short')}</span></span>
+        <span class="sub">${(ME.ad8_daily_count||0)}/${ME.is_pro?10:5} ${t('today')}</span>
       </div>
-      ${tadsWidgetReady && (ME.ad8_daily_count||0) < (ME.is_pro?10:5)
+      ${(ME.ad8_daily_count||0) < (ME.is_pro?10:5)
         ? `<button onclick="watchAd8(this)" style="width:44px;height:44px;border-radius:50%;background:var(--blue);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`
         : `<button disabled style="width:44px;height:44px;border-radius:50%;background:#2a2a2a;border:none;color:var(--muted);font-size:20px;cursor:default;display:flex;align-items:center;justify-content:center;flex-shrink:0">▶</button>`}
     </div>
@@ -679,7 +679,7 @@ window.watchAd4 = async (btn) => {
 window.watchAd5 = async (btn) => {
   const zoneId = ME.monetag_zone_id;
   const fn = window['show_' + zoneId];
-  if (!fn) return;
+  if (!fn) { toast(t('ad_unavailable')); return; }
   const count5 = ME.ad5_daily_count || 0;
   if (count5 > 0 && count5 % 4 === 3) {
     try { await holdCaptcha(); } catch { return; }
