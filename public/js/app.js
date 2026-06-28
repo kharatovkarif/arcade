@@ -344,7 +344,7 @@ async function renderTasks() {
     return `<div class="ci-day ${cur}"><span class="dn">${t('day_prefix')}${d}</span><span class="dx">×${mult[d]}</span></div>`;
   }).join('');
 
-  const DAILY_TYPES = ['ad_milestone','pvp_milestone'];
+  const DAILY_TYPES = ['ad_milestone','pvp_milestone','story'];
   const PARTNER_TYPES = ['subscribe','link'];
   const sorted = (allTasks || []).slice().sort((a,b) => a.completed - b.completed || Number(a.target) - Number(b.target));
   const dailyTasks   = sorted.filter(tk => DAILY_TYPES.includes(tk.type));
@@ -372,6 +372,19 @@ async function renderTasks() {
         ? `<div style="text-align:center;flex-shrink:0"><div style="color:var(--green);font-size:12px;font-weight:700">${t('done_label')}</div><div style="color:var(--muted);font-size:11px">${t('today')}</div></div>`
         : `<button class="btn btn-sm ${canClaim?'btn-green':'btn-dark'}" ${canClaim?`onclick="checkTask(${tk.id},this)"`:'disabled'}>${t('get_reward')}</button>`}
     </div>`;
+  }
+
+  function renderStory(tk) {
+    const title = tk['title_'+LANG] || tk.title_en || tk.title_ru;
+    if (tk.completed) return `<div class="row" style="opacity:.55">
+      <div class="info"><span class="title">${title}</span><span class="sub">+${tk.reward_arc} ARC</span></div>
+      <div style="text-align:center;flex-shrink:0"><div style="color:var(--green);font-size:12px;font-weight:700">${t('done_label')}</div><div style="color:var(--muted);font-size:11px">${t('today')}</div></div></div>`;
+    return `<div class="row">
+      <div class="info"><span class="title">${title}</span><span class="sub">+${tk.reward_arc} ARC · ${t('story_hint')}</span></div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-sm btn-dark" onclick="shareStory(${tk.id},this)">${t('story_share')}</button>
+        <button class="btn btn-sm btn-dark" id="storyClaim${tk.id}" disabled onclick="checkTask(${tk.id},this)">${t('get_reward')}</button>
+      </div></div>`;
   }
 
   function renderGeneral(tk) {
@@ -432,7 +445,7 @@ async function renderTasks() {
     </div>
     ${dailyTasks.length ? `<div class="block">
       <div class="block-hdr">📅 ${t('daily_tasks')}</div>
-      ${dailyTasks.map(renderDaily).join('')}
+      ${dailyTasks.map(tk => tk.type === 'story' ? renderStory(tk) : renderDaily(tk)).join('')}
     </div>` : ''}
     ${generalTasks.length ? `<div class="block">
       <div class="block-hdr">📋 ${t('general_tasks')}</div>
@@ -510,6 +523,24 @@ async function doPromo() {
     toast(t(errMap[r.error] || 'promo_not_found'));
   }
 }
+
+// Daily "post a Telegram story" task. Telegram exposes no API to verify a story
+// was posted, so this is trust-based: opening the story composer (prefilled with
+// the ARCADE banner + the user's referral link) unlocks the claim button.
+window.shareStory = (taskId, btn) => {
+  const ref = `https://t.me/arc_tonbot?startapp=${ME.tg_id}`;
+  const img = location.origin + '/img/story.png';
+  const caption = t('story_caption').replace('{ref}', ref);
+  try {
+    if (tg && typeof tg.shareToStory === 'function') {
+      tg.shareToStory(img, { text: caption, widget_link: { url: ref, name: t('story_widget') } });
+    } else {
+      toast(t('story_unsupported'));
+    }
+  } catch (e) { toast(t('story_unsupported')); }
+  const claim = document.getElementById('storyClaim' + taskId);
+  if (claim) { claim.disabled = false; claim.classList.remove('btn-dark'); claim.classList.add('btn-green'); }
+};
 
 window.checkTask = async (id, btn) => {
   btn.disabled = true;
