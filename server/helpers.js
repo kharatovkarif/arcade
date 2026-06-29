@@ -70,23 +70,10 @@ export function isPro(user) {
   return !!(user?.pro_until && new Date(user.pro_until) > new Date());
 }
 
-export function getUserTier(user) {
-  if (user?.tier_until && new Date(user.tier_until) > new Date()) return user.tier || 'free';
-  return 'free';
-}
-
-export function tierAdMultiplier(user) {
-  const tier = getUserTier(user);
-  if (tier === 'elite') return 2.0;
-  if (tier === 'pro') return 1.5;
-  if (tier === 'starter') return 1.2;
-  return checkinMultiplier(user?.checkin_day || 1);
-}
-
-// Ad reward multiplier: legacy PRO keeps ×1.875; tiers use tierAdMultiplier
+// Ad reward multiplier: PRO always gets max checkin ×1.5 plus +25% bonus
 export function adMultiplier(user) {
-  if (isPro(user)) return 1.5 * 1.25;
-  return tierAdMultiplier(user);
+  const base = isPro(user) ? 1.5 : checkinMultiplier(user?.checkin_day || 1);
+  return isPro(user) ? base * 1.25 : base;
 }
 
 export async function changeArc(tgId, amount, type, note = '') {
