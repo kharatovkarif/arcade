@@ -7,10 +7,11 @@ const SPIN_DURATION = 4;
 const SHOW_RESULT = 3;
 const COMMISSION = 0.10;
 
-// Zero-commission event: 18:00–19:00 MSK on 2026-06-29
+// Zero-commission happy hour: 18:00–19:00 MSK every day through 2026-07-04
 function isZeroCommissionNow() {
   const msk = new Date(Date.now() + 3 * 3600 * 1000);
-  return msk.toISOString().slice(0, 10) === '2026-06-29' && msk.getUTCHours() >= 18 && msk.getUTCHours() < 19;
+  const day = msk.toISOString().slice(0, 10);
+  return day >= '2026-06-29' && day <= '2026-07-04' && msk.getUTCHours() >= 18 && msk.getUTCHours() < 19;
 }
 const MIN_BET = 10, MAX_BET = 1000;
 
