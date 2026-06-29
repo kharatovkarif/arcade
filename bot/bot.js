@@ -123,15 +123,21 @@ export function startBot() {
     if (msg.from.id !== ADMIN_ID) return;
     const [head, ru, en] = m[1].split('|').map(s => s.trim());
     const parts = head.split(/\s+/);
-    let is_partner = false, type, target, reward;
-    if (parts[0] === 'partner') { is_partner = true; [, type, target, reward] = parts; }
-    else { [type, target, reward] = parts; }
-    if (!type || !reward) return bot.sendMessage(msg.chat.id, '❌ /task_add [partner] subscribe @chan 50 | RU | EN').catch(()=>{});
-    const { error } = await supabase.from('tasks').insert({
-      type, target: target && target.startsWith('@') ? target : null,
+    let is_partner = false, type, target, reward, days;
+    if (parts[0] === 'partner') { is_partner = true; [, type, target, reward, days] = parts; }
+    else { [type, target, reward, days] = parts; }
+    if (!type || !reward) return bot.sendMessage(msg.chat.id, '❌ /task_add [partner] link https://... 50 [days] | RU | EN').catch(()=>{});
+    // Keep @channel usernames and full https links as the target; anything else → null.
+    const tgt = target && (target.startsWith('@') || target.startsWith('http')) ? target : null;
+    const row = {
+      type, target: tgt,
       reward_arc: Number(reward), title_ru: ru || 'Task', title_en: en || 'Task', is_active: true, is_partner,
-    });
-    bot.sendMessage(msg.chat.id, error ? `❌ ${error.message}` : `✅ Task created (+${reward} ARC)${is_partner ? ' [partner]' : ''}`).catch(()=>{});
+    };
+    // Optional 5th token = lifetime in days → task auto-expires after that.
+    const d = Number(days);
+    if (d > 0) { row.limit_mode = 'time'; row.expires_at = new Date(Date.now() + d * 86400 * 1000).toISOString(); }
+    const { error } = await supabase.from('tasks').insert(row);
+    bot.sendMessage(msg.chat.id, error ? `❌ ${error.message}` : `✅ Task created (+${reward} ARC)${is_partner ? ' [partner]' : ''}${d > 0 ? ` · ${d}d` : ''}`).catch(()=>{});
   });
 
   bot.onText(/\/task_del (\d+)/, async (msg, m) => {

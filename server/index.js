@@ -198,8 +198,12 @@ app.post('/api/promo', auth, async (req, res) => {
 app.post('/api/tasks', auth, async (req, res) => {
   const today = mskDate();
   const todayStart = today + 'T00:00:00+03:00';
-  const { data: tasks } = await supabase.from('tasks')
+  const { data: allActive } = await supabase.from('tasks')
     .select('*').eq('is_active', true).order('id', { ascending: true });
+  // Hide time-limited tasks whose lifetime has passed (e.g. a paid partner
+  // placement bought for N days) — they stay in the DB but drop off the list.
+  const nowTs = Date.now();
+  const tasks = (allActive || []).filter(t => !(t.limit_mode === 'time' && t.expires_at && new Date(t.expires_at).getTime() < nowTs));
   const [{ data: doneAllData }, { data: doneTodayData }] = await Promise.all([
     supabase.from('task_completions').select('task_id').eq('tg_id', req.user.tg_id),
     supabase.from('task_completions').select('task_id').eq('tg_id', req.user.tg_id).gte('created_at', todayStart),
