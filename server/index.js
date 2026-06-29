@@ -7,7 +7,7 @@ import { verifyTelegramData } from './auth.js';
 import {
   getOrCreateUser, getSetting, setSetting,
   checkinMultiplier, changeArc, changeTon,
-  isPro, adMultiplier, payReferrals,
+  isPro, adMultiplier, payReferrals, getUserTier,
 } from './helpers.js';
 import { startBot, botCheckMember, notifyAdminWithdraw, getUserPhotoBuffer, notifyPvpRound, notifyPvpResult, sendWelcome } from '../bot/bot.js';
 import { initGameLoop, getGameState, placeBet, setPvpNotifier, setPvpResultNotifier } from './game.js';
@@ -16,6 +16,12 @@ import { initInactivityLoop } from './inactivity.js';
 import { initReminderLoop } from './reminders.js';
 
 dotenv.config();
+
+const TIERS = {
+  starter: { price: 0.3, days: 7,  ads_required: 6,  daily_bonus: 80  },
+  pro:     { price: 0.5, days: 7,  ads_required: 8,  daily_bonus: 150 },
+  elite:   { price: 2.0, days: 14, ads_required: 10, daily_bonus: 300 },
+};
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -109,12 +115,30 @@ app.post('/api/me', auth, async (req, res) => {
   } else {
     await supabase.from('users').update({ last_active_at: new Date().toISOString() }).eq('tg_id', req.user.tg_id);
   }
+
+  // Tier daily bonus: credit if enough ads watched today and not yet awarded
+  const today = mskDate();
+  const activeTier = getUserTier(u);
+  const tierCfg = TIERS[activeTier];
+  let tierBonusDate = u.tier_bonus_date;
+  if (tierCfg && tierBonusDate !== today) {
+    const adsToday = (adCount||0) + (adShortCount||0) + (adTaskCount||0)
+      + (ad4Count||0) + (ad5Count||0) + (ad6Count||0) + (ad7Count||0) + (ad8Count||0);
+    if (adsToday >= tierCfg.ads_required) {
+      await changeArc(req.user.tg_id, tierCfg.daily_bonus, 'tier_bonus', `${activeTier} daily bonus`);
+      await supabase.from('users').update({ tier_bonus_date: today }).eq('tg_id', req.user.tg_id);
+      tierBonusDate = today;
+    }
+  }
+
   res.json({
     tg_id: u.tg_id, username: u.username, first_name: u.first_name,
     language: u.language, balance_arc: Number(u.balance_arc),
     balance_ton: Number(u.balance_ton), wallet: u.wallet,
     is_admin: u.is_admin, checkin_day: u.checkin_day,
     is_pro: pro, pro_until: u.pro_until,
+    tier: activeTier, tier_until: u.tier_until, tier_bonus_date: tierBonusDate,
+    tier_ads_required: tierCfg?.ads_required || 0,
     bot_blocked: !!u.bot_blocked,
     adsgram_block_id: process.env.ADSGRAM_BLOCK_ID || '',
     adsgram_block_id_short: process.env.ADSGRAM_BLOCK_ID_SHORT || '',
@@ -812,6 +836,31 @@ app.post('/api/deposit/info', auth, async (req, res) => {
   });
 });
 
+app.post('/api/tier/buy', auth, async (req, res) => {
+  const tierName = req.body.tier;
+  const cfg = TIERS[tierName];
+  if (!cfg) return res.json({ ok: false, error: 'bad_tier' });
+
+  const { data: until, error } = await supabase.rpc('try_buy_tier', {
+    p_tg_id: req.user.tg_id, p_price: cfg.price, p_tier: tierName, p_days: cfg.days,
+  });
+  if (error) return res.json({ ok: false, error: 'server' });
+  if (!until) return res.json({ ok: false, error: 'not_enough_ton', price: cfg.price });
+
+  await supabase.from('transactions').insert({
+    tg_id: req.user.tg_id, type: 'tier_buy', currency: 'TON',
+    amount: -cfg.price, note: `${tierName} +${cfg.days}d`,
+  });
+
+  if (req.user.referrer_id) {
+    const commission = Number((cfg.price * 0.10).toFixed(4));
+    if (commission > 0) changeTon(req.user.referrer_id, commission, 'referral', `tier from ${req.user.tg_id}`).catch(() => {});
+  }
+
+  const { data: u } = await supabase.from('users').select('balance_ton').eq('tg_id', req.user.tg_id).single();
+  res.json({ ok: true, tier: tierName, tier_until: until, balance_ton: Number(u.balance_ton) });
+});
+
 app.post('/api/exchange/info', auth, async (req, res) => {
   const [tonUsd, arcUsd, limitTon] = await Promise.all([
     getSetting('ton_usd'), getSetting('arc_usd'), getSetting('exchange_daily_limit_ton'),
@@ -851,6 +900,48 @@ app.post('/api/exchange/ton-arc', auth, async (req, res) => {
   const { data: me } = await supabase.from('users').select('balance_ton').eq('tg_id', req.user.tg_id).single();
   res.json({ ok: true, arc_received: arcAmount, balance_arc: newArc, balance_ton: Number(me.balance_ton) });
 });
+
+app.post('/api/exchange/arc-ton', auth, async (req, res) => {
+  const tier = getUserTier(req.user);
+  if (tier === 'free') return res.json({ ok: false, error: 'tier_required' });
+
+  const amount = Number(req.body.amount); // ARC amount to exchange
+  if (!(amount >= 100)) return res.json({ ok: false, error: 'bad_amount' });
+
+  const [tonUsd, arcUsd] = await Promise.all([getSetting('ton_usd'), getSetting('arc_usd')]);
+  if (!tonUsd || !arcUsd) return res.json({ ok: false, error: 'rate_unavailable' });
+
+  // Rate with 13% discount: arcUsd/tonUsd gives ARC per TON; invert for TON per ARC
+  const arcPerTon = Number(tonUsd) / Number(arcUsd);
+  const tonAmount = Number((amount / arcPerTon * 0.87).toFixed(9));
+  if (tonAmount < 0.001) return res.json({ ok: false, error: 'bad_amount' });
+
+  // Weekly limit: pro=2 TON, elite=10 TON
+  const weekLimit = tier === 'elite' ? 10 : 2;
+  const weekStart = mskWeekStart();
+  const { data: weeklyTxns } = await supabase.from('transactions')
+    .select('amount').eq('tg_id', req.user.tg_id)
+    .eq('type', 'arc_ton_exchange').eq('currency', 'TON')
+    .gte('created_at', weekStart + 'T00:00:00+03:00');
+  const weeklyUsed = (weeklyTxns || []).reduce((s, tx) => s + Number(tx.amount), 0);
+  if (weeklyUsed + tonAmount > weekLimit) return res.json({ ok: false, error: 'weekly_limit_exceeded', limit: weekLimit, used: weeklyUsed });
+
+  const { data: u } = await supabase.from('users').select('balance_arc').eq('tg_id', req.user.tg_id).single();
+  if (Number(u.balance_arc) < amount) return res.json({ ok: false, error: 'not_enough_arc' });
+
+  const newArc = await changeArc(req.user.tg_id, -amount, 'arc_ton_exchange', `arc→ton ${amount}`);
+  const newTon = await changeTon(req.user.tg_id, tonAmount, 'arc_ton_exchange', `arc→ton ${amount}`);
+  res.json({ ok: true, ton_received: tonAmount, balance_arc: newArc, balance_ton: newTon });
+});
+
+function mskWeekStart() {
+  const now = new Date();
+  const msk = new Date(now.getTime() + 3 * 3600 * 1000);
+  const day = msk.getUTCDay();
+  const daysFromMonday = (day + 6) % 7;
+  const monday = new Date(msk.getTime() - daysFromMonday * 86400 * 1000);
+  return monday.toISOString().slice(0, 10);
+}
 
 function mskDate(offsetDays = 0) {
   const now = new Date();

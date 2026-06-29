@@ -929,6 +929,87 @@ function proDaysLeft() {
   return Math.max(0, Math.ceil((new Date(ME.pro_until) - Date.now()) / 86400000));
 }
 
+function mskDateFront() {
+  const msk = new Date(Date.now() + 3 * 3600 * 1000);
+  return msk.toISOString().slice(0, 10);
+}
+
+function tierDaysLeft() {
+  if (!ME.tier_until) return 0;
+  return Math.max(0, Math.ceil((new Date(ME.tier_until) - Date.now()) / 86400000));
+}
+
+function getTotalAdsToday() {
+  return (ME.ad_daily_count||0) + (ME.ad_short_daily_count||0) + (ME.ad_task_daily_count||0)
+    + (ME.ad4_daily_count||0) + (ME.ad5_daily_count||0) + (ME.ad6_daily_count||0)
+    + (ME.ad7_daily_count||0) + (ME.ad8_daily_count||0);
+}
+
+const TIER_CFG = {
+  starter: { price: 0.3, days: 7,  bonus: 80,  req: 6,  mult: '×1.2', color: '#4CAF50', canExchange: false },
+  pro:     { price: 0.5, days: 7,  bonus: 150, req: 8,  mult: '×1.5', color: '#2196F3', canExchange: true  },
+  elite:   { price: 2.0, days: 14, bonus: 300, req: 10, mult: '×2.0', color: '#FF9800', canExchange: true  },
+};
+
+function renderTierCards() {
+  const activeTier = (ME.tier_until && new Date(ME.tier_until) > new Date()) ? ME.tier : 'free';
+  const today = mskDateFront();
+  const adsToday = getTotalAdsToday();
+
+  return `
+    <div style="margin-bottom:10px">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">${t('tier_section')}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        ${Object.entries(TIER_CFG).map(([name, cfg]) => {
+          const isActive = activeTier === name;
+          const dLeft = isActive ? tierDaysLeft() : 0;
+          const bonusEarned = isActive && ME.tier_bonus_date === today;
+          const pct = isActive ? Math.min(100, Math.round(adsToday / cfg.req * 100)) : 0;
+          if (isActive) {
+            return `<div style="border-radius:12px;background:${cfg.color}1a;border:1.5px solid ${cfg.color}66;padding:10px;text-align:center">
+              <div style="font-size:11px;font-weight:900;color:${cfg.color};letter-spacing:.5px">${name.toUpperCase()}</div>
+              <div style="font-size:10px;color:#ccc;margin:2px 0">${t('tier_active').replace('{d}', dLeft)}</div>
+              <div style="height:3px;background:#2a2a2a;border-radius:3px;overflow:hidden;margin:5px 0 3px">
+                <div style="height:100%;width:${pct}%;background:${cfg.color};border-radius:3px;transition:width .3s"></div>
+              </div>
+              <div style="font-size:10px;color:${bonusEarned ? '#4CAF50' : '#999'}">
+                ${bonusEarned ? t('tier_bonus_earned').replace('{n}', cfg.bonus) : t('tier_bonus_pending').replace('{n}', adsToday).replace('{r}', cfg.req)}
+              </div>
+            </div>`;
+          }
+          return `<div style="border-radius:12px;background:#111;border:1px solid #2a2a2a;padding:10px;text-align:center;cursor:pointer" onclick="buyTier('${name}')">
+            <div style="font-size:11px;font-weight:900;color:${cfg.color};letter-spacing:.5px">${name.toUpperCase()}</div>
+            <div style="font-size:10px;color:#aaa;margin:2px 0">${cfg.price} TON</div>
+            <div style="font-size:9px;color:#666">${cfg.days}д · ${cfg.mult}</div>
+            <div style="font-size:9px;color:#888;margin-top:2px">+${cfg.bonus}/день</div>
+            <div style="margin-top:6px;padding:3px 0;background:${cfg.color}22;border-radius:6px;font-size:10px;font-weight:700;color:${cfg.color}">${t('tier_buy')}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
+
+window.buyTier = async (tierName) => {
+  const cfg = TIER_CFG[tierName];
+  if (!cfg) return;
+  const r = await api('/tier/buy', { tier: tierName });
+  if (r.ok) {
+    ME.tier = r.tier;
+    ME.tier_until = r.tier_until;
+    ME.balance_ton = r.balance_ton;
+    renderHeader();
+    if (currentTab === 'profile') renderProfile();
+    toast(t('tier_buy_success').replace('{tier}', tierName.toUpperCase()));
+  } else if (r.error === 'not_enough_ton') {
+    toast(t('tier_not_enough_ton'));
+    openDeposit();
+  } else if (r.error === 'server') {
+    toast('⚠️ DB migration required — apply db/migrations/001_add_tiers.sql in Supabase');
+  } else {
+    toast(t('error'));
+  }
+};
+
 window.openProModal = () => {
   const ov = document.createElement('div');
   ov.setAttribute('data-ov','1');
@@ -1017,6 +1098,7 @@ function renderProfile() {
       </div>
       <span style="color:#ffd60a;font-size:18px">›</span>
     </div>
+    ${renderTierCards()}
     ${walletBlock}
     <div class="block">
       <div class="block-hdr">${t('ops_title')}</div>
@@ -1035,11 +1117,18 @@ function renderProfile() {
         <span class="op-row-txt"><span class="op-row-t">${t('exchange_ton_arc')}</span><span class="op-row-s">${t('ops_exchange_sub')}</span></span>
         <span class="op-row-arrow">›</span>
       </button>
-      <div class="op-row op-row-soon">
-        <span class="op-row-ic">🔁</span>
-        <span class="op-row-txt"><span class="op-row-t">${t('exchange_arc_ton')}</span><span class="op-row-s">${t('ops_exchange_arc_sub')}</span></span>
-        <span class="tag tag-soon">${t('soon')}</span>
-      </div>
+      ${(ME.tier && ME.tier !== 'free' && ME.tier_until && new Date(ME.tier_until) > new Date())
+        ? `<button class="op-row" id="arcTonBtn">
+            <span class="op-row-ic">🔁</span>
+            <span class="op-row-txt"><span class="op-row-t">${t('exchange_arc_ton')}</span><span class="op-row-s">${t('ops_exchange_arc_sub')}</span></span>
+            <span class="op-row-arrow">›</span>
+           </button>`
+        : `<div class="op-row op-row-soon">
+            <span class="op-row-ic">🔁</span>
+            <span class="op-row-txt"><span class="op-row-t">${t('exchange_arc_ton')}</span><span class="op-row-s">${t('tier_required')}</span></span>
+            <span class="tag tag-soon">${t('soon')}</span>
+           </div>`
+      }
     </div>
     <button class="op-row" id="lbBtn">
       <span class="op-row-ic">🏆</span>
@@ -1057,6 +1146,8 @@ function renderProfile() {
   document.getElementById('depBtn').onclick = openDeposit;
   document.getElementById('wdBtn').onclick = openWithdraw;
   document.getElementById('exBtn').onclick = openExchange;
+  const arcTonBtn = document.getElementById('arcTonBtn');
+  if (arcTonBtn) arcTonBtn.onclick = openArcTonExchange;
   document.getElementById('lbBtn').onclick = openLeaderboard;
   document.getElementById('histBtn').onclick = openTxHistory;
 }
@@ -1785,6 +1876,63 @@ async function openExchange() {
       toast(`+${r.arc_received.toLocaleString()} ARC`);
     } else {
       const errs = { not_enough_ton: 'Недостаточно TON', limit_exceeded: 'Лимит исчерпан', rate_unavailable: 'Курс недоступен', bad_amount: t('enter_amount') };
+      toast(errs[r.error] || t('error'));
+      btn.disabled = false;
+    }
+  };
+}
+
+async function openArcTonExchange() {
+  const tier = (ME.tier_until && new Date(ME.tier_until) > new Date()) ? ME.tier : 'free';
+  const cfg = TIER_CFG[tier];
+  if (!cfg?.canExchange) { toast(t('tier_required')); return; }
+
+  const weekLimit = tier === 'elite' ? 10 : 2;
+  const info = await api('/exchange/info');
+  const arcPerTon = info.rate || 0;
+  if (!arcPerTon) { toast(t('error')); return; }
+  const tonPerArc = 1 / arcPerTon * 0.87;
+
+  openModal(`
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px">${t('exchange_arc_ton')}</div>
+    <div style="background:var(--card2);border-radius:14px;padding:14px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <span style="color:var(--muted2);font-size:13px">${t('tier_rate')}</span>
+        <span style="font-weight:700;font-size:13px">1 TON = ${arcPerTon.toLocaleString()} ARC</span>
+      </div>
+      <div style="display:flex;justify-content:space-between">
+        <span style="color:var(--muted2);font-size:13px">${t('tier_weekly_limit').replace('{n}','')}</span>
+        <span style="font-weight:700;font-size:13px">${weekLimit} TON</span>
+      </div>
+    </div>
+    <input class="field" id="arcTonAmount" type="number" step="100" min="100" placeholder="ARC" />
+    <div id="arcTonPreview" style="color:var(--muted2);font-size:13px;margin-bottom:10px;min-height:18px"></div>
+    <button class="btn btn-white" id="arcTonConfirm">${t('confirm')}</button>`);
+
+  const inp = document.getElementById('arcTonAmount');
+  const preview = document.getElementById('arcTonPreview');
+  inp.oninput = () => {
+    const v = Number(inp.value);
+    preview.textContent = v >= 100 ? `≈ ${(v * tonPerArc).toFixed(4)} TON` : '';
+  };
+  document.getElementById('arcTonConfirm').onclick = async () => {
+    const amount = Number(inp.value);
+    if (!(amount >= 100)) return toast(t('enter_amount'));
+    const btn = document.getElementById('arcTonConfirm');
+    btn.disabled = true;
+    const r = await api('/exchange/arc-ton', { amount });
+    if (r.ok) {
+      ME.balance_arc = r.balance_arc; ME.balance_ton = r.balance_ton;
+      renderHeader(); closeModal(); renderProfile();
+      toast(`+${r.ton_received.toFixed(4)} TON`);
+    } else {
+      const errs = {
+        tier_required: t('tier_required'),
+        not_enough_arc: t('not_enough'),
+        weekly_limit_exceeded: t('tier_weekly_limit').replace('{n}', weekLimit),
+        rate_unavailable: 'Курс недоступен',
+        bad_amount: t('enter_amount'),
+      };
       toast(errs[r.error] || t('error'));
       btn.disabled = false;
     }
