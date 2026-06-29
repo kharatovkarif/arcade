@@ -395,11 +395,12 @@ async function renderTasks() {
       <div style="text-align:center;flex-shrink:0"><div style="color:var(--green);font-size:12px;font-weight:700">${t('done_label')}</div><div style="color:var(--muted);font-size:11px">${t('today')}</div></div></div>`;
     if ((tk.type==='subscribe' || tk.type==='link') && tk.target) {
       const url = tk.target.startsWith('http') ? tk.target : 'https://t.me/'+tk.target.replace('@','');
+      const visited = localStorage.getItem('task_visited_'+tk.id);
       return `<div class="row">
         <div class="info"><span class="title">${title}</span><span class="sub">+${tk.reward_arc} ARC</span></div>
         <div style="display:flex;gap:6px">
-          <a href="${url}" target="_blank" class="btn btn-sm btn-dark">${t('go')}</a>
-          <button class="btn btn-sm btn-green" onclick="checkTask(${tk.id},this)">${t('check')}</button>
+          <a href="${url}" target="_blank" class="btn btn-sm btn-dark" onclick="visitTask(${tk.id})">${t('go')}</a>
+          <button class="btn btn-sm ${visited?'btn-green':'btn-dark'}" id="checkBtn_${tk.id}" ${visited?`onclick="checkTask(${tk.id},this)"`:'disabled'}>${t('check')}</button>
         </div></div>`;
     }
     if (tk.type==='referral_milestone') {
@@ -540,6 +541,19 @@ window.shareStory = (taskId, btn) => {
   } catch (e) { toast(t('story_unsupported')); }
   const claim = document.getElementById('storyClaim' + taskId);
   if (claim) { claim.disabled = false; claim.classList.remove('btn-dark'); claim.classList.add('btn-green'); }
+};
+
+window.visitTask = (id) => {
+  localStorage.setItem('task_visited_'+id, '1');
+  setTimeout(() => {
+    const btn = document.getElementById('checkBtn_'+id);
+    if (btn && btn.disabled) {
+      btn.disabled = false;
+      btn.classList.remove('btn-dark');
+      btn.classList.add('btn-green');
+      btn.onclick = () => checkTask(id, btn);
+    }
+  }, 3000);
 };
 
 window.checkTask = async (id, btn) => {
