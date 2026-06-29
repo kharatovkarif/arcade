@@ -6,6 +6,12 @@ const COUNTDOWN = 15;
 const SPIN_DURATION = 4;
 const SHOW_RESULT = 3;
 const COMMISSION = 0.10;
+
+// Zero-commission event: 18:00–19:00 MSK on 2026-06-29
+function isZeroCommissionNow() {
+  const msk = new Date(Date.now() + 3 * 3600 * 1000);
+  return msk.toISOString().slice(0, 10) === '2026-06-29' && msk.getUTCHours() >= 18 && msk.getUTCHours() < 19;
+}
 const MIN_BET = 10, MAX_BET = 1000;
 
 // Special no-risk round: losers get refunds, winner gets pot -10% + bonus
@@ -149,8 +155,7 @@ async function finishRound() {
 
   const special = isSpecial(current.roundNo);
   const chance = (winner.amount / current.pot) * 100;
-  // PRO winner keeps more: 5% commission instead of 10%
-  const commission = current.pot * (winner.pro ? 0.05 : COMMISSION);
+  const commission = isZeroCommissionNow() ? 0 : current.pot * (winner.pro ? 0.05 : COMMISSION);
   const prize = (current.pot - commission) + (special ? SPECIAL_BONUS : 0);
 
   current.winner = {
