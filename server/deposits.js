@@ -48,9 +48,12 @@ async function processEvent(ev) {
     const tgId = Number(comment);
 
     const txHash = eventId;
-    const { data: exists } = await supabase
-      .from('transactions').select('id').eq('tx_hash', txHash).maybeSingle();
-    if (exists) continue;
+    // Dedup must tolerate pre-existing duplicates: maybeSingle() throws on 2+ matches
+    // and the error was being swallowed, so once a single duplicate slipped in the
+    // check returned null forever and the same transfer was re-credited every poll.
+    const { data: existsRows } = await supabase
+      .from('transactions').select('id').eq('tx_hash', txHash).limit(1);
+    if (existsRows && existsRows.length) continue;
 
     const { data: user } = await supabase
       .from('users').select('tg_id, username, wallet').eq('tg_id', tgId).maybeSingle();
