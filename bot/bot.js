@@ -446,8 +446,13 @@ export function startBot() {
     const tgId = Number(parts[1]);
     const amount = Number(parts[2]);
     const pending = pendingWithdrawals.get(tgId);
-    const wallet = pending?.wallet;
     pendingWithdrawals.delete(tgId);
+    // Wallet may be missing from memory after a server restart — fall back to the DB record.
+    let wallet = pending?.wallet;
+    if (!wallet) {
+      const { data: u } = await supabase.from('users').select('wallet').eq('tg_id', tgId).single();
+      wallet = u?.wallet;
+    }
     try {
       await bot.editMessageText(
         q.message.text + '\n\n✅ ПОДТВЕРЖДЕНО',
