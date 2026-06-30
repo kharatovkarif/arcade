@@ -63,7 +63,15 @@ async function processEvent(ev) {
       .gte('created_at', day + 'T00:00:00');
     const usedToday = (deps || []).reduce((s, d) => s + Number(d.amount), 0);
     if (usedToday + amountTon > MAX_DEPOSIT_DAY) {
-      await notifyAdmin(`Депозит превысил лимит\nОт: @${user.username || tgId} (${tgId})\nСумма: ${amountTon} TON\nЗа день: ${usedToday} TON`);
+      // Record a marker row so this same transfer is deduplicated on the next poll.
+      // Without it the event stays in tonapi's recent list and gets re-detected every
+      // 8s, spamming the admin with the same "limit exceeded" message indefinitely.
+      // type != 'deposit' so it never counts toward the daily total or the balance.
+      await supabase.from('transactions').insert({
+        tg_id: tgId, type: 'deposit_over_limit', currency: 'TON',
+        amount: amountTon, note: `over daily limit (${usedToday.toFixed(2)} used)`, tx_hash: txHash,
+      });
+      await notifyAdmin(`⚠️ Депозит превысил лимит\nОт: @${user.username || tgId} (${tgId})\nСумма: ${amountTon} TON\nЗа день: ${usedToday.toFixed(2)} TON`);
       continue;
     }
 
