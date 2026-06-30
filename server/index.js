@@ -116,6 +116,7 @@ app.post('/api/me', auth, async (req, res) => {
     is_admin: u.is_admin, checkin_day: u.checkin_day,
     is_pro: pro, pro_until: u.pro_until,
     bot_blocked: !!u.bot_blocked,
+    is_new: !!req.user._isNew,
     adsgram_block_id: process.env.ADSGRAM_BLOCK_ID || '',
     adsgram_block_id_short: process.env.ADSGRAM_BLOCK_ID_SHORT || '',
     adsgram_block_id_task: process.env.ADSGRAM_BLOCK_ID_TASK || 'task-34678',

@@ -1870,7 +1870,7 @@ async function init() {
   renderHeader(); applyLang(); switchTab(startTab);
   // Deep-link visitors never pressed Start, so the bot can't message them.
   // Ask for write access via Telegram's native popup; on grant, unblock + greet.
-  if (ME.bot_blocked && tg?.requestWriteAccess) {
+  if ((ME.bot_blocked || ME.is_new) && tg?.requestWriteAccess) {
     try {
       tg.requestWriteAccess((granted) => {
         if (granted) api('/write-access').catch(() => {});

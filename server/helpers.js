@@ -43,6 +43,9 @@ export async function getOrCreateUser(tgUser, startParam) {
       .select()
       .single();
     user = created;
+    // Flag brand-new users so the Mini App can request write access on their very
+    // first (often only) visit — bot_blocked isn't set yet at this point.
+    if (user) user._isNew = true;
     // Deep-link visitors never press /start, so greet them from the bot side now —
     // this opens the chat and makes future notifications deliverable.
     if (user) sendWelcome(user.tg_id);
