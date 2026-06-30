@@ -53,6 +53,11 @@ create table if not exists transactions (
     created_at timestamptz default now()
 );
 
+-- Hard guard against double-crediting the same on-chain deposit: tx_hash must be
+-- unique. ARC/internal transactions leave tx_hash null and are exempt.
+create unique index if not exists uniq_transactions_tx_hash
+    on transactions (tx_hash) where tx_hash is not null;
+
 create table if not exists tasks (
     id bigserial primary key,
     title_ru text not null,
