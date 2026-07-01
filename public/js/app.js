@@ -1642,8 +1642,15 @@ window.lbShowTab = function(tab) {
   } else if (tab === 'pvp') {
     api('/leaderboard/pvp').then(data => {
       if (!document.getElementById('lbContent')) return;
+      // Hide PvP tab button once contest is closed
+      const pvpBtnEl = document.getElementById('lbTabPvp');
+      if (data.closed && pvpBtnEl) pvpBtnEl.style.display = 'none';
       const prizes = ['2 TON','0.5 TON','0.3 TON','PRO','PRO'];
       const proStyle = ';background:linear-gradient(90deg,#5c4700,#8a6d00 50%,#5c4700);border:1px solid #ffd60a';
+      const closedBanner = data.closed ? `
+        <div style="background:#1a0a0a;border:1px solid #ff4444;border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#ff8888;text-align:center">
+          🏁 Конкурс завершён • 4 июля 17:00 МСК
+        </div>` : '';
       const header = `
         <div style="background:#111;border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--muted)">
           ⚔️ ${t('lb_pvp_contest')}<br>
@@ -1665,7 +1672,15 @@ window.lbShowTab = function(tab) {
           <span class="pname" style="flex:1">@${ME.username || '...'}${data.myRank.pro ? ' 👑' : ''}</span>
           <span style="color:var(--gold);font-weight:700">${fmt(data.myRank.staked, 0)} ${t('lb_pvp_unit')}</span>
         </div>` : '';
-      document.getElementById('lbContent').innerHTML = header + rows + myRow;
+      const adminRows = (data.admins || []).length ? `
+        <div style="margin-top:16px;padding:8px 0;border-top:1px solid #2a2a2a;color:var(--muted2);font-size:11px;text-align:center;text-transform:uppercase;letter-spacing:.6px">👑 Команда</div>
+        ` + (data.admins || []).map(p => `
+        <div class="player-card" style="justify-content:space-between;margin-bottom:6px;opacity:.7${p.pro ? proStyle : ''}">
+          <span style="font-size:18px;min-width:32px">👑</span>
+          <span class="pname" style="flex:1">@${p.username}${p.pro ? ' 👑' : ''}</span>
+          <div style="text-align:right"><div style="color:var(--muted2);font-weight:700">${fmt(p.staked, 0)} ${t('lb_pvp_unit')}</div></div>
+        </div>`).join('') : '';
+      document.getElementById('lbContent').innerHTML = closedBanner + header + rows + myRow + adminRows;
     });
   }
 };
