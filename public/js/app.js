@@ -17,6 +17,10 @@ let monetagReady = false;
 let nygmaReady = false;
 let telegaReady = false;
 let tadsWidgetReady = false;
+// Partner/link tasks: "Check" стаёт активной только после нажатия "Перейти"
+// в текущей сессии. Держим в памяти, не в localStorage — иначе флаг оставался
+// навсегда и кнопку можно было жать без реального перехода.
+const visitedTasks = new Set();
 
 async function api(path, body = {}) {
   const res = await fetch('/api' + path, {
@@ -395,7 +399,7 @@ async function renderTasks() {
       <div style="text-align:center;flex-shrink:0"><div style="color:var(--green);font-size:12px;font-weight:700">${t('done_label')}</div><div style="color:var(--muted);font-size:11px">${t('today')}</div></div></div>`;
     if ((tk.type==='subscribe' || tk.type==='link') && tk.target) {
       const url = tk.target.startsWith('http') ? tk.target : 'https://t.me/'+tk.target.replace('@','');
-      const visited = localStorage.getItem('task_visited_'+tk.id);
+      const visited = visitedTasks.has(tk.id);
       return `<div class="row">
         <div class="info"><span class="title">${title}</span><span class="sub">+${tk.reward_arc} ARC</span></div>
         <div style="display:flex;gap:6px">
@@ -544,7 +548,7 @@ window.shareStory = (taskId, btn) => {
 };
 
 window.visitTask = (id) => {
-  localStorage.setItem('task_visited_'+id, '1');
+  visitedTasks.add(id);
   setTimeout(() => {
     const btn = document.getElementById('checkBtn_'+id);
     if (btn && btn.disabled) {
