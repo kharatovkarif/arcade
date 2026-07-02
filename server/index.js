@@ -323,7 +323,7 @@ app.post('/api/ads/watch-short', auth, async (req, res) => {
 // Ad 4 — OnClickA TMA Rewarded video, client-triggered with auth + daily limit
 app.post('/api/ads/watch4', auth, async (req, res) => {
   const todayStart = mskDate() + 'T00:00:00+03:00';
-  const limit = isPro(req.user) ? 15 : 10;
+  const limit = isPro(req.user) ? 20 : 15;
 
   const { count } = await supabase.from('transactions').select('*', { count: 'exact', head: true })
     .eq('tg_id', req.user.tg_id).eq('type', 'ad4').gte('created_at', todayStart);
