@@ -722,11 +722,11 @@ window.watchAd5 = async (btn) => {
   } catch { btn.disabled = false; }
 };
 
-// Surfaces the real failure reason in a Telegram popup (falls back to toast).
-// Temporary diagnostic so we can see exactly what the Nigma SDK does.
-function nygmaDiag(msg) {
-  try { if (tg?.showAlert) { tg.showAlert('NIGMA: ' + msg); return; } } catch {}
-  toast('NIGMA: ' + msg);
+// When a Nigma ad can't be shown (no fill, SDK error, disabled block) fail
+// quietly with the same friendly message as the other networks — the scary
+// technical popup ("showAd() failed: [object Object]") was only for debugging.
+function nygmaDiag() {
+  toast(t('ad_unavailable'));
 }
 
 window.watchAd6 = async (btn) => {
