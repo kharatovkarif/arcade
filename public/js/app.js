@@ -21,10 +21,7 @@ let tadsWidgetReady = false;
 // в текущей сессии. Держим в памяти, не в localStorage — иначе флаг оставался
 // навсегда и кнопку можно было жать без реального перехода.
 const visitedTasks = new Set();
-// Nygma (Реклама 6) отдаёт 0 рекламы с 30.06 — блок мёртв на стороне сети.
-// Прячем слот (показывается «Скоро»), чтобы не было нерабочей кнопки.
-// Когда блок оживёт в кабинете Nygma — вернуть в true.
-const NYGMA_ENABLED = false;
+const NYGMA_ENABLED = true;
 
 async function api(path, body = {}) {
   const res = await fetch('/api' + path, {
