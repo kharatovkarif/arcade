@@ -21,6 +21,10 @@ let tadsWidgetReady = false;
 // в текущей сессии. Держим в памяти, не в localStorage — иначе флаг оставался
 // навсегда и кнопку можно было жать без реального перехода.
 const visitedTasks = new Set();
+// Nygma (Реклама 6) отдаёт 0 рекламы с 30.06 — блок мёртв на стороне сети.
+// Прячем слот (показывается «Скоро»), чтобы не было нерабочей кнопки.
+// Когда блок оживёт в кабинете Nygma — вернуть в true.
+const NYGMA_ENABLED = false;
 
 async function api(path, body = {}) {
   const res = await fetch('/api' + path, {
@@ -1653,7 +1657,7 @@ window.lbShowTab = function(tab) {
       const proStyle = ';background:linear-gradient(90deg,#5c4700,#8a6d00 50%,#5c4700);border:1px solid #ffd60a';
       const closedBanner = data.closed ? `
         <div style="background:#1a0a0a;border:1px solid #ff4444;border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#ff8888;text-align:center">
-          🏁 Конкурс завершён • 4 июля 17:00 МСК
+          🏁 Конкурс завершён • 10 июля 17:00 МСК
         </div>` : '';
       const header = `
         <div style="background:#111;border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--muted)">
@@ -1925,7 +1929,7 @@ async function init() {
       setTimeout(() => clearInterval(poll), 12000);
     }
   }
-  if (ME.nygma_block_id) {
+  if (ME.nygma_block_id && NYGMA_ENABLED) {
     if (window.NigmaSDK) {
       nygmaReady = true; renderMain();
     } else {

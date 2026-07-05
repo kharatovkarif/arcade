@@ -707,10 +707,10 @@ app.post('/api/leaderboard/arc', auth, async (req, res) => {
   res.json({ top, myRank });
 });
 
-// PvP Battle contest window. Ends 17:00 MSK on 2026-07-04 — after that the
+// PvP Battle contest window. Ends 17:00 MSK on 2026-07-10 — after that the
 // Mini App hides the tab and the admin gets a top-5 summary in the bot.
 const PVP_CONTEST_START = '2026-06-24T00:00:00+03:00';
-const PVP_CONTEST_END   = '2026-07-04T17:00:00+03:00';
+const PVP_CONTEST_END   = '2026-07-10T17:00:00+03:00';
 // Admins play but never occupy a prize rank — shown at the bottom, out of contest.
 const LB_EXCLUDED_IDS = [5839503796, 6226218393]; // @Karoboev, @Ventlp
 
@@ -726,14 +726,14 @@ app.post('/api/leaderboard/pvp', auth, async (req, res) => {
     .gte('created_at', PVP_CONTEST_START)
     .lt('created_at', PVP_CONTEST_END);
 
-  if (!completedGames?.length) return res.json({ top: [], admins: [], myRank: null, closed, contestEnd: '2026-07-04' });
+  if (!completedGames?.length) return res.json({ top: [], admins: [], myRank: null, closed, contestEnd: '2026-07-10' });
 
   const gameIds = completedGames.map(g => g.id);
   const { data: bets } = await supabase.from('game_bets')
     .select('tg_id, amount_arc')
     .in('game_id', gameIds);
 
-  if (!bets?.length) return res.json({ top: [], admins: [], myRank: null, closed, contestEnd: '2026-07-04' });
+  if (!bets?.length) return res.json({ top: [], admins: [], myRank: null, closed, contestEnd: '2026-07-10' });
 
   const staked = {};
   for (const b of bets) staked[b.tg_id] = (staked[b.tg_id] || 0) + Number(b.amount_arc);
@@ -768,7 +768,7 @@ app.post('/api/leaderboard/pvp', auth, async (req, res) => {
     }
   }
 
-  res.json({ top, admins, myRank, closed, contestEnd: '2026-07-04' });
+  res.json({ top, admins, myRank, closed, contestEnd: '2026-07-10' });
 });
 
 // Fires once when the contest window closes: messages the admin a top-5 summary.
@@ -794,7 +794,7 @@ async function checkPvpContestEnd() {
       .sort((a, b) => b.staked - a.staked).slice(0, 5)
       .map((p, i) => `${i + 1}. @${nameMap[p.id] || p.id} — ${Math.round(p.staked).toLocaleString('en-US')} ARC → ${prizes[i]}`);
   }
-  const msg = `🏁 PvP Battle конкурс завершён (4 июля 17:00 МСК)\n\n🏆 Топ-5 игроков:\n${lines.length ? lines.join('\n') : 'нет участников'}\n\n(Админы @Karoboev и @Ventlp в призы не входят)`;
+  const msg = `🏁 PvP Battle конкурс завершён (10 июля 17:00 МСК)\n\n🏆 Топ-5 игроков:\n${lines.length ? lines.join('\n') : 'нет участников'}\n\n(Админы @Karoboev и @Ventlp в призы не входят)`;
   await notifyAdmin(msg).catch(() => {});
   await setSetting('pvp_contest_announced', '1');
 }
